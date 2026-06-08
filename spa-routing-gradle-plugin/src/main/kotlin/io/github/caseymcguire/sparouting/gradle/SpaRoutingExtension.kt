@@ -24,6 +24,22 @@ abstract class SpaRoutingExtension @Inject constructor(
   fun configuration(action: Action<in SpaRoutingConfiguration>) {
     action.execute(SpaRoutingConfiguration(this, ownerProject))
   }
+
+  fun routeDefinitions(action: Action<in RouteDefinitionsConfiguration>) {
+    action.execute(RouteDefinitionsConfiguration(this, ownerProject))
+  }
+
+  fun clientRoutes(action: Action<in ClientRoutesConfiguration>) {
+    action.execute(ClientRoutesConfiguration(this, ownerProject))
+  }
+
+  fun serverRoutes(action: Action<in ServerRoutesConfiguration>) {
+    action.execute(ServerRoutesConfiguration(this, ownerProject))
+  }
+
+  fun webpackBundleEntries(action: Action<in WebpackBundleEntriesConfiguration>) {
+    action.execute(WebpackBundleEntriesConfiguration(this, ownerProject))
+  }
 }
 
 class SpaRoutingConfiguration internal constructor(
@@ -88,6 +104,12 @@ class ClientRoutesConfiguration internal constructor(
   private val extension: SpaRoutingExtension,
   private val ownerProject: Project
 ) {
+  var outputDirectory: String? = null
+    set(value) {
+      field = value
+      value?.let { extension.clientRoutesOutputDir.set(ownerProject.directory(it)) }
+    }
+
   fun target(action: Action<in DirectoryTargetConfiguration>) {
     val target = DirectoryTargetConfiguration { directory ->
       extension.clientRoutesOutputDir.set(ownerProject.directory(directory))
@@ -100,6 +122,18 @@ class ServerRoutesConfiguration internal constructor(
   private val extension: SpaRoutingExtension,
   private val ownerProject: Project
 ) {
+  var packageName: String? = null
+    set(value) {
+      field = value
+      value?.let { extension.serverRoutesPackage.set(it) }
+    }
+
+  var sourceRoot: String? = null
+    set(value) {
+      field = value
+      value?.let { extension.serverRoutesSourceRoot.set(ownerProject.directory(it)) }
+    }
+
   fun target(action: Action<in ServerRoutesTargetConfiguration>) {
     action.execute(ServerRoutesTargetConfiguration(extension, ownerProject))
   }
@@ -109,6 +143,12 @@ class WebpackBundleEntriesConfiguration internal constructor(
   private val extension: SpaRoutingExtension,
   private val ownerProject: Project
 ) {
+  var outputFile: String? = null
+    set(value) {
+      field = value
+      value?.let { extension.webpackBundleEntriesOutputFile.set(ownerProject.file(it)) }
+    }
+
   fun target(action: Action<in FileTargetConfiguration>) {
     val target = FileTargetConfiguration { file ->
       extension.webpackBundleEntriesOutputFile.set(ownerProject.file(file))
@@ -120,6 +160,12 @@ class WebpackBundleEntriesConfiguration internal constructor(
 class DirectoryTargetConfiguration internal constructor(
   private val applyDirectory: (String) -> Unit
 ) {
+  var outputDirectory: String? = null
+    set(value) {
+      field = value
+      value?.let(applyDirectory)
+    }
+
   var directory: String? = null
     set(value) {
       field = value
@@ -130,6 +176,12 @@ class DirectoryTargetConfiguration internal constructor(
 class FileTargetConfiguration internal constructor(
   private val applyFile: (String) -> Unit
 ) {
+  var outputFile: String? = null
+    set(value) {
+      field = value
+      value?.let(applyFile)
+    }
+
   var file: String? = null
     set(value) {
       field = value
@@ -148,6 +200,14 @@ class ServerRoutesTargetConfiguration internal constructor(
     }
 
   var directory: String? = null
+    set(value) {
+      field = value
+      value?.let {
+        extension.serverRoutesSourceRoot.set(ownerProject.directory(it))
+      }
+    }
+
+  var sourceRoot: String? = null
     set(value) {
       field = value
       value?.let {

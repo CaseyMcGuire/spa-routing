@@ -75,7 +75,54 @@ class SpaRoutingPluginTest {
   }
 
   @Test
-  fun `supports nested configuration dsl`() {
+  fun `supports direct configuration dsl`() {
+    val project = ProjectBuilder.builder().build()
+    val routeDefinitionsProject = ProjectBuilder.builder()
+      .withName("spa-route-definitions")
+      .withParent(project)
+      .build()
+    routeDefinitionsProject.pluginManager.apply("java")
+
+    project.pluginManager.apply(SpaRoutingPlugin::class.java)
+    val extension = project.extensions.getByType(SpaRoutingExtension::class.java)
+
+    extension.routeDefinitions { routeDefinitions ->
+      routeDefinitions.projectPath = ":spa-route-definitions"
+    }
+    extension.clientRoutes { clientRoutes ->
+      clientRoutes.outputDirectory = "src/main/web-frontend/__generated__/routes"
+    }
+    extension.serverRoutes { serverRoutes ->
+      serverRoutes.packageName = "com.example.generated.routes"
+      serverRoutes.sourceRoot = "build/generated/source/spaRoutes/main"
+    }
+    extension.webpackBundleEntries { webpackBundleEntries ->
+      webpackBundleEntries.outputFile = "SinglePageApplicationBundles.ts"
+    }
+
+    val serverTask = project.javaExecTask("generateServerSpaRoutes")
+    serverTask.applyFirstAction()
+
+    assertEquals(routeDefinitionsProject, extension.routeDefinitionsProject.get())
+    assertEquals(
+      routeDefinitionsProject.layout.projectDirectory
+        .dir("src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications")
+        .asFile
+        .absolutePath,
+      extension.applicationSourceDir.get().asFile.absolutePath
+    )
+    assertEquals(
+      project.layout.projectDirectory
+        .dir("build/generated/source/spaRoutes/main/com/example/generated/routes")
+        .asFile
+        .absolutePath,
+      extension.serverRoutesOutputDir.get().asFile.absolutePath
+    )
+    assertEquals("com.example.generated.routes", serverTask.systemProperties["route.server.package"])
+  }
+
+  @Test
+  fun `supports legacy nested target configuration dsl`() {
     val project = ProjectBuilder.builder().build()
     val routeDefinitionsProject = ProjectBuilder.builder()
       .withName("spa-route-definitions")
@@ -130,7 +177,7 @@ class SpaRoutingPluginTest {
   }
 
   @Test
-  fun `kotlin dsl accepts nested configuration syntax`() {
+  fun `kotlin dsl accepts direct configuration syntax`() {
     val projectDirectory = Files.createTempDirectory("spa-routing-plugin-dsl-test")
     val routeDefinitionsDirectory = projectDirectory.resolve("spa-route-definitions")
     routeDefinitionsDirectory.createDirectories()
@@ -158,29 +205,21 @@ class SpaRoutingPluginTest {
       }
 
       spaRouting {
-        configuration {
-          routeDefinitions {
-            projectPath = ":spa-route-definitions"
-          }
+        routeDefinitions {
+          projectPath = ":spa-route-definitions"
+        }
 
-          clientRoutes {
-            target {
-              directory = "src/main/web-frontend/__generated__/routes"
-            }
-          }
+        clientRoutes {
+          outputDirectory = "src/main/web-frontend/__generated__/routes"
+        }
 
-          serverRoutes {
-            target {
-              packageName = "com.example.generated.routes"
-              directory = "build/generated/source/spaRoutes/main"
-            }
-          }
+        serverRoutes {
+          packageName = "com.example.generated.routes"
+          sourceRoot = "build/generated/source/spaRoutes/main"
+        }
 
-          webpackBundleEntries {
-            target {
-              file = "SinglePageApplicationBundles.ts"
-            }
-          }
+        webpackBundleEntries {
+          outputFile = "SinglePageApplicationBundles.ts"
         }
       }
       """.trimIndent()

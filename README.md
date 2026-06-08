@@ -56,29 +56,21 @@ Add this to the consuming app's `build.gradle.kts`:
 
 ```kotlin
 spaRouting {
-  configuration {
-    routeDefinitions {
-      projectPath = ":spa-route-definitions"
-    }
+  routeDefinitions {
+    projectPath = ":spa-route-definitions"
+  }
 
-    clientRoutes {
-      target {
-        directory = "src/main/web-frontend/__generated__/routes"
-      }
-    }
+  clientRoutes {
+    outputDirectory = "src/main/web-frontend/__generated__/routes"
+  }
 
-    serverRoutes {
-      target {
-        packageName = "com.example.generated.spa.routes"
-        directory = "build/generated/source/spaRoutes/main"
-      }
-    }
+  serverRoutes {
+    packageName = "com.example.generated.spa.routes"
+    sourceRoot = "build/generated/source/spaRoutes/main"
+  }
 
-    webpackBundleEntries {
-      target {
-        file = "SinglePageApplicationBundles.ts"
-      }
-    }
+  webpackBundleEntries {
+    outputFile = "SinglePageApplicationBundles.ts"
   }
 }
 ```
@@ -106,13 +98,14 @@ Run all three manually:
 ./gradlew generateClientRoutes generateServerSpaRoutes generateWebpackBundleEntries
 ```
 
-When `org.jetbrains.kotlin.jvm` is applied, `generateServerSpaRoutes` is wired into Kotlin compilation and `serverRoutes.directory` is added as a generated source root.
+When `org.jetbrains.kotlin.jvm` is applied, `generateServerSpaRoutes` is wired into Kotlin compilation and `serverRoutes.sourceRoot` is added as a generated source root.
 
 ## Defaults
 
 - `routeDefinitions.sourceDirectory`: `src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications`
-- `serverRoutes.target.packageName`: `com.caseymcguiredotcom.generated.spa.routes`
-- `serverRoutes.target.directory`: derived from `build/generated/source/spaRoutes/main` and the configured package name
+- `serverRoutes.packageName`: `com.caseymcguiredotcom.generated.spa.routes`
+- `serverRoutes.sourceRoot`: `build/generated/source/spaRoutes/main`
+- server route output directory: derived from `serverRoutes.sourceRoot` and the configured package name
 
 The client routes output directory and webpack bundle entries output file are required because they are application-specific.
 
