@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class SpaRoutingPlugin : Plugin<Project> {
   override fun apply(project: Project) {
-    val extension = project.extensions.create("spaRouting", SpaRoutingExtension::class.java)
+    val extension = project.extensions.create("spaRouting", SpaRoutingExtension::class.java, project)
 
     extension.serverRoutesPackage.convention(DEFAULT_SERVER_ROUTES_PACKAGE)
     extension.serverRoutesSourceRoot.convention(

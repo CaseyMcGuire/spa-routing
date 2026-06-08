@@ -35,32 +35,30 @@ dependencies {
 }
 
 spaRouting {
-  routeDefinitionsProject.set(project(":spa-route-definitions"))
+  configuration {
+    routeDefinitions {
+      projectPath = ":spa-route-definitions"
+    }
 
-  applicationSourceDir.set(
-    project(":spa-route-definitions")
-      .layout
-      .projectDirectory
-      .dir("src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications")
-  )
+    clientRoutes {
+      target {
+        directory = "src/main/web-frontend/__generated__/routes"
+      }
+    }
 
-  clientRoutesOutputDir.set(
-    layout.projectDirectory.dir("src/main/web-frontend/__generated__/routes")
-  )
+    serverRoutes {
+      target {
+        packageName = "com.caseymcguiredotcom.generated.spa.routes"
+        directory = "build/generated/source/spaRoutes/main"
+      }
+    }
 
-  serverRoutesSourceRoot.set(
-    layout.buildDirectory.dir("generated/source/spaRoutes/main")
-  )
-
-  serverRoutesOutputDir.set(
-    layout.buildDirectory.dir("generated/source/spaRoutes/main/com/caseymcguiredotcom/generated/spa/routes")
-  )
-
-  serverRoutesPackage.set("com.caseymcguiredotcom.generated.spa.routes")
-
-  webpackBundleEntriesOutputFile.set(
-    layout.projectDirectory.file("SinglePageApplicationBundles.ts")
-  )
+    webpackBundleEntries {
+      target {
+        file = "SinglePageApplicationBundles.ts"
+      }
+    }
+  }
 }
 ```
 
@@ -77,6 +75,7 @@ Required configuration:
 
 Defaults:
 
+- `applicationSourceDir`: `src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications` in the configured route definitions project
 - `serverRoutesPackage`: `com.caseymcguiredotcom.generated.spa.routes`
 - `serverRoutesSourceRoot`: `build/generated/source/spaRoutes/main`
 - `serverRoutesOutputDir`: derived from `serverRoutesSourceRoot` and `serverRoutesPackage`
