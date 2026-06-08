@@ -1,4 +1,4 @@
-package com.caseymcguire.sparouting.gradle
+package io.github.caseymcguire.sparouting.gradle
 
 import org.gradle.api.Project
 import org.gradle.api.GradleException
@@ -154,7 +154,7 @@ class SpaRoutingPluginTest {
       projectDirectory.resolve("build.gradle.kts"),
       """
       plugins {
-        id("com.caseymcguire.spa-routing")
+        id("io.github.caseymcguire.spa-routing")
       }
 
       spaRouting {

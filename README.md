@@ -4,11 +4,11 @@ Reusable SPA routing contract, code generators, and Gradle plugin.
 
 ## Core Artifact
 
-`com.caseymcguire:spa-routing-core:0.1.0-SNAPSHOT`
+`io.github.caseymcguire:spa-routing-core:0.1.0`
 
 ## Gradle Plugin
 
-`com.caseymcguire.spa-routing`
+`io.github.caseymcguire.spa-routing`
 
 ## Tasks
 
@@ -26,11 +26,11 @@ Consumers define concrete `SpaApplicationDefinition` objects in their own projec
 
 ```kotlin
 plugins {
-  id("com.caseymcguire.spa-routing") version "0.1.0-SNAPSHOT"
+  id("io.github.caseymcguire.spa-routing") version "0.1.0"
 }
 
 dependencies {
-  implementation("com.caseymcguire:spa-routing-core:0.1.0-SNAPSHOT")
+  implementation("io.github.caseymcguire:spa-routing-core:0.1.0")
   implementation(project(":spa-route-definitions"))
 }
 
@@ -93,3 +93,50 @@ Defaults:
 ```
 
 This publishes the core artifact and the Gradle plugin marker to Maven local.
+
+## Publishing
+
+The public coordinates are:
+
+- Core artifact: `io.github.caseymcguire:spa-routing-core:0.1.0`
+- Gradle plugin: `io.github.caseymcguire.spa-routing`
+
+Before publishing publicly:
+
+- Create a Central Portal account.
+- Register the `io.github.caseymcguire` namespace.
+- Create and publish a GPG signing key.
+- Create a Gradle Plugin Portal account and API key.
+
+Keep secrets in `~/.gradle/gradle.properties` or CI environment variables, not in this repository.
+
+```properties
+mavenCentralUsername=...
+mavenCentralPassword=...
+signingInMemoryKey=...
+signingInMemoryKeyPassword=...
+gradle.publish.key=...
+gradle.publish.secret=...
+```
+
+Local publishing does not require signing credentials. Maven Central releases do.
+
+Validate the Gradle Plugin Portal publication without uploading. This still requires Plugin Portal credentials:
+
+```sh
+./gradlew :spa-routing-gradle-plugin:publishPlugins --validate-only
+```
+
+Publish the core library to Maven Central:
+
+```sh
+./gradlew :spa-routing-core:publishToMavenCentral
+```
+
+Publish the Gradle plugin to the Gradle Plugin Portal:
+
+```sh
+./gradlew :spa-routing-gradle-plugin:publishPlugins
+```
+
+The Maven Central upload may require manually publishing the validated deployment in the Central Portal unless automatic release is enabled.

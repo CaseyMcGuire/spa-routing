@@ -1,4 +1,4 @@
-package com.caseymcguire.sparouting.gradle
+package io.github.caseymcguire.sparouting.gradle
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
