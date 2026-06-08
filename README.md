@@ -10,11 +10,11 @@
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.1.1"
+  id("io.github.caseymcguire.spa-routing") version "0.1.2"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.1.1")
+  implementation("io.github.caseymcguire:spa-routing-core:0.1.2")
   implementation(project(":spa-route-definitions"))
 }
 ```
