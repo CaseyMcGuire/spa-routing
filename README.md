@@ -142,11 +142,4 @@ Publish locally:
 ./gradlew publishToMavenLocal
 ```
 
-Publish a release:
-
-```sh
-./gradlew :spa-routing-core:publishAndReleaseToMavenCentral
-./gradlew :spa-routing-gradle-plugin:publishPlugins
-```
-
-Release publishing requires Maven Central credentials, Gradle Plugin Portal credentials, and signing properties in `~/.gradle/gradle.properties` or CI secrets.
+Release publishing instructions are in [docs/publishing.md](docs/publishing.md).
