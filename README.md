@@ -1,39 +1,60 @@
 # spa-routing
 
-Reusable SPA routing contract, code generators, and Gradle plugin.
+`spa-routing` lets a Kotlin server and a TypeScript SPA share one route definition source. You define your SPA routes once in Kotlin, then generate:
 
-## Core Artifact
+- typed TypeScript route builders for the client
+- typed Kotlin route objects for the server
+- webpack bundle entry metadata
 
-`io.github.caseymcguire:spa-routing-core:0.1.0`
-
-## Gradle Plugin
-
-`io.github.caseymcguire.spa-routing`
-
-## Tasks
-
-The plugin adds these tasks to a consuming app:
-
-- `generateClientRoutes`
-- `generateServerSpaRoutes`
-- `generateWebpackBundleEntries`
-
-Each task fails with an explicit error if its required `spaRouting` configuration is missing.
-
-## Consumer Setup
-
-Consumers define concrete `SpaApplicationDefinition` objects in their own project. The generator tasks need that route definitions project's compiled `main` runtime classpath because discovery loads those objects with `Class.forName`.
+## Install
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.1.0"
+  id("io.github.caseymcguire.spa-routing") version "0.1.1"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.1.0")
+  implementation("io.github.caseymcguire:spa-routing-core:0.1.1")
   implementation(project(":spa-route-definitions"))
 }
+```
 
+The `:spa-route-definitions` project is your app-owned module containing concrete `SpaApplicationDefinition` objects. The plugin needs that project on the generator classpath because route discovery loads those objects at runtime.
+
+## Define Routes
+
+Create route definitions in a dedicated module, commonly under:
+
+```txt
+spa-route-definitions/src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications
+```
+
+Example:
+
+```kotlin
+package com.caseymcguiredotcom.sparoutecontract.applications
+
+import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinition
+import com.caseymcguiredotcom.sparoutecontract.int
+import com.caseymcguiredotcom.sparoutecontract.route
+
+object AccountSpaApplication : SpaApplicationDefinition {
+  override val id = "account"
+  override val name = "Account"
+  override val urlPrefix = "account"
+  override val appRootPath = "src/main/web-frontend/apps/account"
+  override val routes = listOf(
+    route("settings", "Settings"),
+    route("users/{id}", "UserDetail", parameters = listOf(int("id")))
+  )
+}
+```
+
+## Configure Generation
+
+Add this to the consuming app's `build.gradle.kts`:
+
+```kotlin
 spaRouting {
   configuration {
     routeDefinitions {
@@ -48,7 +69,7 @@ spaRouting {
 
     serverRoutes {
       target {
-        packageName = "com.caseymcguiredotcom.generated.spa.routes"
+        packageName = "com.example.generated.spa.routes"
         directory = "build/generated/source/spaRoutes/main"
       }
     }
@@ -62,81 +83,70 @@ spaRouting {
 }
 ```
 
-If `org.jetbrains.kotlin.jvm` is applied in the consuming app, the plugin adds `serverRoutesSourceRoot` to the main Kotlin source set and makes Kotlin compilation depend on `generateServerSpaRoutes`.
+If your route definitions live somewhere else, override the default source directory:
 
-Do not point route generation only at the external `spa-routing-core` jar. Keep the consumer route definitions project on the generator runtime classpath through `routeDefinitionsProject`.
-
-Required configuration:
-
-- `routeDefinitionsProject`
-- `applicationSourceDir`
-- `clientRoutesOutputDir`, for `generateClientRoutes`
-- `webpackBundleEntriesOutputFile`, for `generateWebpackBundleEntries`
-
-Defaults:
-
-- `applicationSourceDir`: `src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications` in the configured route definitions project
-- `serverRoutesPackage`: `com.caseymcguiredotcom.generated.spa.routes`
-- `serverRoutesSourceRoot`: `build/generated/source/spaRoutes/main`
-- `serverRoutesOutputDir`: derived from `serverRoutesSourceRoot` and `serverRoutesPackage`
-
-## Generator Main Classes
-
-- `com.caseymcguiredotcom.sparoutecontract.codegen.GenerateClientRoutesKt`
-- `com.caseymcguiredotcom.sparoutecontract.codegen.GenerateServerRoutesKt`
-- `com.caseymcguiredotcom.sparoutecontract.codegen.GenerateWebpackBundleEntriesKt`
-
-## Validation
-
-```sh
-./gradlew clean build publishToMavenLocal
+```kotlin
+routeDefinitions {
+  projectPath = ":spa-route-definitions"
+  sourceDirectory = "src/main/kotlin/com/example/routes"
+}
 ```
 
-This publishes the core artifact and the Gradle plugin marker to Maven local.
+## Generated Tasks
 
-## Publishing
+The plugin adds:
 
-The public coordinates are:
+- `generateClientRoutes`
+- `generateServerSpaRoutes`
+- `generateWebpackBundleEntries`
 
-- Core artifact: `io.github.caseymcguire:spa-routing-core:0.1.0`
-- Gradle plugin: `io.github.caseymcguire.spa-routing`
-
-Before publishing publicly:
-
-- Create a Central Portal account.
-- Register the `io.github.caseymcguire` namespace.
-- Create and publish a GPG signing key.
-- Create a Gradle Plugin Portal account and API key.
-
-Keep secrets in `~/.gradle/gradle.properties` or CI environment variables, not in this repository.
-
-```properties
-mavenCentralUsername=...
-mavenCentralPassword=...
-signingInMemoryKey=...
-signingInMemoryKeyPassword=...
-gradle.publish.key=...
-gradle.publish.secret=...
-```
-
-Local publishing does not require signing credentials. Maven Central releases do.
-
-Validate the Gradle Plugin Portal publication without uploading. This still requires Plugin Portal credentials:
+Run all three manually:
 
 ```sh
-./gradlew :spa-routing-gradle-plugin:publishPlugins --validate-only
+./gradlew generateClientRoutes generateServerSpaRoutes generateWebpackBundleEntries
 ```
 
-Publish the core library to Maven Central:
+When `org.jetbrains.kotlin.jvm` is applied, `generateServerSpaRoutes` is wired into Kotlin compilation and `serverRoutes.directory` is added as a generated source root.
+
+## Defaults
+
+- `routeDefinitions.sourceDirectory`: `src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications`
+- `serverRoutes.target.packageName`: `com.caseymcguiredotcom.generated.spa.routes`
+- `serverRoutes.target.directory`: derived from `build/generated/source/spaRoutes/main` and the configured package name
+
+The client routes output directory and webpack bundle entries output file are required because they are application-specific.
+
+## Troubleshooting
+
+If a generator task fails with `spaRouting.<name> must be set`, the plugin is missing required configuration for that task.
+
+If discovery fails to find or load route definitions, check that:
+
+- `routeDefinitions.projectPath` points to the module with your concrete `SpaApplicationDefinition` objects
+- that module applies the Java or Kotlin JVM plugin
+- `routeDefinitions.sourceDirectory` points at the Kotlin source directory containing those objects
+
+Do not point generation only at `spa-routing-core`; the generators need the compiled app-specific route definition classes too.
+
+## Development
+
+Build and test:
 
 ```sh
-./gradlew :spa-routing-core:publishToMavenCentral
+./gradlew clean build
 ```
 
-Publish the Gradle plugin to the Gradle Plugin Portal:
+Publish locally:
 
 ```sh
+./gradlew publishToMavenLocal
+```
+
+Publish a release:
+
+```sh
+./gradlew :spa-routing-core:publishAndReleaseToMavenCentral
 ./gradlew :spa-routing-gradle-plugin:publishPlugins
 ```
 
-The Maven Central upload may require manually publishing the validated deployment in the Central Portal unless automatic release is enabled.
+Release publishing requires Maven Central credentials, Gradle Plugin Portal credentials, and signing properties in `~/.gradle/gradle.properties` or CI secrets.
