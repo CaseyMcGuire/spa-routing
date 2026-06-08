@@ -11,8 +11,10 @@ import java.util.Comparator
 import kotlin.io.path.createDirectories
 
 private const val DEFAULT_GENERATED_PACKAGE = "com.caseymcguiredotcom.generated.spa.routes"
-private val generatedPackage: String = System.getProperty("route.server.package")
-  ?: DEFAULT_GENERATED_PACKAGE
+
+private fun generatedPackage(): String {
+  return System.getProperty("route.server.package") ?: DEFAULT_GENERATED_PACKAGE
+}
 
 fun main() {
   val outputDirectoryPath = System.getProperty("route.output.dir")
@@ -63,7 +65,7 @@ private fun Path.isEmptyDirectory(): Boolean {
 private fun SpaApplicationDefinition.toKotlinRoutesObjectFile(): String {
   return buildString {
     appendGeneratedFileHeader(
-      packageName = generatedPackage,
+      packageName = generatedPackage(),
       imports = routes.map { route ->
         "${routePackageName()}.${route.id} as ${route.id}Route"
       }
@@ -124,7 +126,7 @@ private fun SpaApplicationDefinition.routesObjectName(): String {
 }
 
 private fun SpaApplicationDefinition.routePackageName(): String {
-  return "$generatedPackage.${routePackagePath()}"
+  return "${generatedPackage()}.${routePackagePath()}"
 }
 
 private fun SpaApplicationDefinition.routePackagePath(): String {

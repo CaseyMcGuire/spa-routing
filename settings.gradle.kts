@@ -13,3 +13,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "spa-routing"
+include("spa-routing-core")
+include("spa-routing-gradle-plugin")
