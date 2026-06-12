@@ -10,6 +10,7 @@ class SpaRoutingProperties {
   class Server {
     var enabled: Boolean = true
     var invalidPathParameterStatus: Int = 400
+    var routeCheckHeader: String = "X-Spa-Route-Check"
   }
 
   class Assets {
