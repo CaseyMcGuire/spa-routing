@@ -87,60 +87,6 @@ class SpaRouterFunctionFactoryTest {
       }
   }
 
-  @Test
-  fun `route check on allowed route returns allowed verdict without html`() {
-    val mockMvc = mockMvc(
-      TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id")))))
-      )
-    )
-
-    mockMvc.get("/test/users/42") {
-      header("X-Spa-Route-Check", "1")
-    }.andExpect {
-      status { isOk() }
-      header { string("Vary", "X-Spa-Route-Check") }
-      jsonPath("$.allowed") { value(true) }
-      jsonPath("$.statusCode") { value(200) }
-    }
-  }
-
-  @Test
-  fun `route check on denying rule returns verdict instead of redirect`() {
-    val mockMvc = mockMvc(
-      TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("admin", "Admin"))),
-        rules = listOf(RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))))
-      )
-    )
-
-    mockMvc.get("/test/admin") {
-      header("X-Spa-Route-Check", "1")
-    }.andExpect {
-      status { isOk() }
-      jsonPath("$.allowed") { value(false) }
-      jsonPath("$.statusCode") { value(302) }
-      jsonPath("$.location") { value("/login") }
-    }
-  }
-
-  @Test
-  fun `route check on invalid path params returns verdict`() {
-    val mockMvc = mockMvc(
-      TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id")))))
-      )
-    )
-
-    mockMvc.get("/test/users/not-an-int") {
-      header("X-Spa-Route-Check", "1")
-    }.andExpect {
-      status { isOk() }
-      jsonPath("$.allowed") { value(false) }
-      jsonPath("$.statusCode") { value(400) }
-    }
-  }
-
   private fun mockMvc(
     config: SinglePageApplicationConfig,
     properties: SpaRoutingProperties = SpaRoutingProperties()

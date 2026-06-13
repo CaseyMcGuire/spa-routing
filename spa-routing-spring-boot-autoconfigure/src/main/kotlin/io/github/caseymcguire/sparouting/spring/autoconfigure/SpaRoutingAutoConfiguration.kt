@@ -9,6 +9,7 @@ import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
+import io.github.caseymcguire.sparouting.spring.web.SpaRouteDecisionRouterFunctionFactory
 import io.github.caseymcguire.sparouting.spring.web.SpaRouterFunctionFactory
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
@@ -68,9 +69,31 @@ class SpaRoutingAutoConfiguration {
   @ConditionalOnMissingBean
   fun spaRouteResponseService(
     routeRegistry: SinglePageApplicationRouteRegistry,
-    evaluator: SpaRouteResponseEvaluator
+    evaluator: SpaRouteResponseEvaluator,
+    properties: SpaRoutingProperties
   ): SpaRouteResponseService {
-    return SpaRouteResponseService(routeRegistry, evaluator)
+    return SpaRouteResponseService(
+      routeRegistry = routeRegistry,
+      evaluator = evaluator,
+      invalidPathParameterStatus = properties.server.invalidPathParameterStatus
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(name = ["spaRouteDecisionRouterFunction"])
+  @ConditionalOnProperty(
+    prefix = "spa-routing.route-decision",
+    name = ["enabled"],
+    matchIfMissing = true
+  )
+  fun spaRouteDecisionRouterFunction(
+    responseService: SpaRouteResponseService,
+    properties: SpaRoutingProperties
+  ): RouterFunction<ServerResponse> {
+    return SpaRouteDecisionRouterFunctionFactory(
+      responseService = responseService,
+      properties = properties
+    ).routes()
   }
 
   @Bean

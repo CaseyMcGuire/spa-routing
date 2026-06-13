@@ -11,7 +11,7 @@ you want Spring to handle:
 - evaluating app and route rules
 - resolving raw and typed redirects
 - rendering a default SPA HTML page
-- exposing `SpaRouteResponseService` for app-owned GraphQL or REST route checks
+- exposing a route decision endpoint for client-side navigation checks
 
 Your application still owns:
 
@@ -19,7 +19,7 @@ Your application still owns:
 - `SinglePageApplicationConfig` beans
 - app-specific authorization or redirect rules
 - custom HTML rendering, if the default page is not enough
-- any public GraphQL or REST endpoint that calls `SpaRouteResponseService`
+- any custom GraphQL or REST route decision endpoint, if you do not want the built-in endpoint
 
 ## Add Dependencies
 
@@ -28,7 +28,7 @@ routes:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.1.3")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.1.4")
   implementation(project(":spa-route-definitions"))
 }
 ```
@@ -61,7 +61,7 @@ or typed redirects, apply and configure the Gradle plugin too:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.1.3"
+  id("io.github.caseymcguire.spa-routing") version "0.1.4"
 }
 
 spaRouting {
@@ -264,6 +264,9 @@ spa-routing:
   server:
     enabled: true
     invalid-path-parameter-status: 400
+  route-decision:
+    enabled: true
+    path: /__spa/route-decision
   assets:
     bundle-base-path: /bundles
     include-route-stylesheet: true
@@ -271,13 +274,98 @@ spa-routing:
 ```
 
 Set `spa-routing.server.enabled=false` when the application only wants the
-route-decision service and does not want the starter to register MVC SPA routes.
+route decision endpoint and does not want the starter to register MVC SPA
+routes. Set `spa-routing.route-decision.enabled=false` when you do not want the
+starter to register the built-in decision endpoint.
 
-## Use Route Decisions From GraphQL Or REST
+## Use Route Decisions From The Client
 
-The starter provides `SpaRouteResponseService` for client-side navigation checks.
-It is intentionally not exposed as a built-in HTTP endpoint; the Spring app owns
-its GraphQL or REST API shape.
+The starter registers `GET /__spa/route-decision` by default. Use it before a
+client-side route change when the client needs the same allow, deny, or redirect
+decision that a full page load would receive.
+
+```http
+GET /__spa/route-decision?applicationId=account&routeId=UserDetail&parameters.id=123&queryParameters.tab=billing
+```
+
+The endpoint always responds with HTTP `200` when the decision request itself is
+valid. The route decision is in the JSON body:
+
+```json
+{
+  "statusCode": 302,
+  "location": "/login"
+}
+```
+
+Response bodies use this shape:
+
+```ts
+type SpaRouteDecision = {
+  statusCode: number;
+  location?: string | null;
+};
+```
+
+`Cache-Control: no-store` is applied because route decisions commonly depend on
+the current authenticated user. The endpoint evaluates rules using the real
+request headers, cookies, and security context from the decision request; clients
+do not pass headers as query parameters. Route parameters use the `parameters.`
+query parameter prefix, for example `parameters.id=123`. Target route query
+parameters use the `queryParameters.` prefix, for example
+`queryParameters.tab=billing`.
+
+The decision endpoint builds a synthetic `SpaRouteRequest` for the target route:
+
+- `applicationId`: from the `applicationId` query parameter
+- `routeId`: from the `routeId` query parameter
+- `method`: always `GET`
+- `path`: the resolved target route path
+- `pathParameters`: values from `parameters.*`
+- `queryParameters`: values from `queryParameters.*`
+- `headers`: real request headers from the decision request
+
+The endpoint does not call `SpaRouteRequestFactory`; that factory adapts real
+page-load `ServerRequest` instances. Shared rules should rely on the fields
+above, or the application should replace `SpaRouteResponseService` for a custom
+decision context.
+
+The generated TypeScript route files do not include a route decision helper.
+Keep app-specific navigation behavior in your client app:
+
+```ts
+type SpaRouteDecision = {
+  statusCode: number;
+  location?: string | null;
+};
+
+async function decideAccountRoute(
+  routeId: string,
+  parameters: Record<string, string> = {}
+): Promise<SpaRouteDecision> {
+  const query = new URLSearchParams({
+    applicationId: "account",
+    routeId,
+  });
+
+  Object.entries(parameters).forEach(([name, value]) => {
+    query.set(`parameters.${name}`, value);
+  });
+
+  const response = await fetch(`/__spa/route-decision?${query}`);
+  return (await response.json()) as SpaRouteDecision;
+}
+```
+
+Decision statuses match what the MVC route would use:
+
+- `200`: navigation is allowed
+- `302` with `location`: redirect
+- configured `spa-routing.server.invalid-path-parameter-status`: invalid route parameters
+- `404`: unknown route
+- any other 3xx, 4xx, or 5xx returned by your rules
+
+For custom GraphQL or REST APIs, call `SpaRouteResponseService` directly:
 
 ```kotlin
 import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseRequest
@@ -289,35 +377,19 @@ class SpaRouteDecisionHandler(
   fun evaluateAccountRoute(
     routeId: String,
     parameters: Map<String, String>,
+    queryParameters: Map<String, List<String>>,
     headers: Map<String, List<String>>
   ) = spaRouteResponseService.evaluate(
     SpaRouteResponseRequest(
       applicationId = "account",
       routeId = routeId,
       parameters = parameters,
+      queryParameters = queryParameters,
       headers = headers
     )
   )
 }
 ```
-
-The response shape is:
-
-```kotlin
-data class SpaRouteHttpResponse(
-  val statusCode: Int,
-  val location: String? = null
-)
-```
-
-This lets a GraphQL resolver or REST controller return the same decision the MVC
-route would use:
-
-- `200`: navigation is allowed
-- `302` with `location`: redirect
-- `400`: invalid route parameters
-- `404`: unknown route
-- any other 3xx, 4xx, or 5xx returned by your rules
 
 ## Replace Starter Beans
 
@@ -350,4 +422,4 @@ For an existing Spring app that copied SPA routing code locally:
 4. Replace copied registry, evaluator, resolver, request adapter, and response classes with the starter.
 5. Expose one `SinglePageApplicationConfig` bean per SPA.
 6. Move any app-specific HTML page rendering into `renderHtml()` or a `SpaHtmlRenderer` bean.
-7. Use `SpaRouteResponseService` from your existing GraphQL or REST route-decision endpoint.
+7. Call the built-in route decision endpoint from client navigation guards, or keep using `SpaRouteResponseService` from a custom GraphQL or REST endpoint.

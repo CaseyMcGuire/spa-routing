@@ -12,11 +12,11 @@ For Gradle route generation:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.1.3"
+  id("io.github.caseymcguire.spa-routing") version "0.1.4"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.1.3")
+  implementation("io.github.caseymcguire:spa-routing-core:0.1.4")
   implementation(project(":spa-route-definitions"))
 }
 ```
@@ -27,7 +27,7 @@ For Spring Boot route serving:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.1.3")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.1.4")
   implementation(project(":spa-route-definitions"))
 }
 ```
@@ -137,9 +137,9 @@ Do not point generation only at `spa-routing-core`; the generators need the comp
 
 ## Spring Boot Runtime
 
-The Spring Boot starter serves configured SPA routes from app-provided `SinglePageApplicationConfig` beans. Application code owns the configs and rules; the starter owns the registry, route matching, rule evaluation, redirects, and default HTML response.
+The Spring Boot starter serves configured SPA routes from app-provided `SinglePageApplicationConfig` beans. Application code owns the configs and rules; the starter owns the registry, route matching, rule evaluation, redirects, the route decision endpoint, and default HTML response.
 
-For complete client setup, route rules, HTML rendering, properties, and route-decision service examples, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
+For complete client setup, route rules, HTML rendering, properties, and route decision examples, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
 
 ```kotlin
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
@@ -231,26 +231,21 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
-Use `SpaRouteResponseService` from an app-owned GraphQL resolver or REST controller:
+Check a client-side navigation before changing routes:
 
-```kotlin
-import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseRequest
-import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
+```ts
+const params = new URLSearchParams({
+  applicationId: "account",
+  routeId: "UserDetail",
+  "parameters.id": "123",
+  "queryParameters.tab": "billing",
+});
 
-class SpaRouteDecisionHandler(
-  private val spaRouteResponseService: SpaRouteResponseService
-) {
-  fun evaluateAccountRoute(
-    routeId: String,
-    parameters: Map<String, String>
-  ) = spaRouteResponseService.evaluate(
-    SpaRouteResponseRequest(
-      applicationId = "account",
-      routeId = routeId,
-      parameters = parameters
-    )
-  )
-}
+const response = await fetch(`/__spa/route-decision?${params}`);
+const decision = await response.json() as {
+  statusCode: number;
+  location?: string | null;
+};
 ```
 
 Useful Spring properties:
@@ -260,6 +255,9 @@ spa-routing:
   server:
     enabled: true
     invalid-path-parameter-status: 400
+  route-decision:
+    enabled: true
+    path: /__spa/route-decision
   assets:
     bundle-base-path: /bundles
     include-route-stylesheet: true

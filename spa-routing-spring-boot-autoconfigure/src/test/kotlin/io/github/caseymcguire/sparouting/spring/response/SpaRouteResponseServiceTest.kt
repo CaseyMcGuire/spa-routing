@@ -3,7 +3,9 @@ package io.github.caseymcguire.sparouting.spring.response
 import com.caseymcguiredotcom.sparoutecontract.int
 import com.caseymcguiredotcom.sparoutecontract.route
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
+import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
@@ -46,6 +48,46 @@ class SpaRouteResponseServiceTest {
   }
 
   @Test
+  fun `invalid params returns configured status`() {
+    val service = SpaRouteResponseService(
+      routeRegistry = registry,
+      evaluator = evaluator,
+      invalidPathParameterStatus = 422
+    )
+
+    val response = service.evaluate(
+      SpaRouteResponseRequest("test", "UserDetail", mapOf("id" to "not-an-int"))
+    )
+
+    assertEquals(422, response.statusCode)
+  }
+
+  @Test
+  fun `query parameters are included in evaluated request`() {
+    val config = TestSinglePageApplicationConfig(
+      application = TestSpaApplicationDefinition(
+        routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))
+      ),
+      rules = listOf(RequireQueryParameterRule("tab", "billing"))
+    )
+    val service = SpaRouteResponseService(
+      routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
+      evaluator = SpaRouteResponseEvaluator(SpaRouteRuleActionResolver(listOf(config)))
+    )
+
+    val response = service.evaluate(
+      SpaRouteResponseRequest(
+        applicationId = "test",
+        routeId = "UserDetail",
+        parameters = mapOf("id" to "42"),
+        queryParameters = mapOf("tab" to listOf("billing"))
+      )
+    )
+
+    assertEquals(451, response.statusCode)
+  }
+
+  @Test
   fun `valid route returns evaluator result`() {
     val response = service.evaluate(
       SpaRouteResponseRequest("test", "UserDetail", mapOf("id" to "42"))
@@ -53,5 +95,18 @@ class SpaRouteResponseServiceTest {
 
     assertEquals(302, response.statusCode)
     assertEquals("/login", response.location)
+  }
+
+  private class RequireQueryParameterRule(
+    private val name: String,
+    private val value: String
+  ) : SpaRouteRule {
+    override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+      return if (request.queryParameter(name) == value) {
+        SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451))
+      } else {
+        SpaRouteRuleResult.Skip
+      }
+    }
   }
 }

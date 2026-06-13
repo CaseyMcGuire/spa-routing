@@ -17,11 +17,7 @@ class DefaultSpaRouteRequestFactory : SpaRouteRequestFactory {
       path = serverRequest.path(),
       pathParameters = serverRequest.pathVariables(),
       queryParameters = serverRequest.params().mapValues { (_, values) -> values.toList() },
-      headers = serverRequest.headers().asHttpHeaders().let { httpHeaders ->
-        httpHeaders.headerNames().associateWith { name ->
-          httpHeaders.getOrEmpty(name).toList()
-        }
-      }
+      headers = serverRequest.toSpaRouteHeaders()
     )
   }
 }

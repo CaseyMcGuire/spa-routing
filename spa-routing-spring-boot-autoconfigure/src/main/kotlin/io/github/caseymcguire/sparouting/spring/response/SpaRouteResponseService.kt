@@ -4,9 +4,10 @@ import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRout
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 
-open class SpaRouteResponseService(
+open class SpaRouteResponseService @JvmOverloads constructor(
   private val routeRegistry: SinglePageApplicationRouteRegistry,
-  private val evaluator: SpaRouteResponseEvaluator
+  private val evaluator: SpaRouteResponseEvaluator,
+  private val invalidPathParameterStatus: Int = 400
 ) {
   open fun evaluate(request: SpaRouteResponseRequest): SpaRouteHttpResponse {
     val match = routeRegistry.findByApplicationAndRouteId(
@@ -15,7 +16,7 @@ open class SpaRouteResponseService(
     ) ?: return SpaRouteHttpResponse.notFound()
 
     if (!match.route.hasValidParameterValues(request.parameters)) {
-      return SpaRouteHttpResponse.badRequest()
+      return SpaRouteHttpResponse(invalidPathParameterStatus)
     }
 
     val spaRouteRequest = SpaRouteRequest(
@@ -24,6 +25,7 @@ open class SpaRouteResponseService(
       method = "GET",
       path = match.application.getFullUrl(match.route.resolvePath(request.parameters)),
       pathParameters = request.parameters,
+      queryParameters = request.queryParameters,
       headers = request.headers
     )
 

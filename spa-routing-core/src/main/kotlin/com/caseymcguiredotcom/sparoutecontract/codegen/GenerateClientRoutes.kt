@@ -12,7 +12,6 @@ fun main() {
     ?: throw IllegalArgumentException("'route.output.dir' must be set in task config")
   val configs = SpaApplicationDefinitionDiscovery.discoverFromSystemProperty()
   val routeConverter = RoutePathConverter()
-  val checkHeader = System.getProperty("route.check.header") ?: "X-Spa-Route-Check"
 
   val configNameToTypeScriptObjectEntries = mutableMapOf<String, List<TypeScriptRouteConfig>>()
   for (config in configs) {
@@ -67,30 +66,6 @@ fun main() {
       appendLine("} as const;")
       appendLine()
       appendLine("export type $typeName = keyof typeof $objectName;")
-      appendLine()
-      appendLine("// The server's decision for a navigation, read before performing a client-side route")
-      appendLine("// change. `statusCode`/`location` mirror what the server would return on a real page")
-      appendLine("// load, so the client can act identically. This is advisory UX, not authorization.")
-      appendLine("export type SpaRouteCheckResult = {")
-      appendLine("  allowed: boolean;")
-      appendLine("  statusCode: number;")
-      appendLine("  location: string | null;")
-      appendLine("};")
-      appendLine()
-      appendLine("const SPA_ROUTE_CHECK_HEADER = \"${checkHeader.toTypeScriptString()}\";")
-      appendLine()
-      appendLine("// Asks the server whether a navigation is allowed without triggering a redirect or")
-      appendLine("// HTML render. Pass a route builder and its params, e.g. canNavigate($objectName.Foo)")
-      appendLine("// or canNavigate($objectName.Bar, { id: 42 }).")
-      appendLine("export async function canNavigate<TArgs extends unknown[]>(")
-      appendLine("  routeBuilder: (...args: TArgs) => string,")
-      appendLine("  ...args: TArgs")
-      appendLine("): Promise<SpaRouteCheckResult> {")
-      appendLine("  const response = await fetch(routeBuilder(...args), {")
-      appendLine("    headers: { [SPA_ROUTE_CHECK_HEADER]: \"1\" },")
-      appendLine("  });")
-      appendLine("  return (await response.json()) as SpaRouteCheckResult;")
-      appendLine("}")
     }
   }.toMap()
 

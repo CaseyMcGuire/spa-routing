@@ -36,7 +36,9 @@ class SpaRoutingAutoConfigurationTest {
       assertThat(context).hasSingleBean(DefaultSpaRouteRequestFactory::class.java)
       assertThat(context).hasSingleBean(DefaultSpaHtmlRenderer::class.java)
       assertThat(context).hasSingleBean(SpaRouteResponseService::class.java)
-      assertThat(context).hasSingleBean(RouterFunction::class.java)
+      assertThat(context.getBeansOfType(RouterFunction::class.java)).hasSize(2)
+      assertThat(context).hasBean("spaRouterFunction")
+      assertThat(context).hasBean("spaRouteDecisionRouterFunction")
     }
   }
 
@@ -67,8 +69,19 @@ class SpaRoutingAutoConfigurationTest {
     contextRunner
       .withPropertyValues("spa-routing.server.enabled=false")
       .run { context ->
-        assertThat(context).doesNotHaveBean(RouterFunction::class.java)
+        assertThat(context).doesNotHaveBean("spaRouterFunction")
+        assertThat(context).hasBean("spaRouteDecisionRouterFunction")
         assertThat(context).hasSingleBean(SpaRouteResponseService::class.java)
+      }
+  }
+
+  @Test
+  fun `route decision disabled property disables decision router function`() {
+    contextRunner
+      .withPropertyValues("spa-routing.route-decision.enabled=false")
+      .run { context ->
+        assertThat(context).hasBean("spaRouterFunction")
+        assertThat(context).doesNotHaveBean("spaRouteDecisionRouterFunction")
       }
   }
 
@@ -77,6 +90,7 @@ class SpaRoutingAutoConfigurationTest {
     contextRunner
       .withPropertyValues(
         "spa-routing.server.invalid-path-parameter-status=422",
+        "spa-routing.route-decision.path=/internal/spa-route-decision",
         "spa-routing.assets.bundle-base-path=/assets",
         "spa-routing.assets.include-route-stylesheet=false",
         "spa-routing.assets.global-stylesheet=/assets/global.css"
@@ -84,6 +98,7 @@ class SpaRoutingAutoConfigurationTest {
       .run { context ->
         val properties = context.getBean(SpaRoutingProperties::class.java)
         assertThat(properties.server.invalidPathParameterStatus).isEqualTo(422)
+        assertThat(properties.routeDecision.path).isEqualTo("/internal/spa-route-decision")
         assertThat(properties.assets.bundleBasePath).isEqualTo("/assets")
         assertThat(properties.assets.includeRouteStylesheet).isFalse()
         assertThat(properties.assets.globalStylesheet).isEqualTo("/assets/global.css")

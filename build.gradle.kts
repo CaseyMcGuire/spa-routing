@@ -9,5 +9,5 @@ extra["springFrameworkVersion"] = "7.0.7"
 
 allprojects {
   group = "io.github.caseymcguire"
-  version = "0.1.3"
+  version = "0.1.4"
 }

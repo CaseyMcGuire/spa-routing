@@ -5,8 +5,6 @@ import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperti
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.SpaHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.response.SpaRouteHttpResponse
-import io.github.caseymcguire.sparouting.spring.response.toCheckResponse
 import io.github.caseymcguire.sparouting.spring.response.toServerResponse
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 import org.springframework.web.servlet.function.RouterFunction
@@ -38,26 +36,14 @@ class SpaRouterFunctionFactory(
     route: SpaRouteDefinition,
     request: ServerRequest
   ): ServerResponse {
-    val checkHeader = properties.server.routeCheckHeader
-    val isRouteCheck = request.headers().firstHeader(checkHeader) != null
-
     if (!route.hasValidParameterValues(request.pathVariables())) {
-      val status = properties.server.invalidPathParameterStatus
-      return if (isRouteCheck) {
-        SpaRouteHttpResponse(status).toCheckResponse(checkHeader)
-      } else {
-        ServerResponse.status(status).build()
-      }
+      return ServerResponse.status(properties.server.invalidPathParameterStatus).build()
     }
 
     val response = routeResponseEvaluator.evaluate(
       rules = config.rules + config.getRouteRules(route),
       request = requestFactory.create(request, config, route)
     )
-
-    if (isRouteCheck) {
-      return response.toCheckResponse(checkHeader)
-    }
 
     return response.toServerResponse() ?: config.renderHtml() ?: htmlRenderer.render(config)
   }

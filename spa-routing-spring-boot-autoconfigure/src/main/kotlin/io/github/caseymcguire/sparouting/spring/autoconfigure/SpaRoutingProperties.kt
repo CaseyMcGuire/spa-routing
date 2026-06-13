@@ -5,12 +5,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties("spa-routing")
 class SpaRoutingProperties {
   val server = Server()
+  val routeDecision = RouteDecision()
   val assets = Assets()
 
   class Server {
     var enabled: Boolean = true
     var invalidPathParameterStatus: Int = 400
-    var routeCheckHeader: String = "X-Spa-Route-Check"
+  }
+
+  class RouteDecision {
+    var enabled: Boolean = true
+    var path: String = "/__spa/route-decision"
   }
 
   class Assets {
