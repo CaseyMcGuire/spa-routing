@@ -1,6 +1,7 @@
 package io.github.caseymcguire.sparouting.gradle
 
 import org.gradle.api.Action
+import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
@@ -84,6 +85,17 @@ class RouteDefinitionsConfiguration internal constructor(
 
   private fun applyConfiguration() {
     val routeDefinitionsProject = projectPath?.let { ownerProject.project(it) } ?: return
+    if (routeDefinitionsProject == ownerProject) {
+      throw GradleException(
+        "spaRouting.routeDefinitions.projectPath ('$projectPath') must point to a separate " +
+          "module, not the module the spa-routing plugin is applied to ('${ownerProject.path}'). " +
+          "The generated server routes are compiled into this module, but generating them needs " +
+          "the route definitions compiled first, so keeping both in one module creates a " +
+          "compileKotlin -> generateServerSpaRoutes -> classes -> compileKotlin cycle. Move your " +
+          "SpaApplicationDefinition objects into a dedicated module (commonly " +
+          "':spa-route-definitions') and point projectPath at it."
+      )
+    }
     extension.routeDefinitionsProject.set(routeDefinitionsProject)
 
     val applicationSourceDir = routeDefinitionsProject.layout.projectDirectory.dir(sourceDirectory)

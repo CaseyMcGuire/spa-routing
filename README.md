@@ -37,7 +37,7 @@ Use it from Spring Boot 4 applications.
 
 ## Define Routes
 
-Create route definitions in a dedicated module, commonly under:
+Route definitions must live in a module separate from the one the plugin is applied to. The plugin compiles the generated server routes into the plugin's module, but generating them first needs the route definitions compiled, so keeping both in one module creates a `compileKotlin -> generateServerSpaRoutes -> classes -> compileKotlin` cycle. Put your concrete `SpaApplicationDefinition` objects in a dedicated module, commonly under:
 
 ```txt
 spa-route-definitions/src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications

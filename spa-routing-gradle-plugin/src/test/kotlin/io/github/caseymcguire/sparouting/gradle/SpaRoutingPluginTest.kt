@@ -8,6 +8,7 @@ import org.gradle.testfixtures.ProjectBuilder
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -263,6 +264,22 @@ class SpaRoutingPluginTest {
     }
 
     assertEquals("spaRouting.applicationSourceDir must be set.", failure.message)
+  }
+
+  @Test
+  fun `fails with clear message when route definitions project is the plugin project`() {
+    val project = ProjectBuilder.builder().build()
+    project.pluginManager.apply(SpaRoutingPlugin::class.java)
+    val extension = project.extensions.getByType(SpaRoutingExtension::class.java)
+
+    val failure = assertFailsWith<GradleException> {
+      extension.routeDefinitions { routeDefinitions ->
+        routeDefinitions.projectPath = ":"
+      }
+    }
+
+    assertContains(failure.message!!, "must point to a separate")
+    assertContains(failure.message!!, "cycle")
   }
 
   private fun Project.javaExecTask(name: String): JavaExec {
