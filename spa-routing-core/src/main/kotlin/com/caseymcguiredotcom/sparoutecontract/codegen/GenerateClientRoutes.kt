@@ -8,6 +8,11 @@ import java.nio.file.Path
 import kotlin.system.exitProcess
 
 fun main() {
+  generateClientRoutes()
+  exitProcess(0)
+}
+
+internal fun generateClientRoutes() {
   val outputDirectoryPath = System.getProperty("route.output.dir")
     ?: throw IllegalArgumentException("'route.output.dir' must be set in task config")
   val configs = SpaApplicationDefinitionDiscovery.discoverFromSystemProperty()
@@ -27,9 +32,10 @@ fun main() {
         throw IllegalStateException("Duplicate route id: ${route.id} in config: $configName")
       }
       TypeScriptRouteConfig(
-        routeId,
-        routeConverter.convertToReactRouter(config.getFullUrl(route.path)),
-        route.parameters
+        applicationId = config.id,
+        key = routeId,
+        path = routeConverter.convertToReactRouter(config.getFullUrl(route.path)),
+        parameters = route.parameters
       )
     }
   }
@@ -43,8 +49,10 @@ fun main() {
       appendLine("// THIS FILE IS GENERATED. DO NOT EDIT BY HAND.")
       appendLine("// Run './gradlew generateClientRoutes' to regenerate.")
       appendLine()
-      appendLine("function routeWithoutParams(path: string) {")
-      appendLine("  return Object.assign(() => path, { path });")
+      appendLine("type SpaRouteIds = { applicationId: string; routeId: string };")
+      appendLine()
+      appendLine("function routeWithoutParams(path: string, ids: SpaRouteIds) {")
+      appendLine("  return Object.assign(() => path, { path, ...ids });")
       appendLine("}")
       appendLine()
       if (typescriptObjectEntries.any { it.parameters.isNotEmpty() }) {
@@ -54,8 +62,8 @@ fun main() {
         appendLine("  return encodeURIComponent(String(value));")
         appendLine("}")
         appendLine()
-        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string) {")
-        appendLine("  return Object.assign(buildPath, { path });")
+        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, ids: SpaRouteIds) {")
+        appendLine("  return Object.assign(buildPath, { path, ...ids });")
         appendLine("}")
         appendLine()
       }
@@ -86,11 +94,10 @@ fun main() {
         Files.delete(it)
       }
   }
-
-  exitProcess(0)
 }
 
 private data class TypeScriptRouteConfig(
+  val applicationId: String,
   val key: String,
   val path: String,
   val parameters: List<SpaRouteParameter>
@@ -98,15 +105,20 @@ private data class TypeScriptRouteConfig(
 
 private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
   if (parameters.isEmpty()) {
-    return "  $key: routeWithoutParams(\"${path.toTypeScriptString()}\"),\n"
+    return "  $key: routeWithoutParams(\"${path.toTypeScriptString()}\", ${toTypeScriptRouteIds()}),\n"
   }
 
   return buildString {
     appendLine("  $key: route(")
     appendLine("    \"${path.toTypeScriptString()}\",")
-    appendLine("    (params: ${parameters.toTypeScriptParameterObject()}) => ${path.toTypeScriptTemplate(parameters)}")
+    appendLine("    (params: ${parameters.toTypeScriptParameterObject()}) => ${path.toTypeScriptTemplate(parameters)},")
+    appendLine("    ${toTypeScriptRouteIds()}")
     appendLine("  ),")
   }
+}
+
+private fun TypeScriptRouteConfig.toTypeScriptRouteIds(): String {
+  return "{ applicationId: \"${applicationId.toTypeScriptString()}\", routeId: \"${key.toTypeScriptString()}\" }"
 }
 
 private fun List<SpaRouteParameter>.toTypeScriptParameterObject(): String {

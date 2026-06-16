@@ -330,22 +330,25 @@ page-load `ServerRequest` instances. Shared rules should rely on the fields
 above, or the application should replace `SpaRouteResponseService` for a custom
 decision context.
 
-The generated TypeScript route files do not include a route decision helper.
-Keep app-specific navigation behavior in your client app:
+The generated TypeScript route files do not include a route decision helper, but
+each generated route builder carries its `applicationId` and `routeId`, so
+app-specific navigation behavior can read them instead of hardcoding strings:
 
 ```ts
+import { AccountRoutes } from "./__generated__/routes/AccountRoutes";
+
 type SpaRouteDecision = {
   statusCode: number;
   location?: string | null;
 };
 
-async function decideAccountRoute(
-  routeId: string,
+async function decideRoute(
+  route: { applicationId: string; routeId: string },
   parameters: Record<string, string> = {}
 ): Promise<SpaRouteDecision> {
   const query = new URLSearchParams({
-    applicationId: "account",
-    routeId,
+    applicationId: route.applicationId,
+    routeId: route.routeId,
   });
 
   Object.entries(parameters).forEach(([name, value]) => {
@@ -355,6 +358,8 @@ async function decideAccountRoute(
   const response = await fetch(`/__spa/route-decision?${query}`);
   return (await response.json()) as SpaRouteDecision;
 }
+
+// decideRoute(AccountRoutes.UserDetail, { id: "123" });
 ```
 
 Decision statuses match what the MVC route would use:

@@ -231,12 +231,17 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
-Check a client-side navigation before changing routes:
+Check a client-side navigation before changing routes. Each generated route
+builder carries its `applicationId` and `routeId`, so the decision call does not
+hardcode them:
 
 ```ts
+import { AccountRoutes } from "./__generated__/routes/AccountRoutes";
+
+const route = AccountRoutes.UserDetail;
 const params = new URLSearchParams({
-  applicationId: "account",
-  routeId: "UserDetail",
+  applicationId: route.applicationId,
+  routeId: route.routeId,
   "parameters.id": "123",
   "queryParameters.tab": "billing",
 });
