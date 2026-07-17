@@ -12,11 +12,11 @@ For Gradle route generation:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.1.5"
+  id("io.github.caseymcguire.spa-routing") version "0.2.0"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.1.5")
+  implementation("io.github.caseymcguire:spa-routing-core:0.2.0")
   implementation(project(":spa-route-definitions"))
 }
 ```
@@ -27,7 +27,7 @@ For Spring Boot route serving:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.1.5")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.2.0")
   implementation(project(":spa-route-definitions"))
 }
 ```
