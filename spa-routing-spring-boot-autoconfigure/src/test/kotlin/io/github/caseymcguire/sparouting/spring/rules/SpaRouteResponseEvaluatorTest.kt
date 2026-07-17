@@ -11,53 +11,130 @@ class SpaRouteResponseEvaluatorTest {
   private val evaluator = SpaRouteResponseEvaluator(SpaRouteRuleActionResolver(emptyList()))
 
   @Test
-  fun `skip continues to later rules`() {
+  fun `application skip continues to later application rules`() {
     val response = evaluator.evaluate(
-      listOf(
+      applicationRules = listOf(
         RecordingRule(SpaRouteRuleResult.Skip),
         RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.notFound()))
       ),
-      testRequest()
+      routeRules = emptyList(),
+      request = testRequest()
     )
 
     assertEquals(404, response.statusCode)
   }
 
   @Test
-  fun `allow short-circuits success`() {
-    var deniedRuleEvaluated = false
+  fun `application allow passes the gate but does not skip route rules`() {
+    var laterApplicationRuleEvaluated = false
 
     val response = evaluator.evaluate(
-      listOf(
+      applicationRules = listOf(
         RecordingRule(SpaRouteRuleResult.Allow),
         RecordingRule(
           SpaRouteRuleResult.Deny(SpaRouteRuleAction.notFound()),
-          onEvaluate = { deniedRuleEvaluated = true }
+          onEvaluate = { laterApplicationRuleEvaluated = true }
         )
       ),
-      testRequest()
+      routeRules = listOf(RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451)))),
+      request = testRequest()
     )
 
-    assertEquals(200, response.statusCode)
-    assertFalse(deniedRuleEvaluated)
+    assertEquals(451, response.statusCode)
+    assertFalse(laterApplicationRuleEvaluated)
   }
 
   @Test
-  fun `deny returns resolved action`() {
+  fun `application deny returns resolved action without evaluating route rules`() {
+    var routeRuleEvaluated = false
+
     val response = evaluator.evaluate(
-      listOf(RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login")))),
-      testRequest()
+      applicationRules = listOf(RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login")))),
+      routeRules = listOf(RecordingRule(SpaRouteRuleResult.Allow, onEvaluate = { routeRuleEvaluated = true })),
+      request = testRequest()
     )
 
     assertEquals(302, response.statusCode)
     assertEquals("/login", response.location)
+    assertFalse(routeRuleEvaluated)
   }
 
   @Test
-  fun `no rules returns ok`() {
-    val response = evaluator.evaluate(emptyList(), testRequest())
+  fun `no application rules denies by default`() {
+    val response = evaluator.evaluate(
+      applicationRules = emptyList(),
+      routeRules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
+      request = testRequest()
+    )
+
+    assertEquals(404, response.statusCode)
+    assertTrue(response.location == null)
+  }
+
+  @Test
+  fun `all application rules skipping denies by default`() {
+    val response = evaluator.evaluate(
+      applicationRules = listOf(RecordingRule(SpaRouteRuleResult.Skip), RecordingRule(SpaRouteRuleResult.Skip)),
+      routeRules = emptyList(),
+      request = testRequest()
+    )
+
+    assertEquals(404, response.statusCode)
+  }
+
+  @Test
+  fun `route rules allow by default once the gate passes`() {
+    val response = evaluator.evaluate(
+      applicationRules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
+      routeRules = listOf(RecordingRule(SpaRouteRuleResult.Skip)),
+      request = testRequest()
+    )
 
     assertEquals(200, response.statusCode)
-    assertTrue(response.location == null)
+  }
+
+  @Test
+  fun `no route rules serves once the gate passes`() {
+    val response = evaluator.evaluate(
+      applicationRules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
+      routeRules = emptyList(),
+      request = testRequest()
+    )
+
+    assertEquals(200, response.statusCode)
+  }
+
+  @Test
+  fun `route deny vetoes after skipped route rules`() {
+    val response = evaluator.evaluate(
+      applicationRules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
+      routeRules = listOf(
+        RecordingRule(SpaRouteRuleResult.Skip),
+        RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.notFound()))
+      ),
+      request = testRequest()
+    )
+
+    assertEquals(404, response.statusCode)
+  }
+
+  @Test
+  fun `route allow short-circuits later route rules`() {
+    var laterRouteRuleEvaluated = false
+
+    val response = evaluator.evaluate(
+      applicationRules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
+      routeRules = listOf(
+        RecordingRule(SpaRouteRuleResult.Allow),
+        RecordingRule(
+          SpaRouteRuleResult.Deny(SpaRouteRuleAction.notFound()),
+          onEvaluate = { laterRouteRuleEvaluated = true }
+        )
+      ),
+      request = testRequest()
+    )
+
+    assertEquals(200, response.statusCode)
+    assertFalse(laterRouteRuleEvaluated)
   }
 }

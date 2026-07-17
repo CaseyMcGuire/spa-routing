@@ -21,6 +21,7 @@ class SpaRouteResponseServiceTest {
     application = TestSpaApplicationDefinition(
       routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))
     ),
+    rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
     routeRules = mapOf(
       TestSpaRouteKey("test", "UserDetail") to listOf(
         RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login")))

@@ -157,6 +157,13 @@ class SpaRoutesConfiguration {
 }
 ```
 
+Rules evaluate in two stages: application-wide rules are a gate that is
+deny-by-default (an SPA whose rules all skip — or that has none — answers
+`404`; use the built-in `AllowAll` for an ungated SPA), while route-level rules
+are vetoes that are allow-by-default (a route is served once the gate passes,
+unless one of its rules returns `Deny`). See
+[docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md) for details.
+
 Add application-wide rules when every route in an SPA needs the same behavior:
 
 ```kotlin
@@ -170,7 +177,7 @@ class RequireLogin : SpaRouteRule {
     return if (request.header("X-User").isEmpty()) {
       SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
     } else {
-      SpaRouteRuleResult.Skip
+      SpaRouteRuleResult.Allow
     }
   }
 }

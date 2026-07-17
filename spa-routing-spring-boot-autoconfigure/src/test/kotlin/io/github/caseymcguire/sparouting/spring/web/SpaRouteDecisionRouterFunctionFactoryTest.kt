@@ -11,6 +11,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
+import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
 import org.junit.jupiter.api.Test
@@ -22,7 +23,8 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns allowed response`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id")))))
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))),
+        rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
 
@@ -125,7 +127,8 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
     properties.routeDecision.path = "/internal/spa-route-decision"
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("home", "Home")))
+        application = TestSpaApplicationDefinition(routes = listOf(route("home", "Home"))),
+        rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       ),
       properties = properties
     )

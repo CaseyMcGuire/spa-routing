@@ -23,7 +23,8 @@ class SpaRouterFunctionFactoryTest {
   fun `known route returns html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id")))))
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))),
+        rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
 
@@ -72,7 +73,7 @@ class SpaRouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSpaApplicationDefinition(routes = listOf(route("settings", "Settings"))),
-        rules = listOf(RecordingRule(SpaRouteRuleResult.Skip)),
+        rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
         routeRules = mapOf(
           TestSpaRouteKey("test", "Settings") to listOf(
             RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.notFound()))

@@ -41,7 +41,8 @@ class SpaRouterFunctionFactory(
     }
 
     val response = routeResponseEvaluator.evaluate(
-      rules = config.rules + config.getRouteRules(route),
+      applicationRules = config.rules,
+      routeRules = config.getRouteRules(route),
       request = requestFactory.create(request, config, route)
     )
 

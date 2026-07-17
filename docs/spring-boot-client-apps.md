@@ -135,7 +135,7 @@ class RequireLogin : SpaRouteRule {
     return if (request.header("X-User").isEmpty()) {
       SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
     } else {
-      SpaRouteRuleResult.Skip
+      SpaRouteRuleResult.Allow
     }
   }
 }
@@ -149,15 +149,26 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
-Rule results behave like this:
+Rules evaluate in two stages:
+
+1. **Application rules are a gate, deny-by-default.** The first `Allow` passes
+   the request on to the route rules, the first `Deny` denies it, and if every
+   rule returns `Skip` — including when the SPA has no rules at all — the
+   request is answered with `404`. Every SPA must explicitly allow its routes;
+   use the built-in `AllowAll` as the sole rule of an ungated SPA.
+2. **Route-level rules are vetoes, allow-by-default.** The first `Deny` denies
+   the request, the first `Allow` serves it, and if every rule skips the route
+   is served. Route rules only exist to deny specific cases.
+
+Within a chain the results always mean the same thing:
 
 - `Skip`: continue to the next rule
-- `Allow`: stop evaluating and serve the SPA HTML
+- `Allow`: stop evaluating this chain successfully
 - `Deny`: stop evaluating and return the configured status or redirect
 
-Use `Skip` for a rule that passes but should still allow later route-level
-rules to run. Use `Allow` only when the rule should explicitly bypass the rest
-of the chain.
+Only the fallthrough differs between the stages. Note that an application-level
+`Allow` passes the gate but does not bypass route-level rules — those still run
+and can veto the route.
 
 Route-level rules use generated server route objects as keys:
 
@@ -178,11 +189,12 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
-For a request to `UserDetail`, the starter evaluates:
-
-```kotlin
-config.rules + config.getRouteRules(route)
-```
+For a request to `UserDetail`, the starter evaluates the application gate
+(`config.rules`) first, and only if it passes evaluates the route's vetoes
+(`config.getRouteRules(route)`). In the example above, a logged-in user reaches
+`UserDetail` unless `RequireAccountAccess` returns `Deny`; every other route is
+served to any logged-in user, since routes without rules are allowed once the
+gate passes.
 
 ## Redirect From Rules
 
