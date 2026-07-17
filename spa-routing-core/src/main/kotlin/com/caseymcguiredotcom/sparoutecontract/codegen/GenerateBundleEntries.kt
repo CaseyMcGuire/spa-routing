@@ -13,7 +13,7 @@ fun main() {
 
   val fileContents = buildString {
     appendLine("// THIS FILE IS GENERATED. DO NOT EDIT BY HAND.")
-    appendLine("// Run './gradlew generateWebpackBundleEntries' to regenerate.")
+    appendLine("// Run './gradlew generateBundleEntries' to regenerate.")
     appendLine("export default {")
     configs.forEach {
       appendLine("  ${it.bundleName} : \"${it.appRootPath}\",")

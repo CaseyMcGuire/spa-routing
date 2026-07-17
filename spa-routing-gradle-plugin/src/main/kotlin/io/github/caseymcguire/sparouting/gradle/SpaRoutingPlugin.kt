@@ -72,12 +72,12 @@ class SpaRoutingPlugin : Plugin<Project> {
       }
     }
 
-    project.tasks.register("generateWebpackBundleEntries", JavaExec::class.java) { task ->
+    project.tasks.register("generateBundleEntries", JavaExec::class.java) { task ->
       task.description = "Generates a file containing the path to each React app's entry point."
       task.group = TASK_GROUP
       task.dependsOn(routeDefinitionClasses)
       task.classpath(routeDefinitionClasspath)
-      task.mainClass.set(WEBPACK_BUNDLE_MAIN_CLASS)
+      task.mainClass.set(BUNDLE_ENTRIES_MAIN_CLASS)
       task.doFirst {
         extension.requiredRouteDefinitionsProject()
         task.systemProperty(
@@ -86,7 +86,7 @@ class SpaRoutingPlugin : Plugin<Project> {
         )
         task.systemProperty(
           "route.output.dir",
-          extension.webpackBundleEntriesOutputFile.required("webpackBundleEntriesOutputFile").asFile.absolutePath
+          extension.bundleEntriesOutputFile.required("bundleEntriesOutputFile").asFile.absolutePath
         )
       }
     }
@@ -131,7 +131,7 @@ class SpaRoutingPlugin : Plugin<Project> {
       "com.caseymcguiredotcom.sparoutecontract.codegen.GenerateClientRoutesKt"
     const val SERVER_ROUTE_MAIN_CLASS =
       "com.caseymcguiredotcom.sparoutecontract.codegen.GenerateServerRoutesKt"
-    const val WEBPACK_BUNDLE_MAIN_CLASS =
-      "com.caseymcguiredotcom.sparoutecontract.codegen.GenerateWebpackBundleEntriesKt"
+    const val BUNDLE_ENTRIES_MAIN_CLASS =
+      "com.caseymcguiredotcom.sparoutecontract.codegen.GenerateBundleEntriesKt"
   }
 }

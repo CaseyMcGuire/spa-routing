@@ -22,7 +22,7 @@ class SpaRoutingPluginTest {
 
     assertNotNull(project.tasks.findByName("generateClientRoutes"))
     assertNotNull(project.tasks.findByName("generateServerSpaRoutes"))
-    assertNotNull(project.tasks.findByName("generateWebpackBundleEntries"))
+    assertNotNull(project.tasks.findByName("generateBundleEntries"))
   }
 
   @Test
@@ -43,15 +43,15 @@ class SpaRoutingPluginTest {
     extension.clientRoutesOutputDir.set(project.layout.buildDirectory.dir("client-routes"))
     extension.serverRoutesOutputDir.set(project.layout.buildDirectory.dir("server-routes"))
     extension.serverRoutesPackage.set("com.example.generated.routes")
-    extension.webpackBundleEntriesOutputFile.set(project.layout.buildDirectory.file("bundles.ts"))
+    extension.bundleEntriesOutputFile.set(project.layout.buildDirectory.file("bundles.ts"))
 
     val clientTask = project.javaExecTask("generateClientRoutes")
     val serverTask = project.javaExecTask("generateServerSpaRoutes")
-    val webpackTask = project.javaExecTask("generateWebpackBundleEntries")
+    val bundleEntriesTask = project.javaExecTask("generateBundleEntries")
 
     clientTask.applyFirstAction()
     serverTask.applyFirstAction()
-    webpackTask.applyFirstAction()
+    bundleEntriesTask.applyFirstAction()
 
     assertEquals(
       extension.applicationSourceDir.get().asFile.absolutePath,
@@ -70,8 +70,8 @@ class SpaRoutingPluginTest {
       serverTask.systemProperties["route.server.package"]
     )
     assertEquals(
-      extension.webpackBundleEntriesOutputFile.get().asFile.absolutePath,
-      webpackTask.systemProperties["route.output.dir"]
+      extension.bundleEntriesOutputFile.get().asFile.absolutePath,
+      bundleEntriesTask.systemProperties["route.output.dir"]
     )
   }
 
@@ -97,14 +97,18 @@ class SpaRoutingPluginTest {
       serverRoutes.packageName = "com.example.generated.routes"
       serverRoutes.sourceRoot = "build/generated/source/spaRoutes/main"
     }
-    extension.webpackBundleEntries { webpackBundleEntries ->
-      webpackBundleEntries.outputFile = "SinglePageApplicationBundles.ts"
+    extension.bundleEntries { bundleEntries ->
+      bundleEntries.outputFile = "SinglePageApplicationBundles.ts"
     }
 
     val serverTask = project.javaExecTask("generateServerSpaRoutes")
     serverTask.applyFirstAction()
 
     assertEquals(routeDefinitionsProject, extension.routeDefinitionsProject.get())
+    assertEquals(
+      project.layout.projectDirectory.file("SinglePageApplicationBundles.ts").asFile.absolutePath,
+      extension.bundleEntriesOutputFile.get().asFile.absolutePath
+    )
     assertEquals(
       routeDefinitionsProject.layout.projectDirectory
         .dir("src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications")
@@ -149,8 +153,8 @@ class SpaRoutingPluginTest {
           target.directory = "build/generated/source/spaRoutes/main"
         }
       }
-      configuration.webpackBundleEntries { webpackBundleEntries ->
-        webpackBundleEntries.target { target ->
+      configuration.bundleEntries { bundleEntries ->
+        bundleEntries.target { target ->
           target.file = "SinglePageApplicationBundles.ts"
         }
       }
@@ -219,7 +223,7 @@ class SpaRoutingPluginTest {
           sourceRoot = "build/generated/source/spaRoutes/main"
         }
 
-        webpackBundleEntries {
+        bundleEntries {
           outputFile = "SinglePageApplicationBundles.ts"
         }
       }

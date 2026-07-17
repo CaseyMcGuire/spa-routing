@@ -36,6 +36,14 @@
   The route decision endpoint (`/__spa/route-decision`) and the generated
   client `canNavigate` guard reflect the same verdicts automatically.
 
+- **`generateWebpackBundleEntries` was replaced by the bundler-neutral
+  `generateBundleEntries` task.** The `webpackBundleEntries { ... }`
+  configuration block and the `webpackBundleEntriesOutputFile` extension
+  property were likewise renamed to `bundleEntries { ... }` and
+  `bundleEntriesOutputFile`. The generated file's contents are unchanged
+  (only its regeneration-command comment differs), so migration is a rename
+  in `build.gradle.kts` and in any scripts or CI steps invoking the task.
+
 ### Added
 
 - Built-in rules in `io.github.caseymcguire.sparouting.spring.rules.builtin`:
@@ -46,3 +54,8 @@
   - `DenyAll(action)` — denies every route (404 by default); an
     application-wide kill switch or a route-level veto for routes taken out
     of service.
+- `generateBundleEntries` Gradle task and `bundleEntries { outputFile = ... }`
+  configuration. The generated bundle-name-to-app-root-path map is
+  bundler-neutral: webpack consumes it as `entry`, Vite as
+  `build.rollupOptions.input` (see `docs/spring-boot-client-apps.md` for the
+  Vite setup).

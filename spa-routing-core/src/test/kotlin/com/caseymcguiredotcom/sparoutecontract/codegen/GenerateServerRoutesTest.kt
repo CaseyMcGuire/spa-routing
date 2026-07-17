@@ -21,7 +21,7 @@ class GenerateServerRoutesTest {
       System.setProperty("route.output.dir", outputDirectory.toString())
       System.setProperty("route.server.package", "com.example.generated")
 
-      main()
+      generateServerRoutes()
 
       val routesObject = outputDirectory.resolve("TestRoutes.kt")
       val routeObject = outputDirectory.resolve("test/GeneratedRoute.kt")

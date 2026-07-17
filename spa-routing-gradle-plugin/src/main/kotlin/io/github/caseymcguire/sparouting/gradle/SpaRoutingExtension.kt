@@ -20,7 +20,7 @@ abstract class SpaRoutingExtension @Inject constructor(
   abstract val serverRoutesOutputDir: DirectoryProperty
   abstract val serverRoutesSourceRoot: DirectoryProperty
   abstract val serverRoutesPackage: Property<String>
-  abstract val webpackBundleEntriesOutputFile: RegularFileProperty
+  abstract val bundleEntriesOutputFile: RegularFileProperty
 
   fun configuration(action: Action<in SpaRoutingConfiguration>) {
     action.execute(SpaRoutingConfiguration(this, ownerProject))
@@ -38,8 +38,8 @@ abstract class SpaRoutingExtension @Inject constructor(
     action.execute(ServerRoutesConfiguration(this, ownerProject))
   }
 
-  fun webpackBundleEntries(action: Action<in WebpackBundleEntriesConfiguration>) {
-    action.execute(WebpackBundleEntriesConfiguration(this, ownerProject))
+  fun bundleEntries(action: Action<in BundleEntriesConfiguration>) {
+    action.execute(BundleEntriesConfiguration(this, ownerProject))
   }
 }
 
@@ -59,8 +59,8 @@ class SpaRoutingConfiguration internal constructor(
     action.execute(ServerRoutesConfiguration(extension, ownerProject))
   }
 
-  fun webpackBundleEntries(action: Action<in WebpackBundleEntriesConfiguration>) {
-    action.execute(WebpackBundleEntriesConfiguration(extension, ownerProject))
+  fun bundleEntries(action: Action<in BundleEntriesConfiguration>) {
+    action.execute(BundleEntriesConfiguration(extension, ownerProject))
   }
 }
 
@@ -151,19 +151,19 @@ class ServerRoutesConfiguration internal constructor(
   }
 }
 
-class WebpackBundleEntriesConfiguration internal constructor(
+class BundleEntriesConfiguration internal constructor(
   private val extension: SpaRoutingExtension,
   private val ownerProject: Project
 ) {
   var outputFile: String? = null
     set(value) {
       field = value
-      value?.let { extension.webpackBundleEntriesOutputFile.set(ownerProject.file(it)) }
+      value?.let { extension.bundleEntriesOutputFile.set(ownerProject.file(it)) }
     }
 
   fun target(action: Action<in FileTargetConfiguration>) {
     val target = FileTargetConfiguration { file ->
-      extension.webpackBundleEntriesOutputFile.set(ownerProject.file(file))
+      extension.bundleEntriesOutputFile.set(ownerProject.file(file))
     }
     action.execute(target)
   }

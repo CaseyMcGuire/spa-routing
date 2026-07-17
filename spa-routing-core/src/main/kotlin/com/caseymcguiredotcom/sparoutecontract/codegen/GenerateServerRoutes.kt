@@ -17,6 +17,10 @@ private fun generatedPackage(): String {
 }
 
 fun main() {
+  generateServerRoutes()
+}
+
+internal fun generateServerRoutes() {
   val outputDirectoryPath = System.getProperty("route.output.dir")
     ?: throw IllegalArgumentException("'route.output.dir' must be set in task config")
   val outputDirectory = Path.of(outputDirectoryPath)

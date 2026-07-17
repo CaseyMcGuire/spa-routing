@@ -4,7 +4,7 @@
 
 - typed TypeScript route builders for the client
 - typed Kotlin route objects for the server
-- webpack bundle entry metadata
+- bundle entry metadata for webpack or Vite
 
 ## Install
 
@@ -83,11 +83,15 @@ spaRouting {
     sourceRoot = "build/generated/source/spaRoutes/main"
   }
 
-  webpackBundleEntries {
+  bundleEntries {
     outputFile = "SinglePageApplicationBundles.ts"
   }
 }
 ```
+
+The bundle entries file is bundler-neutral: webpack consumes it as `entry`, and
+Vite as `build.rollupOptions.input`. See
+[docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md) for both setups.
 
 If your route definitions live somewhere else, override the default source directory:
 
@@ -104,12 +108,12 @@ The plugin adds:
 
 - `generateClientRoutes`
 - `generateServerSpaRoutes`
-- `generateWebpackBundleEntries`
+- `generateBundleEntries`
 
 Run all three manually:
 
 ```sh
-./gradlew generateClientRoutes generateServerSpaRoutes generateWebpackBundleEntries
+./gradlew generateClientRoutes generateServerSpaRoutes generateBundleEntries
 ```
 
 When `org.jetbrains.kotlin.jvm` is applied, `generateServerSpaRoutes` is wired into Kotlin compilation and `serverRoutes.sourceRoot` is added as a generated source root.
@@ -121,7 +125,7 @@ When `org.jetbrains.kotlin.jvm` is applied, `generateServerSpaRoutes` is wired i
 - `serverRoutes.sourceRoot`: `build/generated/source/spaRoutes/main`
 - server route output directory: derived from `serverRoutes.sourceRoot` and the configured package name
 
-The client routes output directory and webpack bundle entries output file are required because they are application-specific.
+The client routes output directory and bundle entries output file are required because they are application-specific.
 
 ## Troubleshooting
 

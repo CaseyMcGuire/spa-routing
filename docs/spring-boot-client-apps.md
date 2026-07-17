@@ -78,11 +78,40 @@ spaRouting {
     outputDirectory = "src/main/web-frontend/__generated__/routes"
   }
 
-  webpackBundleEntries {
+  bundleEntries {
     outputFile = "SinglePageApplicationBundles.ts"
   }
 }
 ```
+
+The `generateBundleEntries` task writes a bundler-neutral, default-exported map
+of bundle name to app root path. webpack consumes it as `entry` directly, while
+a Vite config feeds it to `build.rollupOptions.input` and pins output names to
+what the default HTML renderer expects:
+
+```ts
+import { resolve } from "node:path"
+import bundles from "./SinglePageApplicationBundles"
+
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: Object.fromEntries(
+        Object.entries(bundles).map(([name, path]) => [name, resolve(__dirname, path)])
+      ),
+      output: {
+        entryFileNames: "[name].bundle.js",
+        assetFileNames: "[name][extname]",
+      },
+    },
+  },
+})
+```
+
+Note that Rollup does not resolve a directory to its `index` file the way
+webpack does, so with Vite each application's `appRootPath` must point at the
+entry file itself (e.g. `src/main/web-frontend/apps/account/index.tsx`), or
+your Vite config must append the entry filename when building the input map.
 
 ## Define Config Beans
 
