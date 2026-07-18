@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.config
 
-import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinitionValidator
+import com.sparouting.contract.SpaApplicationDefinitionValidator
 
 class SinglePageApplicationConfigValidator private constructor() {
   companion object {

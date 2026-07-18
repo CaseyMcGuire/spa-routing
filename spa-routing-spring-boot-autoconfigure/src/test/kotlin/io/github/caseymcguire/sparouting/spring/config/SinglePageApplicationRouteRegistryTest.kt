@@ -1,7 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.config
 
-import com.caseymcguiredotcom.sparoutecontract.int
-import com.caseymcguiredotcom.sparoutecontract.route
+import com.sparouting.contract.int
+import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig

@@ -108,7 +108,7 @@ class RouteDefinitionsConfiguration internal constructor(
 
   private companion object {
     const val DEFAULT_APPLICATION_SOURCE_DIRECTORY =
-      "src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications"
+      "src/main/kotlin/com/sparouting/contract/applications"
   }
 }
 

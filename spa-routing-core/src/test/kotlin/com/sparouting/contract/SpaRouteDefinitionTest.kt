@@ -1,4 +1,4 @@
-package com.caseymcguiredotcom.sparoutecontract
+package com.sparouting.contract
 
 import kotlin.test.Test
 import kotlin.test.assertFailsWith

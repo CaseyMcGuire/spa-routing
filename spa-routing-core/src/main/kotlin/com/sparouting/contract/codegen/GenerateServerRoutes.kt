@@ -1,16 +1,16 @@
-package com.caseymcguiredotcom.sparoutecontract.codegen
+package com.sparouting.contract.codegen
 
-import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinition
-import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinitionDiscovery
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteDefinition
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteParameter
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteParameterType
+import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.SpaApplicationDefinitionDiscovery
+import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.SpaRouteParameter
+import com.sparouting.contract.SpaRouteParameterType
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Comparator
 import kotlin.io.path.createDirectories
 
-private const val DEFAULT_GENERATED_PACKAGE = "com.caseymcguiredotcom.generated.spa.routes"
+private const val DEFAULT_GENERATED_PACKAGE = "com.sparouting.generated.spa.routes"
 
 private fun generatedPackage(): String {
   return System.getProperty("route.server.package") ?: DEFAULT_GENERATED_PACKAGE
@@ -90,8 +90,8 @@ private fun SpaRouteDefinition.toKotlinRouteObjectFile(
     appendGeneratedFileHeader(
       packageName = packageName,
       imports = buildList {
-        add("com.caseymcguiredotcom.sparoutecontract.SpaRouteTarget")
-        add("com.caseymcguiredotcom.sparoutecontract.SpaTypedRoute")
+        add("com.sparouting.contract.SpaRouteTarget")
+        add("com.sparouting.contract.SpaTypedRoute")
         if (parameters.any { it.type == SpaRouteParameterType.UUID }) {
           add("java.util.UUID")
         }

@@ -1,4 +1,4 @@
-package com.caseymcguiredotcom.sparoutecontract
+package com.sparouting.contract
 
 data class SpaRouteDefinition(
   val path: String,

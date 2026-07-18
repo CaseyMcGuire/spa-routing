@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.web
 
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteDefinition
+import com.sparouting.contract.SpaRouteDefinition
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.SpaHtmlRenderer

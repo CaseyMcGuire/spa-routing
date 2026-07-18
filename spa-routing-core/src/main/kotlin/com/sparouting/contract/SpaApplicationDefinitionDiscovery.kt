@@ -1,4 +1,4 @@
-package com.caseymcguiredotcom.sparoutecontract
+package com.sparouting.contract
 
 import java.nio.file.Files
 import java.nio.file.Path

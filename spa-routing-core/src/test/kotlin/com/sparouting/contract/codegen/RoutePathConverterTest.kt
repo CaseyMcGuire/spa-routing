@@ -1,4 +1,4 @@
-package com.caseymcguiredotcom.sparoutecontract.codegen
+package com.sparouting.contract.codegen
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,7 +1,7 @@
-package com.caseymcguiredotcom.sparoutecontract.codegen
+package com.sparouting.contract.codegen
 
-import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinition
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteDefinition
+import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.SpaRouteDefinition
 import java.nio.file.Files
 import kotlin.io.path.readText
 import kotlin.test.Test

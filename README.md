@@ -40,17 +40,17 @@ Use it from Spring Boot 4 applications.
 Route definitions must live in a module separate from the one the plugin is applied to. The plugin compiles the generated server routes into the plugin's module, but generating them first needs the route definitions compiled, so keeping both in one module creates a `compileKotlin -> generateServerSpaRoutes -> classes -> compileKotlin` cycle. Put your concrete `SpaApplicationDefinition` objects in a dedicated module, commonly under:
 
 ```txt
-spa-route-definitions/src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications
+spa-route-definitions/src/main/kotlin/com/sparouting/contract/applications
 ```
 
 Example:
 
 ```kotlin
-package com.caseymcguiredotcom.sparoutecontract.applications
+package com.sparouting.contract.applications
 
-import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinition
-import com.caseymcguiredotcom.sparoutecontract.int
-import com.caseymcguiredotcom.sparoutecontract.route
+import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.int
+import com.sparouting.contract.route
 
 object AccountSpaApplication : SpaApplicationDefinition {
   override val id = "account"
@@ -120,8 +120,8 @@ When `org.jetbrains.kotlin.jvm` is applied, `generateServerSpaRoutes` is wired i
 
 ## Defaults
 
-- `routeDefinitions.sourceDirectory`: `src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications`
-- `serverRoutes.packageName`: `com.caseymcguiredotcom.generated.spa.routes`
+- `routeDefinitions.sourceDirectory`: `src/main/kotlin/com/sparouting/contract/applications`
+- `serverRoutes.packageName`: `com.sparouting.generated.spa.routes`
 - `serverRoutes.sourceRoot`: `build/generated/source/spaRoutes/main`
 - server route output directory: derived from `serverRoutes.sourceRoot` and the configured package name
 

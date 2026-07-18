@@ -126,12 +126,12 @@ class SpaRoutingPlugin : Plugin<Project> {
 
   private companion object {
     const val TASK_GROUP = "spa routing"
-    const val DEFAULT_SERVER_ROUTES_PACKAGE = "com.caseymcguiredotcom.generated.spa.routes"
+    const val DEFAULT_SERVER_ROUTES_PACKAGE = "com.sparouting.generated.spa.routes"
     const val CLIENT_ROUTE_MAIN_CLASS =
-      "com.caseymcguiredotcom.sparoutecontract.codegen.GenerateClientRoutesKt"
+      "com.sparouting.contract.codegen.GenerateClientRoutesKt"
     const val SERVER_ROUTE_MAIN_CLASS =
-      "com.caseymcguiredotcom.sparoutecontract.codegen.GenerateServerRoutesKt"
+      "com.sparouting.contract.codegen.GenerateServerRoutesKt"
     const val BUNDLE_ENTRIES_MAIN_CLASS =
-      "com.caseymcguiredotcom.sparoutecontract.codegen.GenerateBundleEntriesKt"
+      "com.sparouting.contract.codegen.GenerateBundleEntriesKt"
   }
 }

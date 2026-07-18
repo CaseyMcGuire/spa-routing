@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.config
 
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteDefinition
+import com.sparouting.contract.SpaRouteDefinition
 
 data class SinglePageApplicationRouteRegistration(
   val application: SinglePageApplicationConfig,

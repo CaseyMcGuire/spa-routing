@@ -111,7 +111,7 @@ class SpaRoutingPluginTest {
     )
     assertEquals(
       routeDefinitionsProject.layout.projectDirectory
-        .dir("src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications")
+        .dir("src/main/kotlin/com/sparouting/contract/applications")
         .asFile
         .absolutePath,
       extension.applicationSourceDir.get().asFile.absolutePath
@@ -166,7 +166,7 @@ class SpaRoutingPluginTest {
     assertEquals(routeDefinitionsProject, extension.routeDefinitionsProject.get())
     assertEquals(
       routeDefinitionsProject.layout.projectDirectory
-        .dir("src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications")
+        .dir("src/main/kotlin/com/sparouting/contract/applications")
         .asFile
         .absolutePath,
       extension.applicationSourceDir.get().asFile.absolutePath

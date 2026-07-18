@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.rules.builtin
 
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteKey
+import com.sparouting.contract.SpaRouteKey
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult

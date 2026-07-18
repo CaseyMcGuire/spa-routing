@@ -1,8 +1,8 @@
-package com.caseymcguiredotcom.sparoutecontract.codegen
+package com.sparouting.contract.codegen
 
-import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinitionDiscovery
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteParameter
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteParameterType
+import com.sparouting.contract.SpaApplicationDefinitionDiscovery
+import com.sparouting.contract.SpaRouteParameter
+import com.sparouting.contract.SpaRouteParameterType
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.system.exitProcess

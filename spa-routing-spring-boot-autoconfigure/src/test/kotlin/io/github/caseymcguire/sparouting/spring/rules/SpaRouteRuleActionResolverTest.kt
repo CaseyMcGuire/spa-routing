@@ -1,8 +1,8 @@
 package io.github.caseymcguire.sparouting.spring.rules
 
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteTarget
-import com.caseymcguiredotcom.sparoutecontract.int
-import com.caseymcguiredotcom.sparoutecontract.route
+import com.sparouting.contract.SpaRouteTarget
+import com.sparouting.contract.int
+import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
 import kotlin.test.Test

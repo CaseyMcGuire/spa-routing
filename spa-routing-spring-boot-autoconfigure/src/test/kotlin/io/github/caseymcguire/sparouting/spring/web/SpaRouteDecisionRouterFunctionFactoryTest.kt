@@ -1,7 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.web
 
-import com.caseymcguiredotcom.sparoutecontract.int
-import com.caseymcguiredotcom.sparoutecontract.route
+import com.sparouting.contract.int
+import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest

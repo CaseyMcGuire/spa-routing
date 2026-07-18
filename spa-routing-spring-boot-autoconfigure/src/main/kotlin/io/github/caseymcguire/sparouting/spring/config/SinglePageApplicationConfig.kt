@@ -1,8 +1,8 @@
 package io.github.caseymcguire.sparouting.spring.config
 
-import com.caseymcguiredotcom.sparoutecontract.SpaApplicationDefinition
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteDefinition
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteKey
+import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.SpaRouteKey
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import org.springframework.web.servlet.function.ServerResponse
 

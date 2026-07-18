@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.rules
 
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteTarget
+import com.sparouting.contract.SpaRouteTarget
 
 data class SpaRouteRuleAction(
   val statusCode: Int,

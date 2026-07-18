@@ -1,4 +1,4 @@
-package com.caseymcguiredotcom.sparoutecontract
+package com.sparouting.contract
 
 object SpaApplicationDefinitionValidator {
   fun validate(applications: List<SpaApplicationDefinition>) {

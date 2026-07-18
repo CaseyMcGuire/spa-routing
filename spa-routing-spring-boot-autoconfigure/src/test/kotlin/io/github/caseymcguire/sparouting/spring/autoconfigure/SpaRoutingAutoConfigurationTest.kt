@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
-import com.caseymcguiredotcom.sparoutecontract.route
+import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
@@ -141,7 +141,7 @@ class SpaRoutingAutoConfigurationTest {
     override fun create(
       serverRequest: org.springframework.web.servlet.function.ServerRequest,
       application: SinglePageApplicationConfig,
-      route: com.caseymcguiredotcom.sparoutecontract.SpaRouteDefinition
+      route: com.sparouting.contract.SpaRouteDefinition
     ): SpaRouteRequest {
       return SpaRouteRequest(application.applicationId, route.id, serverRequest.method().name(), serverRequest.path())
     }

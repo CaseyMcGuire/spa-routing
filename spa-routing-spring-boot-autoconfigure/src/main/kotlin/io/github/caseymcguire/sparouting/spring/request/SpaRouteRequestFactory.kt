@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.request
 
-import com.caseymcguiredotcom.sparoutecontract.SpaRouteDefinition
+import com.sparouting.contract.SpaRouteDefinition
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import org.springframework.web.servlet.function.ServerRequest
 

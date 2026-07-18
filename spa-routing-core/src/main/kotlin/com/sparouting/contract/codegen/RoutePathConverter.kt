@@ -1,4 +1,4 @@
-package com.caseymcguiredotcom.sparoutecontract.codegen
+package com.sparouting.contract.codegen
 
 class RoutePathConverter {
   fun convertToReactRouter(springRoute: String): String {

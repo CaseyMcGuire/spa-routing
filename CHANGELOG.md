@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- **The core contract package `com.caseymcguiredotcom.sparoutecontract` was
+  renamed to `com.sparouting.contract`** (its `codegen` subpackage moved with
+  it). Two defaults changed along with it:
+
+  - The default generated server routes package is now
+    `com.sparouting.generated.spa.routes` (was
+    `com.caseymcguiredotcom.generated.spa.routes`).
+  - The plugin's default route-definitions source directory is now
+    `src/main/kotlin/com/sparouting/contract/applications` (was
+    `src/main/kotlin/com/caseymcguiredotcom/sparoutecontract/applications`).
+
+  Migration: update imports of contract types (`SpaApplicationDefinition`,
+  `SpaRouteKey`, `route`, `int`, ...) to `com.sparouting.contract`, move your
+  route definition files to the new default directory (or set
+  `routeDefinitions.sourceDirectory` explicitly), and regenerate server routes.
+  Maven coordinates (`io.github.caseymcguire:*`) are unchanged.
+
 ## 0.2.0 (2026-07-16)
 
 ### Breaking changes
