@@ -28,7 +28,7 @@ routes:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.2.0")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.3.0")
   implementation(project(":spa-route-definitions"))
 }
 ```
@@ -61,7 +61,7 @@ or typed redirects, apply and configure the Gradle plugin too:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.2.0"
+  id("io.github.caseymcguire.spa-routing") version "0.3.0"
 }
 
 spaRouting {
