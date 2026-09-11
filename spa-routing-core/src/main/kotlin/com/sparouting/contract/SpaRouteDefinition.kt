@@ -49,14 +49,7 @@ data class SpaRouteDefinition(
     val missingRequiredParameters = requiredParameters()
       .map { it.name }
       .toSet() - parameterValues.keys
-    if (missingRequiredParameters.isNotEmpty()) {
-      return false
-    }
-
-    return parameters.all { parameter ->
-      val value = parameterValues[parameter.name] ?: return@all true
-      parameter.hasValidValue(value)
-    }
+    return missingRequiredParameters.isEmpty()
   }
 
   fun requiredParameters(): List<SpaRouteParameter> {

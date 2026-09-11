@@ -9,13 +9,5 @@ fun route(
 }
 
 fun string(name: String): SpaRouteParameter {
-  return SpaRouteParameter(name, SpaRouteParameterType.STRING)
-}
-
-fun int(name: String): SpaRouteParameter {
-  return SpaRouteParameter(name, SpaRouteParameterType.INT)
-}
-
-fun uuid(name: String): SpaRouteParameter {
-  return SpaRouteParameter(name, SpaRouteParameterType.UUID)
+  return SpaRouteParameter(name)
 }

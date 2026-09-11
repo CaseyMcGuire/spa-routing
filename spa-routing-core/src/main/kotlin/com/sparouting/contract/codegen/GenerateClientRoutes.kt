@@ -2,7 +2,6 @@ package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinitionDiscovery
 import com.sparouting.contract.SpaRouteParameter
-import com.sparouting.contract.SpaRouteParameterType
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.system.exitProcess
@@ -56,10 +55,8 @@ internal fun generateClientRoutes() {
       appendLine("}")
       appendLine()
       if (typescriptObjectEntries.any { it.parameters.isNotEmpty() }) {
-        appendLine("type RouteParamValue = string | number;")
-        appendLine()
-        appendLine("function encodeRouteParam(value: RouteParamValue): string {")
-        appendLine("  return encodeURIComponent(String(value));")
+        appendLine("function encodeRouteParam(value: string): string {")
+        appendLine("  return encodeURIComponent(value);")
         appendLine("}")
         appendLine()
         appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, ids: SpaRouteIds) {")
@@ -128,15 +125,7 @@ private fun List<SpaRouteParameter>.toTypeScriptParameterObject(): String {
     postfix = " }"
   ) { parameter ->
     val optionalMarker = if (parameter.optional) "?" else ""
-    "${parameter.name.toTypeScriptPropertyName()}$optionalMarker: ${parameter.toTypeScriptType()}"
-  }
-}
-
-private fun SpaRouteParameter.toTypeScriptType(): String {
-  return when (type) {
-    SpaRouteParameterType.STRING -> "string"
-    SpaRouteParameterType.INT -> "number"
-    SpaRouteParameterType.UUID -> "string"
+    "${parameter.name.toTypeScriptPropertyName()}$optionalMarker: string"
   }
 }
 

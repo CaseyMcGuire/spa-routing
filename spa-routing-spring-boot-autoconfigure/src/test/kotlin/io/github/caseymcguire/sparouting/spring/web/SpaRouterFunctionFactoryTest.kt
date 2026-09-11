@@ -1,7 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.web
 
-import com.sparouting.contract.int
 import com.sparouting.contract.route
+import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
@@ -23,32 +23,32 @@ class SpaRouterFunctionFactoryTest {
   fun `known route returns html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
 
-    mockMvc.get("/test/users/42")
-      .andExpect {
-        status { isOk() }
-        content { string(org.hamcrest.Matchers.containsString("<div id=\"root\"></div>")) }
-      }
+    for (id in listOf("42", "user-42", "9223372036854775807", "0042")) {
+      mockMvc.get("/test/users/$id")
+        .andExpect {
+          status { isOk() }
+          content { string(org.hamcrest.Matchers.containsString("<div id=\"root\"></div>")) }
+        }
+    }
   }
 
   @Test
-  fun `invalid path params return configured status`() {
-    val properties = SpaRoutingProperties()
-    properties.server.invalidPathParameterStatus = 422
+  fun `missing path segment returns not found`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id")))))
-      ),
-      properties = properties
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
+        rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
+      )
     )
 
-    mockMvc.get("/test/users/not-an-int")
+    mockMvc.get("/test/users")
       .andExpect {
-        status { isUnprocessableContent() }
+        status { isNotFound() }
       }
   }
 

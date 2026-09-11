@@ -2,7 +2,7 @@ package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.SpaRouteDefinition
-import com.sparouting.contract.int
+import com.sparouting.contract.string
 import java.nio.file.Files
 import kotlin.io.path.readText
 import kotlin.test.Test
@@ -36,6 +36,16 @@ class GenerateClientRoutesTest {
         generated.contains("{ applicationId: \"clientgeneratortest\", routeId: \"UserDetail\" }"),
         generated
       )
+      assertTrue(
+        generated.contains("(params: { id: string }) => `/clientgeneratortest/users/\${encodeRouteParam(params.id)}`"),
+        generated
+      )
+      assertTrue(
+        generated.contains("(params: { id: string; tab?: string }) => " +
+          "`/clientgeneratortest/documents/\${encodeRouteParam(params.id)}/\${params.tab == null ? \"\" : encodeRouteParam(params.tab)}`"),
+        generated
+      )
+      assertTrue(generated.contains("function encodeRouteParam(value: string): string"), generated)
     } finally {
       restoreProperty("spa.application.source.dir", previousSourceDirectory)
       restoreProperty("route.output.dir", previousOutputDirectory)
@@ -61,7 +71,12 @@ object ClientGeneratorTestApplication : SpaApplicationDefinition {
     SpaRouteDefinition(
       path = "users/{id}",
       id = "UserDetail",
-      parameters = listOf(int("id"))
+      parameters = listOf(string("id"))
+    ),
+    SpaRouteDefinition(
+      path = "documents/{id}/{tab}",
+      id = "DocumentDetail",
+      parameters = listOf(string("id"), string("tab").optional())
     )
   )
 }

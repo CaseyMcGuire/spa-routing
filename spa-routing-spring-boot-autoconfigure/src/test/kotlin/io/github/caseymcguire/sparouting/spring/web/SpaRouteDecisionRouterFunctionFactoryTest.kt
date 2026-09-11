@@ -1,7 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.web
 
-import com.sparouting.contract.int
 import com.sparouting.contract.route
+import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
@@ -23,20 +23,22 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns allowed response`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
 
-    mockMvc.get("/__spa/route-decision") {
-      param("applicationId", "test")
-      param("routeId", "UserDetail")
-      param("parameters.id", "42")
-    }.andExpect {
-      status { isOk() }
-      header { string("Cache-Control", "no-store") }
-      jsonPath("$.statusCode") { value(200) }
-      jsonPath("$.location") { doesNotExist() }
+    for (id in listOf("42", "user-42", "9223372036854775807", "0042")) {
+      mockMvc.get("/__spa/route-decision") {
+        param("applicationId", "test")
+        param("routeId", "UserDetail")
+        param("parameters.id", id)
+      }.andExpect {
+        status { isOk() }
+        header { string("Cache-Control", "no-store") }
+        jsonPath("$.statusCode") { value(200) }
+        jsonPath("$.location") { doesNotExist() }
+      }
     }
   }
 
@@ -81,12 +83,13 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   }
 
   @Test
-  fun `route decision returns configured status in body for invalid params`() {
+  fun `route decision returns configured status in body for missing params`() {
     val properties = SpaRoutingProperties()
     properties.server.invalidPathParameterStatus = 422
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id")))))
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
+        rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       ),
       properties = properties
     )
@@ -94,7 +97,6 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
     mockMvc.get("/__spa/route-decision") {
       param("applicationId", "test")
       param("routeId", "UserDetail")
-      param("parameters.id", "not-an-int")
     }.andExpect {
       status { isOk() }
       jsonPath("$.statusCode") { value(422) }
@@ -105,7 +107,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision includes target route query parameters`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
         rules = listOf(RequireQueryParameterRule("tab", "billing"))
       )
     )

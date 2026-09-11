@@ -1,8 +1,8 @@
 package io.github.caseymcguire.sparouting.spring.rules
 
 import com.sparouting.contract.SpaRouteTarget
-import com.sparouting.contract.int
 import com.sparouting.contract.route
+import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
 import kotlin.test.Test
@@ -12,7 +12,7 @@ import kotlin.test.assertFailsWith
 class SpaRouteRuleActionResolverTest {
   private val config = TestSinglePageApplicationConfig(
     TestSpaApplicationDefinition(
-      routes = listOf(route("users/{id}", "UserDetail", listOf(int("id"))))
+      routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))
     )
   )
 
@@ -28,21 +28,23 @@ class SpaRouteRuleActionResolverTest {
 
   @Test
   fun `typed route redirect resolves to full url`() {
-    val response = resolver.resolve(
-      SpaRouteRuleAction.redirectTo(
-        SpaRouteTarget("test", "UserDetail", mapOf("id" to "42"))
+    for (id in listOf("user-42", "0042", "550e8400-e29b-41d4-a716-446655440000")) {
+      val response = resolver.resolve(
+        SpaRouteRuleAction.redirectTo(
+          SpaRouteTarget("test", "UserDetail", mapOf("id" to id))
+        )
       )
-    )
 
-    assertEquals(302, response.statusCode)
-    assertEquals("/test/users/42", response.location)
+      assertEquals(302, response.statusCode)
+      assertEquals("/test/users/$id", response.location)
+    }
   }
 
   @Test
   fun `unknown target app throws`() {
     assertFailsWith<IllegalStateException> {
       resolver.resolve(
-        SpaRouteRuleAction.redirectTo(SpaRouteTarget("missing", "UserDetail", mapOf("id" to "42")))
+        SpaRouteRuleAction.redirectTo(SpaRouteTarget("missing", "UserDetail", mapOf("id" to "550e8400-e29b-41d4-a716-446655440000")))
       )
     }
   }
@@ -51,17 +53,19 @@ class SpaRouteRuleActionResolverTest {
   fun `unknown target route throws`() {
     assertFailsWith<IllegalStateException> {
       resolver.resolve(
-        SpaRouteRuleAction.redirectTo(SpaRouteTarget("test", "Missing", mapOf("id" to "42")))
+        SpaRouteRuleAction.redirectTo(SpaRouteTarget("test", "Missing", mapOf("id" to "550e8400-e29b-41d4-a716-446655440000")))
       )
     }
   }
 
   @Test
   fun `invalid target params throws`() {
-    assertFailsWith<IllegalArgumentException> {
-      resolver.resolve(
-        SpaRouteRuleAction.redirectTo(SpaRouteTarget("test", "UserDetail", mapOf("id" to "not-an-int")))
-      )
+    for (parameters in listOf(emptyMap(), mapOf("id" to "user-42", "unknown" to "value"))) {
+      assertFailsWith<IllegalArgumentException> {
+        resolver.resolve(
+          SpaRouteRuleAction.redirectTo(SpaRouteTarget("test", "UserDetail", parameters))
+        )
+      }
     }
   }
 }

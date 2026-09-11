@@ -4,7 +4,6 @@ import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.SpaApplicationDefinitionDiscovery
 import com.sparouting.contract.SpaRouteDefinition
 import com.sparouting.contract.SpaRouteParameter
-import com.sparouting.contract.SpaRouteParameterType
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Comparator
@@ -89,13 +88,10 @@ private fun SpaRouteDefinition.toKotlinRouteObjectFile(
   return buildString {
     appendGeneratedFileHeader(
       packageName = packageName,
-      imports = buildList {
-        add("com.sparouting.contract.SpaRouteTarget")
-        add("com.sparouting.contract.SpaTypedRoute")
-        if (parameters.any { it.type == SpaRouteParameterType.UUID }) {
-          add("java.util.UUID")
-        }
-      }
+      imports = listOf(
+        "com.sparouting.contract.SpaRouteTarget",
+        "com.sparouting.contract.SpaTypedRoute"
+      )
     )
 
     appendLine("object $id : SpaTypedRoute(\"$applicationId\", \"$id\") {")
@@ -138,19 +134,14 @@ private fun SpaApplicationDefinition.routePackagePath(): String {
 }
 
 private fun SpaRouteParameter.toKotlinParameter(): String {
-  val typeName = when (type) {
-    SpaRouteParameterType.STRING -> "String"
-    SpaRouteParameterType.INT -> "Int"
-    SpaRouteParameterType.UUID -> "UUID"
-  }
   val nullableSuffix = if (optional) "?" else ""
   val defaultValue = if (optional) " = null" else ""
-  return "${name.toKotlinIdentifier()}: $typeName$nullableSuffix$defaultValue"
+  return "${name.toKotlinIdentifier()}: String$nullableSuffix$defaultValue"
 }
 
 private fun List<SpaRouteParameter>.toKotlinParameterMap(): String {
   if (all { !it.optional }) {
-    return "mapOf(${joinToString(", ") { "\"${it.name}\" to ${it.name.toKotlinIdentifier()}.toString()" }})"
+    return "mapOf(${joinToString(", ") { "\"${it.name}\" to ${it.name.toKotlinIdentifier()}" }})"
   }
 
   return buildString {
@@ -159,10 +150,10 @@ private fun List<SpaRouteParameter>.toKotlinParameterMap(): String {
       val identifier = parameter.name.toKotlinIdentifier()
       if (parameter.optional) {
         appendLine("        if ($identifier != null) {")
-        appendLine("          put(\"${parameter.name}\", $identifier.toString())")
+        appendLine("          put(\"${parameter.name}\", $identifier)")
         appendLine("        }")
       } else {
-        appendLine("        put(\"${parameter.name}\", $identifier.toString())")
+        appendLine("        put(\"${parameter.name}\", $identifier)")
       }
     }
     append("      }")

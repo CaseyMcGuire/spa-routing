@@ -239,13 +239,19 @@ Use a typed generated route target when redirecting to another SPA route:
 import com.example.generated.spa.routes.AccountRoutes
 
 SpaRouteRuleResult.Deny(
-  SpaRouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = 123))
+  SpaRouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
 )
 ```
 
 Typed redirects are validated against the target route parameters. Unknown
 applications, unknown routes, and invalid target parameters fail with clear
 startup or runtime errors instead of producing broken URLs.
+
+The example above assumes `parameters = listOf(string("id"))` in the route
+definition. All route parameters are strings: use `string()` for URL IDs,
+including numeric IDs, and pass strings to generated Kotlin and TypeScript
+route builders. The runtime rejects missing required parameters and unknown
+names. Value-format validation belongs in application code.
 
 ## Render HTML
 

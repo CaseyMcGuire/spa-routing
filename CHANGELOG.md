@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- **Route parameters now support strings only.** The `int()` and `uuid()`
+  factories, `SpaRouteParameterType`, `SpaRouteParameter.type`, and
+  `SpaRouteParameter.hasValidValue()` were removed. Generated Kotlin route
+  builders take `String` and generated TypeScript builders take `string`
+  for every parameter. Optional parameters remain supported.
+
+  The runtime still rejects missing required parameters and unknown parameter
+  names, but no longer validates integer or UUID formats. Any value-format
+  validation belongs in application code.
+
+  Migration: replace `int("id")` and `uuid("id")` with `string("id")` and
+  update the imports. For direct construction, use `SpaRouteParameter("id")`
+  without a type argument.
+  Regenerate client and server routes, then pass string values to route builders
+  (for example, `UserDetail(id = "123")` in Kotlin or
+  `UserDetail({ id: "123" })` in TypeScript). Explicit parameter metadata is
+  still required.
+
 ## 0.3.0 (2026-07-18)
 
 ### Breaking changes

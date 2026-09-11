@@ -49,8 +49,8 @@ Example:
 package com.sparouting.contract.applications
 
 import com.sparouting.contract.SpaApplicationDefinition
-import com.sparouting.contract.int
 import com.sparouting.contract.route
+import com.sparouting.contract.string
 
 object AccountSpaApplication : SpaApplicationDefinition {
   override val id = "account"
@@ -59,10 +59,16 @@ object AccountSpaApplication : SpaApplicationDefinition {
   override val appRootPath = "src/main/web-frontend/apps/account"
   override val routes = listOf(
     route("settings", "Settings"),
-    route("users/{id}", "UserDetail", parameters = listOf(int("id")))
+    route("users/{id}", "UserDetail", parameters = listOf(string("id")))
   )
 }
 ```
+
+Declare each path parameter with `string("name")`. All parameters generate
+Kotlin `String` and TypeScript `string` values, including numeric IDs. Use
+`string("name").optional()` for optional parameters. The runtime checks required
+parameters and rejects unknown names; value-format validation belongs in
+application code.
 
 ## Configure Generation
 
@@ -216,7 +222,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
 
 SpaRouteRuleResult.Deny(
-  SpaRouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = 123))
+  SpaRouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
 )
 ```
 
