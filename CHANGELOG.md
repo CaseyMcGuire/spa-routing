@@ -4,11 +4,18 @@
 
 ### Breaking changes
 
+- **Regenerate server routes after upgrading.** `SpaTypedRoute` no longer
+  supplies an inherited zero-argument `invoke()`. The generator now emits each
+  route's invocation method, so required path and query arguments cannot be
+  bypassed by calling the route without arguments. Routes without required
+  arguments remain callable with no arguments after regeneration. Custom
+  subclasses that need a zero-argument call must define it explicitly.
+
 - **Route parameters now support strings only.** The `int()` and `uuid()`
   factories, `SpaRouteParameterType`, `SpaRouteParameter.type`, and
-  `SpaRouteParameter.hasValidValue()` were removed. Generated Kotlin route
-  builders take `String` and generated TypeScript builders take `string`
-  for every parameter. Optional parameters remain supported.
+  `SpaRouteParameter.hasValidValue()` were removed. Parameter values use
+  Kotlin `String` and TypeScript `string`; repeated query parameters use lists
+  of strings. Optional parameters remain supported.
 
   The runtime still rejects missing required parameters and unknown parameter
   names, but no longer validates integer or UUID formats. Any value-format
@@ -21,6 +28,32 @@
   (for example, `UserDetail(id = "123")` in Kotlin or
   `UserDetail({ id: "123" })` in TypeScript). Explicit parameter metadata is
   still required.
+
+### Added
+
+- Strongly typed query declarations via `queryParameters = listOf(string("q"),
+  string("tag").repeated().optional())`. Generated Kotlin `Query` data classes
+  and TypeScript query types support required/optional strings and lists, with
+  a separate query argument on route builders. Repeated lists produce repeated
+  URL keys; values and names are encoded as UTF-8 form query strings.
+- Generated route-specific query enums and `queryParameters(...)` helpers expose
+  declared values through enum-keyed maps. Raw incoming query maps retain extra
+  keys. Query values remain strings; the helpers preserve lists without parsing
+  them into the generated `Query` model.
+- Declared query cardinality is validated before rules for page loads and route
+  decisions, and when resolving typed redirects. Required scalars need one value,
+  optional scalars accept at most one, and required lists need at least one.
+  Empty strings and extra incoming keys are allowed. Routes without query
+  declarations preserve their unrestricted query handling.
+- `spa-routing.server.invalid-query-parameter-status` configures invalid-query
+  responses independently of path parameters and defaults to `400`.
+
+### Fixed
+
+- Client URL generation now substitutes complete path parameter segments, so
+  names such as `query` and `query_` do not interfere with each other.
+- Route declarations reject names that collide after generated identifier
+  normalization, including query enum names.
 
 ## 0.3.0 (2026-07-18)
 

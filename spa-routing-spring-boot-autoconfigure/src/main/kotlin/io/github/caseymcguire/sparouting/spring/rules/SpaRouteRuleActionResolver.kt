@@ -21,7 +21,9 @@ open class SpaRouteRuleActionResolver(
           "Invalid parameters for SPA route target ${target.applicationId}:${target.routeId}"
         }
 
-        application.getFullUrl(route.resolvePath(target.parameters))
+        val path = application.getFullUrl(route.resolvePath(target.parameters))
+        val query = route.resolveQueryString(target.queryParameters)
+        if (query.isEmpty()) path else "$path?$query"
       }
     )
   }

@@ -250,8 +250,98 @@ startup or runtime errors instead of producing broken URLs.
 The example above assumes `parameters = listOf(string("id"))` in the route
 definition. All route parameters are strings: use `string()` for URL IDs,
 including numeric IDs, and pass strings to generated Kotlin and TypeScript
-route builders. The runtime rejects missing required parameters and unknown
-names. Value-format validation belongs in application code.
+route builders. The runtime rejects missing required path parameters and unknown
+path parameter names. Value-format validation belongs in application code.
+
+## Typed Query Parameters
+
+Add a separate query declaration list to a route:
+
+```kotlin
+route(
+  "users/{id}/search",
+  "UserSearch",
+  parameters = listOf(string("id")),
+  queryParameters = listOf(
+    string("q"),
+    string("sort").optional(),
+    string("tag").repeated().optional()
+  )
+)
+```
+
+The generated builders check query names, required arguments, and scalar versus
+list values. Kotlin uses a nested `Query` data class; TypeScript exports a
+`UserSearchQuery` type. Query-only routes accept only the query object. When all
+query fields are optional, the entire query argument can be omitted.
+
+```ts
+AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
+// /account/users/123/search?q=hello+world&tag=a&tag=b
+```
+
+```kotlin
+import com.example.generated.spa.routes.account.UserSearch
+
+SpaRouteRuleResult.Deny(
+  SpaRouteRuleAction.redirectTo(
+    UserSearch(id = "123", query = UserSearch.Query(q = "hello world", tag = listOf("a", "b")))
+  )
+)
+```
+
+Kotlin targets retain query values in `SpaRouteTarget.queryParameters` as
+`Map<String, List<String>>`. The redirect resolver validates and URL-encodes
+these values. Encoding preserves repeated-value order and uses `+` for spaces;
+an omitted query never adds a trailing `?`. Route `.path` metadata contains only
+the path pattern.
+
+Declared query parameters follow these rules:
+
+| Declaration | Incoming values | Generated argument |
+| --- | --- | --- |
+| `string("q")` | Exactly one | `String` / `string` |
+| `string("q").optional()` | Zero or one | Nullable `String` / optional `string` |
+| `string("tag").repeated()` | One or more | `List<String>` / `readonly string[]` |
+| `string("tag").repeated().optional()` | Zero or more | Nullable list / optional array |
+
+`.optional()` and `.repeated()` may be applied in either order. Repeated
+declarations are only valid for queries. Empty strings count as present values;
+empty optional lists and omitted optional fields add no query key. Builders
+reject empty required lists at runtime. Path and query keys may share a name.
+Duplicate query names and colliding generated identifiers are rejected.
+
+Validation runs before application and route rules on both page loads and route
+decisions. Invalid queries use `spa-routing.server.invalid-query-parameter-status`
+(default `400`); invalid typed redirect targets throw `IllegalArgumentException`.
+Extra incoming keys such as `utm_source` are accepted and remain in the raw
+request map. Routes without query declarations keep accepting arbitrary queries.
+
+Use the generated enum map helpers to read declared values:
+
+```kotlin
+val query = UserSearch.queryParameters(request.queryParameters)
+val search = query[UserSearch.QueryKey.Q]?.firstOrNull()
+val tags = query[UserSearch.QueryKey.TAG].orEmpty()
+val campaign = request.queryParameter("utm_source")
+```
+
+```ts
+import { AccountRoutes, UserSearchQueryKey } from "./__generated__/routes/AccountRoutes";
+
+const raw = new URLSearchParams(location.search);
+const query = AccountRoutes.UserSearch.queryParameters(raw);
+const search = query[UserSearchQueryKey.Q]?.[0];
+const tags = query[UserSearchQueryKey.TAG] ?? [];
+const campaign = raw.get("utm_source");
+```
+
+The Kotlin helper returns `Map<UserSearch.QueryKey, List<String>>`. The TypeScript
+helper returns a readonly partial record keyed by `UserSearchQueryKey`, whose
+values are readonly string arrays. Both helpers omit absent and undeclared keys,
+preserve all values, and leave the raw input unchanged. They do not validate or
+construct the generated `Query` model. Kotlin enum entries expose the URL name
+through `wireName`; TypeScript string enums use the URL name as their value.
 
 ## Render HTML
 
@@ -311,6 +401,7 @@ spa-routing:
   server:
     enabled: true
     invalid-path-parameter-status: 400
+    invalid-query-parameter-status: 400
   route-decision:
     enabled: true
     path: /__spa/route-decision
@@ -362,6 +453,13 @@ query parameter prefix, for example `parameters.id=123`. Target route query
 parameters use the `queryParameters.` prefix, for example
 `queryParameters.tab=billing`.
 
+Pass repeated query values as repeated prefixed keys. For the declared
+`UserSearch` route above:
+
+```http
+GET /__spa/route-decision?applicationId=account&routeId=UserSearch&parameters.id=123&queryParameters.q=hello&queryParameters.tag=a&queryParameters.tag=b
+```
+
 The decision endpoint builds a synthetic `SpaRouteRequest` for the target route:
 
 - `applicationId`: from the `applicationId` query parameter
@@ -391,7 +489,8 @@ type SpaRouteDecision = {
 
 async function decideRoute(
   route: { applicationId: string; routeId: string },
-  parameters: Record<string, string> = {}
+  parameters: Record<string, string> = {},
+  queryParameters: Record<string, readonly string[]> = {}
 ): Promise<SpaRouteDecision> {
   const query = new URLSearchParams({
     applicationId: route.applicationId,
@@ -402,18 +501,24 @@ async function decideRoute(
     query.set(`parameters.${name}`, value);
   });
 
+  Object.entries(queryParameters).forEach(([name, values]) => {
+    values.forEach(value => query.append(`queryParameters.${name}`, value));
+  });
+
   const response = await fetch(`/__spa/route-decision?${query}`);
   return (await response.json()) as SpaRouteDecision;
 }
 
 // decideRoute(AccountRoutes.UserDetail, { id: "123" });
+// decideRoute(AccountRoutes.UserSearch, { id: "123" }, { q: ["hello"], tag: ["a", "b"] });
 ```
 
 Decision statuses match what the MVC route would use:
 
 - `200`: navigation is allowed
 - `302` with `location`: redirect
-- configured `spa-routing.server.invalid-path-parameter-status`: invalid route parameters
+- configured `spa-routing.server.invalid-path-parameter-status`: invalid path parameters
+- configured `spa-routing.server.invalid-query-parameter-status`: invalid declared query parameters
 - `404`: unknown route
 - any other 3xx, 4xx, or 5xx returned by your rules
 

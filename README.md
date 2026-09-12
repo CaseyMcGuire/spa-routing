@@ -64,11 +64,69 @@ object AccountSpaApplication : SpaApplicationDefinition {
 }
 ```
 
-Declare each path parameter with `string("name")`. All parameters generate
+Declare each path parameter with `string("name")`. Path parameters generate
 Kotlin `String` and TypeScript `string` values, including numeric IDs. Use
 `string("name").optional()` for optional parameters. The runtime checks required
 parameters and rejects unknown names; value-format validation belongs in
 application code.
+
+## Typed Query Parameters
+
+Declare queries separately from path parameters:
+
+```kotlin
+route(
+  "users/{id}/search",
+  "UserSearch",
+  parameters = listOf(string("id")),
+  queryParameters = listOf(
+    string("q"),
+    string("sort").optional(),
+    string("tag").repeated().optional()
+  )
+)
+```
+
+Generated TypeScript builders accept a separate query object:
+
+```ts
+AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
+// /account/users/123/search?q=hello+world&tag=a&tag=b
+```
+
+Generated Kotlin routes accept a nested `Query` value:
+
+```kotlin
+import com.example.generated.spa.routes.account.UserSearch
+
+val target = UserSearch(
+  id = "123",
+  query = UserSearch.Query(q = "hello world", tag = listOf("a", "b"))
+)
+```
+
+Required query fields must be supplied. Optional fields may be omitted; repeated
+fields take string lists. Query-only routes accept just the query object, and
+routes whose queries are all optional allow that object to be omitted. Generated
+`.path` metadata remains the path pattern without a query string.
+
+Each route with query declarations also generates an enum and a map helper:
+
+```kotlin
+val query = UserSearch.queryParameters(request.queryParameters)
+val search = query[UserSearch.QueryKey.Q]?.firstOrNull()
+```
+
+```ts
+import { AccountRoutes, UserSearchQueryKey } from "./__generated__/routes/AccountRoutes";
+
+const query = AccountRoutes.UserSearch.queryParameters(new URLSearchParams(location.search));
+const search = query[UserSearchQueryKey.Q]?.[0];
+```
+
+The runtime validates declared query parameters, while preserving extra incoming
+keys in the raw request map. See [the runtime guide](docs/spring-boot-client-apps.md#typed-query-parameters)
+for validation rules, redirects, and route decisions.
 
 ## Configure Generation
 
@@ -277,6 +335,7 @@ spa-routing:
   server:
     enabled: true
     invalid-path-parameter-status: 400
+    invalid-query-parameter-status: 400
   route-decision:
     enabled: true
     path: /__spa/route-decision
@@ -296,6 +355,11 @@ Override these beans to customize runtime behavior:
 - `SpaRouteResponseService`
 
 ## Development
+
+Development requires JDK 21 and Node.js with npm on `PATH`. The build installs a
+pinned TypeScript compiler into `spa-routing-core/build/typescript-tests` and
+compiles and runs generated Kotlin and TypeScript API fixtures, including
+negative type checks. These tools are test dependencies only.
 
 Build and test:
 

@@ -11,6 +11,7 @@ class SpaRoutingProperties {
   class Server {
     var enabled: Boolean = true
     var invalidPathParameterStatus: Int = 400
+    var invalidQueryParameterStatus: Int = 400
   }
 
   class RouteDecision {

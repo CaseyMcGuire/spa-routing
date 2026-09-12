@@ -2,7 +2,8 @@ package com.sparouting.contract
 
 data class SpaRouteParameter(
   val name: String,
-  val optional: Boolean = false
+  val optional: Boolean = false,
+  val repeated: Boolean = false
 ) {
   init {
     require(name.isNotBlank()) {
@@ -12,5 +13,9 @@ data class SpaRouteParameter(
 
   fun optional(): SpaRouteParameter {
     return copy(optional = true)
+  }
+
+  fun repeated(): SpaRouteParameter {
+    return copy(repeated = true)
   }
 }

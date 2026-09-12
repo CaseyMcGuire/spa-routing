@@ -90,6 +90,7 @@ class SpaRoutingAutoConfigurationTest {
     contextRunner
       .withPropertyValues(
         "spa-routing.server.invalid-path-parameter-status=422",
+        "spa-routing.server.invalid-query-parameter-status=409",
         "spa-routing.route-decision.path=/internal/spa-route-decision",
         "spa-routing.assets.bundle-base-path=/assets",
         "spa-routing.assets.include-route-stylesheet=false",
@@ -98,6 +99,7 @@ class SpaRoutingAutoConfigurationTest {
       .run { context ->
         val properties = context.getBean(SpaRoutingProperties::class.java)
         assertThat(properties.server.invalidPathParameterStatus).isEqualTo(422)
+        assertThat(properties.server.invalidQueryParameterStatus).isEqualTo(409)
         assertThat(properties.routeDecision.path).isEqualTo("/internal/spa-route-decision")
         assertThat(properties.assets.bundleBasePath).isEqualTo("/assets")
         assertThat(properties.assets.includeRouteStylesheet).isFalse()

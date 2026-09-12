@@ -4,6 +4,8 @@ import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.SpaApplicationDefinitionDiscovery
 import com.sparouting.contract.SpaRouteDefinition
 import com.sparouting.contract.SpaRouteParameter
+import com.sparouting.contract.queryKeyIdentifier
+import com.sparouting.contract.routeParameterIdentifier
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Comparator
@@ -94,11 +96,21 @@ private fun SpaRouteDefinition.toKotlinRouteObjectFile(
       )
     )
 
-    appendLine("object $id : SpaTypedRoute(\"$applicationId\", \"$id\") {")
-    if (parameters.isNotEmpty()) {
-      appendLine("  operator fun invoke(${parameters.joinToString(", ") { it.toKotlinParameter() }}): SpaRouteTarget {")
-      appendLine("    return target(${parameters.toKotlinParameterMap()})")
-      appendLine("  }")
+    appendLine("object $id : SpaTypedRoute(${applicationId.toKotlinStringLiteral()}, ${id.toKotlinStringLiteral()}) {")
+    var queryArgument = "query"
+    val pathIdentifiers = parameters.map { it.name.routeParameterIdentifier() }.toSet()
+    while (queryArgument in pathIdentifiers) queryArgument += "_"
+    val arguments = parameters.map { it.toKotlinParameter() }.toMutableList()
+    if (queryParameters.isNotEmpty()) {
+      val default = if (queryParameters.all { it.optional }) " = Query()" else ""
+      arguments.add("$queryArgument: Query$default")
+    }
+    appendLine("  operator fun invoke(${arguments.joinToString(", ")}): SpaRouteTarget {")
+    val queryValues = if (queryParameters.isEmpty()) "" else ", queryParameters = $queryArgument.toQueryParameters()"
+    appendLine("    return target(${parameters.toKotlinParameterMap()}$queryValues)")
+    appendLine("  }")
+    if (queryParameters.isNotEmpty()) {
+      appendQueryModel(queryParameters)
     }
     appendLine("}")
   }
@@ -136,12 +148,13 @@ private fun SpaApplicationDefinition.routePackagePath(): String {
 private fun SpaRouteParameter.toKotlinParameter(): String {
   val nullableSuffix = if (optional) "?" else ""
   val defaultValue = if (optional) " = null" else ""
-  return "${name.toKotlinIdentifier()}: String$nullableSuffix$defaultValue"
+  val type = if (repeated) "List<String>" else "String"
+  return "${name.toKotlinIdentifier()}: $type$nullableSuffix$defaultValue"
 }
 
 private fun List<SpaRouteParameter>.toKotlinParameterMap(): String {
   if (all { !it.optional }) {
-    return "mapOf(${joinToString(", ") { "\"${it.name}\" to ${it.name.toKotlinIdentifier()}" }})"
+    return "mapOf(${joinToString(", ") { "${it.name.toKotlinStringLiteral()} to ${it.name.toKotlinIdentifier()}" }})"
   }
 
   return buildString {
@@ -150,10 +163,10 @@ private fun List<SpaRouteParameter>.toKotlinParameterMap(): String {
       val identifier = parameter.name.toKotlinIdentifier()
       if (parameter.optional) {
         appendLine("        if ($identifier != null) {")
-        appendLine("          put(\"${parameter.name}\", $identifier)")
+        appendLine("          put(${parameter.name.toKotlinStringLiteral()}, $identifier)")
         appendLine("        }")
       } else {
-        appendLine("        put(\"${parameter.name}\", $identifier)")
+        appendLine("        put(${parameter.name.toKotlinStringLiteral()}, $identifier)")
       }
     }
     append("      }")
@@ -173,11 +186,54 @@ private fun String.toPackageSegment(): String {
   }
 }
 
-private fun String.toKotlinIdentifier(): String {
-  val sanitized = replace("[^A-Za-z0-9_]".toRegex(), "_")
-  return if (sanitized.firstOrNull()?.isDigit() == true) {
-    "_$sanitized"
-  } else {
-    sanitized
+private fun StringBuilder.appendQueryModel(parameters: List<SpaRouteParameter>) {
+  appendLine()
+  appendLine("  data class Query(")
+  parameters.forEachIndexed { index, parameter ->
+    val comma = if (index == parameters.lastIndex) "" else ","
+    appendLine("    val ${parameter.toKotlinParameter()}$comma")
   }
+  appendLine("  ) {")
+  appendLine("    internal fun toQueryParameters(): Map<String, List<String>> {")
+  parameters.filter { it.repeated && !it.optional }.forEach { parameter ->
+    appendLine("      require(this.${parameter.name.toKotlinIdentifier()}.isNotEmpty()) {")
+    appendLine("        ${("Required query parameter ${parameter.name} must contain at least one value.").toKotlinStringLiteral()}")
+    appendLine("      }")
+  }
+  appendLine("      val queryValues = this")
+  appendLine("      return buildMap {")
+  parameters.forEach { parameter ->
+    val property = "queryValues.${parameter.name.toKotlinIdentifier()}"
+    val key = parameter.name.toKotlinStringLiteral()
+    if (parameter.optional) {
+      appendLine("        $property?.let { value ->")
+      if (parameter.repeated) {
+        appendLine("          if (value.isNotEmpty()) put($key, value.toList())")
+      } else {
+        appendLine("          put($key, listOf(value))")
+      }
+      appendLine("        }")
+    } else {
+      val values = if (parameter.repeated) "$property.toList()" else "listOf($property)"
+      appendLine("        put($key, $values)")
+    }
+  }
+  appendLine("      }")
+  appendLine("    }")
+  appendLine("  }")
+  appendLine()
+  appendLine("  enum class QueryKey(val wireName: String) {")
+  parameters.forEachIndexed { index, parameter ->
+    val separator = if (index == parameters.lastIndex) "" else ","
+    appendLine("    ${parameter.name.queryKeyIdentifier()}(${parameter.name.toKotlinStringLiteral()})$separator")
+  }
+  appendLine("  }")
+  appendLine()
+  appendLine("  fun queryParameters(values: Map<String, List<String>>): Map<QueryKey, List<String>> {")
+  appendLine("    return buildMap {")
+  appendLine("      QueryKey.entries.forEach { key ->")
+  appendLine("        values[key.wireName]?.let { put(key, it.toList()) }")
+  appendLine("      }")
+  appendLine("    }")
+  appendLine("  }")
 }

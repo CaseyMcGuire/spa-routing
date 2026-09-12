@@ -1,9 +1,13 @@
 package com.sparouting.contract
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+
 data class SpaRouteDefinition(
   val path: String,
   val id: String,
-  val parameters: List<SpaRouteParameter> = emptyList()
+  val parameters: List<SpaRouteParameter> = emptyList(),
+  val queryParameters: List<SpaRouteParameter> = emptyList()
 ) {
   init {
     require(id.isNotBlank()) {
@@ -13,6 +17,18 @@ data class SpaRouteDefinition(
     require(ROUTE_ID_PATTERN.matches(id)) {
       "SPA route id must be a PascalCase Kotlin identifier: $id"
     }
+
+    require(parameters.none { it.repeated }) {
+      "Route $id cannot have repeated path parameters. Use repeated() only for query parameters."
+    }
+
+    val queryNames = queryParameters.map { it.name }
+    require(queryNames.toSet().size == queryNames.size) {
+      "Route $id has duplicate query parameter metadata: ${queryNames.joinToString(", ")}"
+    }
+    requireUniqueGeneratedNames(parameters, "path", false)
+    requireUniqueGeneratedNames(queryParameters, "query", false)
+    requireUniqueGeneratedNames(queryParameters, "query enum", true)
 
     val pathParameterNames = pathParameterNames()
     val routeParameterNames = parameters.map { it.name }
@@ -54,6 +70,37 @@ data class SpaRouteDefinition(
 
   fun requiredParameters(): List<SpaRouteParameter> {
     return parameters.filter { !it.optional }
+  }
+
+  fun hasValidQueryParameterValues(parameterValues: Map<String, List<String>>): Boolean {
+    return queryParameters.all { parameter ->
+      val count = parameterValues[parameter.name]?.size ?: 0
+      (parameter.optional || count > 0) && (parameter.repeated || count <= 1)
+    }
+  }
+
+  fun resolveQueryString(parameterValues: Map<String, List<String>>): String {
+    require(hasValidQueryParameterValues(parameterValues)) {
+      "Invalid query parameters for SPA route $id"
+    }
+    return parameterValues.flatMap { (name, values) ->
+      values.map { value ->
+        "${URLEncoder.encode(name, StandardCharsets.UTF_8)}=${URLEncoder.encode(value, StandardCharsets.UTF_8)}"
+      }
+    }.joinToString("&")
+  }
+
+  private fun requireUniqueGeneratedNames(
+    declarations: List<SpaRouteParameter>,
+    kind: String,
+    enumNames: Boolean
+  ) {
+    val names = declarations.map {
+      if (enumNames) it.name.queryKeyIdentifier() else it.name.routeParameterIdentifier()
+    }
+    require(names.toSet().size == names.size) {
+      "Route $id has colliding generated $kind identifiers: ${names.joinToString(", ")}"
+    }
   }
 
   fun resolvePath(parameterValues: Map<String, String>): String {

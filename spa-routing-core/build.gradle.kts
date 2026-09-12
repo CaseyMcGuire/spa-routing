@@ -21,10 +21,30 @@ kotlin {
 
 dependencies {
   testImplementation(kotlin("test"))
+  testImplementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.2.21")
+}
+
+val typeScriptTestDirectory = layout.buildDirectory.dir("typescript-tests")
+val prepareTypeScriptTests by tasks.registering(Copy::class) {
+  from("src/test/typescript/package.json", "src/test/typescript/package-lock.json")
+  into(typeScriptTestDirectory)
+}
+
+val installTypeScriptTestDependencies by tasks.registering(Exec::class) {
+  dependsOn(prepareTypeScriptTests)
+  workingDir(typeScriptTestDirectory)
+  commandLine("npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund")
+  inputs.files("src/test/typescript/package.json", "src/test/typescript/package-lock.json")
+  outputs.dir(typeScriptTestDirectory.map { it.dir("node_modules") })
 }
 
 tasks.test {
+  dependsOn(installTypeScriptTestDependencies)
   useJUnitPlatform()
+  inputs.dir("src/test/fixtures")
+  inputs.dir("src/test/typescript")
+  systemProperty("test.runtime.classpath", sourceSets["test"].runtimeClasspath.asPath)
+  systemProperty("test.typescript.compiler", typeScriptTestDirectory.get().file("node_modules/typescript/bin/tsc").asFile.absolutePath)
 }
 
 mavenPublishing {

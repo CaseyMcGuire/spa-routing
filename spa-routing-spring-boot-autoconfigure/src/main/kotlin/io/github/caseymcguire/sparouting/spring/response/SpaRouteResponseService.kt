@@ -7,7 +7,8 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 open class SpaRouteResponseService @JvmOverloads constructor(
   private val routeRegistry: SinglePageApplicationRouteRegistry,
   private val evaluator: SpaRouteResponseEvaluator,
-  private val invalidPathParameterStatus: Int = 400
+  private val invalidPathParameterStatus: Int = 400,
+  private val invalidQueryParameterStatus: Int = 400
 ) {
   open fun evaluate(request: SpaRouteResponseRequest): SpaRouteHttpResponse {
     val match = routeRegistry.findByApplicationAndRouteId(
@@ -17,6 +18,10 @@ open class SpaRouteResponseService @JvmOverloads constructor(
 
     if (!match.route.hasValidParameterValues(request.parameters)) {
       return SpaRouteHttpResponse(invalidPathParameterStatus)
+    }
+
+    if (!match.route.hasValidQueryParameterValues(request.queryParameters)) {
+      return SpaRouteHttpResponse(invalidQueryParameterStatus)
     }
 
     val spaRouteRequest = SpaRouteRequest(
