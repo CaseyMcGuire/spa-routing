@@ -23,7 +23,7 @@ class SpaRouterFunctionFactory(
     return router {
       routeConfigs.forEach { config ->
         config.routes.forEach { route ->
-          GET(config.getFullUrl(route)) { request ->
+          GET(config.getFullPathPattern(route)) { request ->
             handleSinglePageApplicationRoute(config, route, request)
           }
         }

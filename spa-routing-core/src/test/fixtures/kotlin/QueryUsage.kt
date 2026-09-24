@@ -38,6 +38,6 @@ fun verifyQueries(): String {
 
   val target = QueryTestRoutes.UserDetail("123", UserDetail.Query(foo = "a b+&=雪", baz = "", tag = listOf("x/y", "é")))
   val definition = QueryGeneratorTestApplication.routes.first { it.id == "UserDetail" }
-  return QueryGeneratorTestApplication.getFullUrl(definition.resolvePath(target.parameters)) +
+  return definition.resolvePath(QueryGeneratorTestApplication.getFullPathPattern(definition), target.parameters) +
     "?" + definition.resolveQueryString(target.queryParameters)
 }

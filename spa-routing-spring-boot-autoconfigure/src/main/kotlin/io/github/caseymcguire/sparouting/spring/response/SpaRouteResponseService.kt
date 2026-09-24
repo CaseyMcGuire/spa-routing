@@ -28,7 +28,7 @@ open class SpaRouteResponseService @JvmOverloads constructor(
       applicationId = match.application.applicationId,
       routeId = match.route.id,
       method = "GET",
-      path = match.application.getFullUrl(match.route.resolvePath(request.parameters)),
+      path = match.route.resolvePath(match.application.getFullPathPattern(match.route), request.parameters),
       pathParameters = request.parameters,
       queryParameters = request.queryParameters,
       headers = request.headers

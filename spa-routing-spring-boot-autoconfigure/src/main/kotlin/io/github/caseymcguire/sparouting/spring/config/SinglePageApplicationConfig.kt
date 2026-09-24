@@ -40,16 +40,12 @@ interface SinglePageApplicationConfig {
    */
   fun renderHtml(): ServerResponse? = null
 
-  fun getFullUrls(): List<String> {
-    return routes.map { getFullUrl(it.path) }
+  fun getFullPathPatterns(): List<String> {
+    return routes.map { getFullPathPattern(it) }
   }
 
-  fun getFullUrl(route: SpaRouteDefinition): String {
-    return getFullUrl(route.path)
-  }
-
-  fun getFullUrl(path: String): String {
-    return application.getFullUrl(path)
+  fun getFullPathPattern(route: SpaRouteDefinition): String {
+    return application.getFullPathPattern(route)
   }
 
   fun getRouteRules(route: SpaRouteDefinition): List<SpaRouteRule> {

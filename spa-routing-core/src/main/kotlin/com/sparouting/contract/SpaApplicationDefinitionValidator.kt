@@ -28,7 +28,7 @@ object SpaApplicationDefinitionValidator {
 
   private fun validateRouteUrls(application: SpaApplicationDefinition) {
     val duplicateRouteUrls = application.routes
-      .map { application.getFullUrl(it) }
+      .map { application.getFullPathPattern(it) }
       .duplicates()
     require(duplicateRouteUrls.isEmpty()) {
       "Single page application ${application.id} has duplicate route URLs: ${

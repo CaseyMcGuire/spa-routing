@@ -34,7 +34,7 @@ internal fun generateClientRoutes() {
       TypeScriptRouteConfig(
         applicationId = config.id,
         key = routeId,
-        path = routeConverter.convertToReactRouter(config.getFullUrl(route.path)),
+        path = routeConverter.convertToReactRouter(config.getFullPathPattern(route)),
         parameters = route.parameters,
         queryParameters = route.queryParameters
       )

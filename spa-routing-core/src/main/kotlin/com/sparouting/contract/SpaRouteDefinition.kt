@@ -103,8 +103,8 @@ data class SpaRouteDefinition(
     }
   }
 
-  fun resolvePath(parameterValues: Map<String, String>): String {
-    return PATH_PARAMETER_PATTERN.replace(path) { match ->
+  fun resolvePath(pathPattern: String, parameterValues: Map<String, String>): String {
+    return PATH_PARAMETER_PATTERN.replace(pathPattern) { match ->
       val name = match.groupValues[1]
       parameterValues[name] ?: match.value
     }

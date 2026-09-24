@@ -4,6 +4,18 @@
 
 ### Breaking changes
 
+- **`getFullUrl` was replaced by `getFullPathPattern`.**
+  `SpaApplicationDefinition` and `SinglePageApplicationConfig` now expose
+  `getFullPathPattern(route)`, taking a `SpaRouteDefinition` and returning its
+  prefixed path pattern with parameter placeholders intact. The string overload
+  was removed. Parameter substitution is handled separately by `resolvePath`.
+
+  Migration: replace `getFullUrl(route)` or `getFullUrl(route.path)` with
+  `getFullPathPattern(route)`, and `getFullUrl(route.resolvePath(values))` with
+  `route.resolvePath(getFullPathPattern(route), values)`. On
+  `SinglePageApplicationConfig`, `getFullUrls()` was renamed to
+  `getFullPathPatterns()`. Query-string handling is unchanged.
+
 - **Regenerate server routes after upgrading.** `SpaTypedRoute` no longer
   supplies an inherited zero-argument `invoke()`. The generator now emits each
   route's invocation method, so required path and query arguments cannot be
