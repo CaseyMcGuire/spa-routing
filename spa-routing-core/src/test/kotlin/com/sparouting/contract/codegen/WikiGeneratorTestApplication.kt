@@ -2,7 +2,7 @@ package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.route
-import com.sparouting.contract.string
+import com.sparouting.contract.parameter
 
 object WikiGeneratorTestApplication : SpaApplicationDefinition {
   override val id = "wiki"
@@ -11,7 +11,7 @@ object WikiGeneratorTestApplication : SpaApplicationDefinition {
   override val appRootPath = "src/test"
   override val routes = listOf(
     route("", "Index"),
-    route("{wikiId}", "View", listOf(string("wikiId")), listOf(string("tab").optional())),
-    route("{wikiId}/edit", "Edit", listOf(string("wikiId")))
+    route("{wikiId}", "View", queryString = listOf(parameter("tab").optional())),
+    route("{wikiId}/edit", "Edit")
   )
 }

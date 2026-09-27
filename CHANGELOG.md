@@ -4,6 +4,27 @@
 
 ### Breaking changes
 
+- **`string(name)` was renamed to `parameter(name)`.** All values are strings;
+  the declaration specifies the name and optional/repeated behavior. Update
+  factory calls and imports. Required path parameters are now inferred from
+  placeholders and need no declaration.
+
+- **The query-string API now uses `queryString` consistently.** Rename
+  `queryParameters` declarations, request/target properties, and generated map
+  helpers to `queryString`. Generated Kotlin builders now take `queryString =`
+  with a nested `QueryString` model; TypeScript types use the `QueryString`
+  suffix. Enums are now `QueryStringKey` / `<Route>QueryStringKey`. Client
+  parsers return `{ params, queryString }` instead of `{ params, query }`.
+
+  Regenerate both client and server routes, then update callers. Rename
+  `queryParameter(name)` to `queryStringValue(name)` and
+  `hasValidQueryParameterValues(...)` to `hasValidQueryStringValues(...)`.
+  Route-decision requests now use the `queryString.` prefix instead of
+  `queryParameters.`, and the invalid-value setting is now
+  `spa-routing.server.invalid-query-string-status` (previously
+  `invalid-query-parameter-status`). Types, encoding, and validation behavior
+  are unchanged.
+
 - **`getFullUrl` was replaced by `getFullPathPattern`.**
   `SpaApplicationDefinition` and `SinglePageApplicationConfig` now expose
   `getFullPathPattern(route)`, taking a `SpaRouteDefinition` and returning its
@@ -33,34 +54,38 @@
   names, but no longer validates integer or UUID formats. Any value-format
   validation belongs in application code.
 
-  Migration: replace `int("id")` and `uuid("id")` with `string("id")` and
-  update the imports. For direct construction, use `SpaRouteParameter("id")`
-  without a type argument.
+  Migration: omit redundant path declarations and infer names from the path.
+  For query-string declarations or explicit path overrides, replace `int("id")`
+  and `uuid("id")` with `parameter("id")` and update the imports. For direct
+  construction, use `SpaRouteParameter("id")` without a type argument.
   Regenerate client and server routes, then pass string values to route builders
   (for example, `UserDetail(id = "123")` in Kotlin or
-  `UserDetail({ id: "123" })` in TypeScript). Explicit parameter metadata is
-  still required.
+  `UserDetail({ id: "123" })` in TypeScript).
 
 ### Added
 
+- Path parameters are inferred as strings from route placeholders, so
+  `route("users/{id}", "UserDetail")` needs no separate parameter declaration.
+  Explicit metadata remains supported for optional path values. Duplicate and
+  colliding inferred names are rejected before code generation.
 - Generated TypeScript route objects expose `parse(params, searchParams)`,
   returning typed path and query objects or `null` for invalid declared values.
   Consumer router adapters can infer renderer arguments from its return type.
-- Strongly typed query declarations via `queryParameters = listOf(string("q"),
-  string("tag").repeated().optional())`. Generated Kotlin `Query` data classes
+- Strongly typed query-string declarations via `queryString = listOf(parameter("q"),
+  parameter("tag").repeated().optional())`. Generated Kotlin `QueryString` data classes
   and TypeScript query types support required/optional strings and lists, with
   a separate query argument on route builders. Repeated lists produce repeated
   URL keys; values and names are encoded as UTF-8 form query strings.
-- Generated route-specific query enums and `queryParameters(...)` helpers expose
+- Generated route-specific query-string enums and `queryString(...)` helpers expose
   declared values through enum-keyed maps. Raw incoming query maps retain extra
   keys. Query values remain strings; the helpers preserve lists without parsing
-  them into the generated `Query` model.
+  them into the generated `QueryString` model.
 - Declared query cardinality is validated before rules for page loads and route
   decisions, and when resolving typed redirects. Required scalars need one value,
   optional scalars accept at most one, and required lists need at least one.
   Empty strings and extra incoming keys are allowed. Routes without query
   declarations preserve their unrestricted query handling.
-- `spa-routing.server.invalid-query-parameter-status` configures invalid-query
+- `spa-routing.server.invalid-query-string-status` configures invalid-query-string
   responses independently of path parameters and defaults to `400`.
 
 ### Fixed

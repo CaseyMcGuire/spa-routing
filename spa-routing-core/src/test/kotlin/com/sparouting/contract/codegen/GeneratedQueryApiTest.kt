@@ -32,15 +32,15 @@ class GeneratedQueryApiTest {
 
     val failures = mapOf(
       "MissingQuery" to "UserDetail(id = \"123\")",
-      "MissingRequiredKey" to "UserDetail.Query()",
-      "UnknownKey" to "UserDetail.Query(foo = \"x\", unknown = \"x\")",
-      "WrongScalar" to "UserDetail.Query(foo = listOf(\"x\"))",
-      "WrongList" to "Filters.Query(tag = \"x\")",
-      "MissingRequiredList" to "Filters.Query()",
+      "MissingRequiredKey" to "UserDetail.QueryString()",
+      "UnknownKey" to "UserDetail.QueryString(foo = \"x\", unknown = \"x\")",
+      "WrongScalar" to "UserDetail.QueryString(foo = listOf(\"x\"))",
+      "WrongList" to "Filters.QueryString(tag = \"x\")",
+      "MissingRequiredList" to "Filters.QueryString()",
       "NoArgumentBypass" to "UserDetail()",
       "QueryOnlyBypass" to "Search()",
-      "WrongEnum" to "UserDetail.queryParameters(emptyMap())[Search.QueryKey.Q]",
-      "UnknownEnum" to "UserDetail.QueryKey.UNKNOWN"
+      "WrongEnum" to "UserDetail.queryString(emptyMap())[Search.QueryStringKey.Q]",
+      "UnknownEnum" to "UserDetail.QueryStringKey.UNKNOWN"
     ).map { (name, expression) ->
       output.resolve("$name.kt").also {
         it.writeText("import generated.querytest.*\nfun $name() { $expression }\n")

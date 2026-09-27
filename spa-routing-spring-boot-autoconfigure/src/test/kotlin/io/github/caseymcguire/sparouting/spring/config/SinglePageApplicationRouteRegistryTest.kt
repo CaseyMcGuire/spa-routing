@@ -1,7 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.config
 
 import com.sparouting.contract.route
-import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -17,7 +16,7 @@ class SinglePageApplicationRouteRegistryTest {
   fun `indexes routes by application and route id`() {
     val config = TestSinglePageApplicationConfig(
       TestSpaApplicationDefinition(
-        routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))
+        routes = listOf(route("users/{id}", "UserDetail"))
       )
     )
 

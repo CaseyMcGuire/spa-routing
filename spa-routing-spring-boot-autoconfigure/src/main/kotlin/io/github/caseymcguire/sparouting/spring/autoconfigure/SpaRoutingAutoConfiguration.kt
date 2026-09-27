@@ -76,7 +76,7 @@ class SpaRoutingAutoConfiguration {
       routeRegistry = routeRegistry,
       evaluator = evaluator,
       invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
-      invalidQueryParameterStatus = properties.server.invalidQueryParameterStatus
+      invalidQueryStringStatus = properties.server.invalidQueryStringStatus
     )
   }
 

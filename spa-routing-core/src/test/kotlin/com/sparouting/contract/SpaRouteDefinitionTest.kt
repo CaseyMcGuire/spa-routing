@@ -1,17 +1,44 @@
 package com.sparouting.contract
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SpaRouteDefinitionTest {
   @Test
-  fun `rejects missing parameter metadata`() {
+  fun `infers string parameters in path order`() {
+    val definition = SpaRouteDefinition("users/{id}/orders/{orderId:[0-9]+}", "UserOrder")
+    assertEquals(listOf(parameter("id"), parameter("orderId")), definition.parameters)
+    assertEquals(definition.parameters, route(definition.path, definition.id).parameters)
+    assertTrue(definition.hasValidParameterValues(mapOf("id" to "user-42", "orderId" to "0042")))
+    assertFalse(definition.hasValidParameterValues(mapOf("id" to "user-42")))
+  }
+
+  @Test
+  fun `static routes infer no parameters`() {
+    assertTrue(route("home", "Home").parameters.isEmpty())
+    assertTrue(SpaRouteDefinition("", "Index").parameters.isEmpty())
+  }
+
+  @Test
+  fun `rejects duplicate and colliding inferred path names`() {
+    assertFailsWith<IllegalArgumentException> {
+      route("users/{id}/orders/{id}", "UserOrder")
+    }
+    assertFailsWith<IllegalArgumentException> {
+      route("users/{user-id}/{user_id}", "UserDetail")
+    }
+  }
+
+  @Test
+  fun `rejects incomplete explicit parameter metadata`() {
     assertFailsWith<IllegalArgumentException> {
       SpaRouteDefinition(
         path = "users/{id}",
-        id = "UserDetail"
+        id = "UserDetail",
+        parameters = emptyList()
       )
     }
   }
@@ -45,8 +72,7 @@ class SpaRouteDefinitionTest {
   fun `accepts string parameter values without format validation`() {
     val route = SpaRouteDefinition(
       path = "users/{id}",
-      id = "UserDetail",
-      parameters = listOf(SpaRouteParameter("id"))
+      id = "UserDetail"
     )
 
     assertTrue(route.hasValidParameterValues(mapOf("id" to "42")))
@@ -60,7 +86,7 @@ class SpaRouteDefinitionTest {
 
   @Test
   fun `optional string parameters may be omitted`() {
-    val route = route("users/{id}/{tab}", "UserDetail", listOf(string("id"), string("tab").optional()))
+    val route = route("users/{id}/{tab}", "UserDetail", listOf(parameter("id"), parameter("tab").optional()))
 
     assertTrue(route.hasValidParameterValues(mapOf("id" to "user-42")))
     assertTrue(route.hasValidParameterValues(mapOf("id" to "user-42", "tab" to "billing")))

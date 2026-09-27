@@ -2,7 +2,7 @@ package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.SpaRouteDefinition
-import com.sparouting.contract.string
+import com.sparouting.contract.parameter
 import java.nio.file.Files
 import kotlin.io.path.readText
 import kotlin.test.Test
@@ -74,13 +74,12 @@ object GeneratorTestApplication : SpaApplicationDefinition {
     ),
     SpaRouteDefinition(
       path = "users/{id}",
-      id = "UserDetail",
-      parameters = listOf(string("id"))
+      id = "UserDetail"
     ),
     SpaRouteDefinition(
       path = "documents/{id}/{tab}",
       id = "DocumentDetail",
-      parameters = listOf(string("id"), string("tab").optional())
+      parameters = listOf(parameter("id"), parameter("tab").optional())
     )
   )
 }

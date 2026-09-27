@@ -6,13 +6,13 @@ open class SpaTypedRoute(
 ) : SpaRouteKey {
   protected fun target(
     parameters: Map<String, String> = emptyMap(),
-    queryParameters: Map<String, List<String>> = emptyMap()
+    queryString: Map<String, List<String>> = emptyMap()
   ): SpaRouteTarget {
     return SpaRouteTarget(
       applicationId = applicationId,
       routeId = routeId,
       parameters = parameters,
-      queryParameters = queryParameters
+      queryString = queryString
     )
   }
 }

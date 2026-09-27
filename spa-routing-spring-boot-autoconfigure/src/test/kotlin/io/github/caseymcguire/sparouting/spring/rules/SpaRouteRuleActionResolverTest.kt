@@ -2,7 +2,6 @@ package io.github.caseymcguire.sparouting.spring.rules
 
 import com.sparouting.contract.SpaRouteTarget
 import com.sparouting.contract.route
-import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
 import kotlin.test.Test
@@ -12,7 +11,7 @@ import kotlin.test.assertFailsWith
 class SpaRouteRuleActionResolverTest {
   private val config = TestSinglePageApplicationConfig(
     TestSpaApplicationDefinition(
-      routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))
+      routes = listOf(route("users/{id}", "UserDetail"))
     )
   )
 

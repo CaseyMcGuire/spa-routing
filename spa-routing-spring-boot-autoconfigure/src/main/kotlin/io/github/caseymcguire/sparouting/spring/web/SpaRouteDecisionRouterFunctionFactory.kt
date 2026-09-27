@@ -25,16 +25,16 @@ class SpaRouteDecisionRouterFunctionFactory(
   private fun handleRouteDecision(request: ServerRequest): ServerResponse {
     return responseService.evaluate(
       SpaRouteResponseRequest(
-        applicationId = request.queryParameterValue("applicationId"),
-        routeId = request.queryParameterValue("routeId"),
+        applicationId = request.queryStringValue("applicationId"),
+        routeId = request.queryStringValue("routeId"),
         parameters = request.routeParameters(),
-        queryParameters = request.routeQueryParameters(),
+        queryString = request.routeQueryString(),
         headers = request.toSpaRouteHeaders()
       )
     ).toRouteDecisionResponse()
   }
 
-  private fun ServerRequest.queryParameterValue(name: String): String {
+  private fun ServerRequest.queryStringValue(name: String): String {
     return param(name).orElse("")
   }
 
@@ -45,15 +45,15 @@ class SpaRouteDecisionRouterFunctionFactory(
       .mapValues { (_, values) -> values.firstOrNull().orEmpty() }
   }
 
-  private fun ServerRequest.routeQueryParameters(): Map<String, List<String>> {
+  private fun ServerRequest.routeQueryString(): Map<String, List<String>> {
     return params()
-      .filterKeys { name -> name.startsWith(QUERY_PARAMETER_PREFIX) }
-      .mapKeys { (name, _) -> name.removePrefix(QUERY_PARAMETER_PREFIX) }
+      .filterKeys { name -> name.startsWith(QUERY_STRING_PREFIX) }
+      .mapKeys { (name, _) -> name.removePrefix(QUERY_STRING_PREFIX) }
       .mapValues { (_, values) -> values.toList() }
   }
 
   private companion object {
     const val ROUTE_PARAMETER_PREFIX = "parameters."
-    const val QUERY_PARAMETER_PREFIX = "queryParameters."
+    const val QUERY_STRING_PREFIX = "queryString."
   }
 }

@@ -40,8 +40,8 @@ class SpaRouterFunctionFactory(
       return ServerResponse.status(properties.server.invalidPathParameterStatus).build()
     }
 
-    if (!route.hasValidQueryParameterValues(request.params())) {
-      return ServerResponse.status(properties.server.invalidQueryParameterStatus).build()
+    if (!route.hasValidQueryStringValues(request.params())) {
+      return ServerResponse.status(properties.server.invalidQueryStringStatus).build()
     }
 
     val response = routeResponseEvaluator.evaluate(

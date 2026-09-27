@@ -2,7 +2,7 @@ package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.SpaRouteTarget
 import com.sparouting.contract.route
-import com.sparouting.contract.string
+import com.sparouting.contract.parameter
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
@@ -28,8 +28,8 @@ class TypedQueryRoutingTest {
   private val requests = mutableListOf<SpaRouteRequest>()
   private val config = TestSinglePageApplicationConfig(
     application = TestSpaApplicationDefinition(routes = listOf(
-      route("users/{id}", "UserDetail", listOf(string("id")), listOf(
-        string("foo"), string("tag").repeated(), string("baz").optional(), string("filter").repeated().optional()
+      route("users/{id}", "UserDetail", queryString = listOf(
+        parameter("foo"), parameter("tag").repeated(), parameter("baz").optional(), parameter("filter").repeated().optional()
       ))
     )),
     rules = listOf(object : SpaRouteRule {
@@ -50,7 +50,7 @@ class TypedQueryRoutingTest {
     assertPageAndDecision(queries, 200)
     assertEquals(2, requests.size)
     requests.forEach {
-      assertEquals(queries, it.queryParameters)
+      assertEquals(queries, it.queryString)
       assertEquals("/test/users/123", it.path)
       assertEquals(mapOf("id" to "123"), it.pathParameters)
     }
@@ -77,7 +77,7 @@ class TypedQueryRoutingTest {
   fun `query error status is independently configurable for both endpoints`() {
     val properties = SpaRoutingProperties().apply {
       server.invalidPathParameterStatus = 409
-      server.invalidQueryParameterStatus = 422
+      server.invalidQueryStringStatus = 422
     }
     assertPageAndDecision(valid - "foo", 422, properties)
     assertTrue(requests.isEmpty())
@@ -87,10 +87,10 @@ class TypedQueryRoutingTest {
   fun `service rejects empty required lists and permits empty optional lists`() {
     val service = SpaRouteResponseService(registry, evaluator)
     assertEquals(400, service.evaluate(SpaRouteResponseRequest(
-      "test", "UserDetail", mapOf("id" to "123"), queryParameters = valid + mapOf("tag" to emptyList())
+      "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
     )).statusCode)
     assertEquals(200, service.evaluate(SpaRouteResponseRequest(
-      "test", "UserDetail", mapOf("id" to "123"), queryParameters = valid + mapOf("filter" to emptyList())
+      "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("filter" to emptyList())
     )).statusCode)
   }
 
@@ -98,7 +98,7 @@ class TypedQueryRoutingTest {
   fun `typed redirects encode declared and extra query parameters`() {
     val result = resolver.resolve(SpaRouteRuleAction.redirectTo(SpaRouteTarget(
       "test", "UserDetail", mapOf("id" to "123"),
-      queryParameters = valid + mapOf("baz" to listOf(""), "utm_source" to listOf("extra"))
+      queryString = valid + mapOf("baz" to listOf(""), "utm_source" to listOf("extra"))
     )))
     assertEquals(302, result.statusCode)
     assertEquals("/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra", result.location)
@@ -109,7 +109,7 @@ class TypedQueryRoutingTest {
     for (query in listOf(valid - "foo", valid + mapOf("tag" to emptyList()), valid + mapOf("foo" to listOf("a", "b")))) {
       assertFailsWith<IllegalArgumentException> {
         resolver.resolve(SpaRouteRuleAction.redirectTo(SpaRouteTarget(
-          "test", "UserDetail", mapOf("id" to "123"), queryParameters = query
+          "test", "UserDetail", mapOf("id" to "123"), queryString = query
         )))
       }
     }
@@ -125,7 +125,7 @@ class TypedQueryRoutingTest {
         listOf(config), evaluator, DefaultSpaRouteRequestFactory(), DefaultSpaHtmlRenderer(properties), properties
       ).routes(),
       SpaRouteDecisionRouterFunctionFactory(
-        SpaRouteResponseService(registry, evaluator, properties.server.invalidPathParameterStatus, properties.server.invalidQueryParameterStatus),
+        SpaRouteResponseService(registry, evaluator, properties.server.invalidPathParameterStatus, properties.server.invalidQueryStringStatus),
         properties
       ).routes()
     ).build()
@@ -136,7 +136,7 @@ class TypedQueryRoutingTest {
       param("applicationId", "test")
       param("routeId", "UserDetail")
       param("parameters.id", "123")
-      query.forEach { (name, values) -> param("queryParameters.$name", *values.toTypedArray()) }
+      query.forEach { (name, values) -> param("queryString.$name", *values.toTypedArray()) }
     }.andExpect {
       status { isOk() }
       jsonPath("$.statusCode") { value(expectedStatus) }

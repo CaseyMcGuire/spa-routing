@@ -11,4 +11,4 @@ internal fun String.routeParameterIdentifier(): String {
   }
 }
 
-internal fun String.queryKeyIdentifier(): String = routeParameterIdentifier().uppercase(Locale.ROOT)
+internal fun String.queryStringKeyIdentifier(): String = routeParameterIdentifier().uppercase(Locale.ROOT)

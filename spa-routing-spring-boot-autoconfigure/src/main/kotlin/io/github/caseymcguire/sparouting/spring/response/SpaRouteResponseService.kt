@@ -8,7 +8,7 @@ open class SpaRouteResponseService @JvmOverloads constructor(
   private val routeRegistry: SinglePageApplicationRouteRegistry,
   private val evaluator: SpaRouteResponseEvaluator,
   private val invalidPathParameterStatus: Int = 400,
-  private val invalidQueryParameterStatus: Int = 400
+  private val invalidQueryStringStatus: Int = 400
 ) {
   open fun evaluate(request: SpaRouteResponseRequest): SpaRouteHttpResponse {
     val match = routeRegistry.findByApplicationAndRouteId(
@@ -20,8 +20,8 @@ open class SpaRouteResponseService @JvmOverloads constructor(
       return SpaRouteHttpResponse(invalidPathParameterStatus)
     }
 
-    if (!match.route.hasValidQueryParameterValues(request.queryParameters)) {
-      return SpaRouteHttpResponse(invalidQueryParameterStatus)
+    if (!match.route.hasValidQueryStringValues(request.queryString)) {
+      return SpaRouteHttpResponse(invalidQueryStringStatus)
     }
 
     val spaRouteRequest = SpaRouteRequest(
@@ -30,7 +30,7 @@ open class SpaRouteResponseService @JvmOverloads constructor(
       method = "GET",
       path = match.route.resolvePath(match.application.getFullPathPattern(match.route), request.parameters),
       pathParameters = request.parameters,
-      queryParameters = request.queryParameters,
+      queryString = request.queryString,
       headers = request.headers
     )
 

@@ -1,7 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.route
-import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
@@ -23,7 +22,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns allowed response`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
@@ -88,7 +87,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
     properties.server.invalidPathParameterStatus = 422
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       ),
       properties = properties
@@ -107,7 +106,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision includes target route query parameters`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RequireQueryParameterRule("tab", "billing"))
       )
     )
@@ -116,7 +115,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
       param("applicationId", "test")
       param("routeId", "UserDetail")
       param("parameters.id", "42")
-      param("queryParameters.tab", "billing")
+      param("queryString.tab", "billing")
     }.andExpect {
       status { isOk() }
       jsonPath("$.statusCode") { value(451) }
@@ -161,7 +160,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
     private val value: String
   ) : SpaRouteRule {
     override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
-      return if (request.queryParameter(name) == value) {
+      return if (request.queryStringValue(name) == value) {
         SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451))
       } else {
         SpaRouteRuleResult.Skip

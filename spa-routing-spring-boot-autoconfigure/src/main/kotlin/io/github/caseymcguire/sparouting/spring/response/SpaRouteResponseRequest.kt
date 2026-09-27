@@ -5,5 +5,6 @@ data class SpaRouteResponseRequest @JvmOverloads constructor(
   val routeId: String,
   val parameters: Map<String, String> = emptyMap(),
   val headers: Map<String, List<String>> = emptyMap(),
-  val queryParameters: Map<String, List<String>> = emptyMap()
+  /** Decoded query-string values for the target route. */
+  val queryString: Map<String, List<String>> = emptyMap()
 )

@@ -2,7 +2,7 @@ package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinitionDiscovery
 import com.sparouting.contract.SpaRouteParameter
-import com.sparouting.contract.queryKeyIdentifier
+import com.sparouting.contract.queryStringKeyIdentifier
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.system.exitProcess
@@ -36,7 +36,7 @@ internal fun generateClientRoutes() {
         key = routeId,
         path = routeConverter.convertToReactRouter(config.getFullPathPattern(route)),
         parameters = route.parameters,
-        queryParameters = route.queryParameters
+        queryString = route.queryString
       )
     }
   }
@@ -67,15 +67,15 @@ internal fun generateClientRoutes() {
         appendLine("}")
         appendLine()
       }
-      if (typescriptObjectEntries.any { it.queryParameters.isNotEmpty() }) {
-        appendLine(QUERY_HELPERS)
-        typescriptObjectEntries.filter { it.queryParameters.isNotEmpty() }.forEach { route ->
-          appendLine("export enum ${route.key}QueryKey {")
-          route.queryParameters.forEach { parameter ->
-            appendLine("  ${parameter.name.queryKeyIdentifier()} = \"${parameter.name.toTypeScriptString()}\",")
+      if (typescriptObjectEntries.any { it.queryString.isNotEmpty() }) {
+        appendLine(QUERY_STRING_HELPERS)
+        typescriptObjectEntries.filter { it.queryString.isNotEmpty() }.forEach { route ->
+          appendLine("export enum ${route.key}QueryStringKey {")
+          route.queryString.forEach { parameter ->
+            appendLine("  ${parameter.name.queryStringKeyIdentifier()} = \"${parameter.name.toTypeScriptString()}\",")
           }
           appendLine("}")
-          appendLine("export type ${route.key}Query = ${route.queryParameters.toTypeScriptParameterObject()};")
+          appendLine("export type ${route.key}QueryString = ${route.queryString.toTypeScriptParameterObject()};")
           appendLine()
         }
       }
@@ -113,29 +113,29 @@ private data class TypeScriptRouteConfig(
   val key: String,
   val path: String,
   val parameters: List<SpaRouteParameter>,
-  val queryParameters: List<SpaRouteParameter>
+  val queryString: List<SpaRouteParameter>
 )
 
 private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
   val pathDeclarations = parameters.joinToString(", ") {
     "{ name: \"${it.name.toTypeScriptString()}\", optional: ${it.optional} }"
   }
-  if (queryParameters.isNotEmpty()) {
+  if (queryString.isNotEmpty()) {
     val arguments = buildList {
       if (parameters.isNotEmpty()) add("params: ${parameters.toTypeScriptParameterObject()}")
-      val default = if (queryParameters.all { it.optional }) " = {}" else ""
-      add("query: ${key}Query$default")
+      val default = if (queryString.all { it.optional }) " = {}" else ""
+      add("queryString: ${key}QueryString$default")
     }.joinToString(", ")
-    val declarations = queryParameters.joinToString(", ") {
-      "{ name: ${key}QueryKey.${it.name.queryKeyIdentifier()}, optional: ${it.optional}, repeated: ${it.repeated} }"
+    val declarations = queryString.joinToString(", ") {
+      "{ name: ${key}QueryStringKey.${it.name.queryStringKeyIdentifier()}, optional: ${it.optional}, repeated: ${it.repeated} }"
     }
     return buildString {
       appendLine("  $key: Object.assign(")
-      appendLine("    ($arguments) => appendQuery(${path.toTypeScriptTemplate(parameters)}, query, [$declarations]),")
+      appendLine("    ($arguments) => appendQueryString(${path.toTypeScriptTemplate(parameters)}, queryString, [$declarations]),")
       appendLine("    {")
       appendLine("      path: \"${path.toTypeScriptString()}\", ...${toTypeScriptRouteIds()},")
-      appendLine("      queryParameters: (search: URLSearchParams) => readQuery(search, Object.values(${key}QueryKey)),")
-      appendLine("      parse: createRouteParser<${parameters.toTypeScriptParameterObject()}, ${key}Query>([$pathDeclarations], [$declarations])")
+      appendLine("      queryString: (search: URLSearchParams) => readQueryString(search, Object.values(${key}QueryStringKey)),")
+      appendLine("      parse: createRouteParser<${parameters.toTypeScriptParameterObject()}, ${key}QueryString>([$pathDeclarations], [$declarations])")
       appendLine("    }")
       appendLine("  ),")
     }
@@ -227,44 +227,52 @@ private fun String.toTypeScriptTemplateString(): String {
 
 private val ROUTE_PARSER = """
   type PathDeclaration = { name: string; optional: boolean };
-  type QueryDeclaration = { name: string; optional: boolean; repeated: boolean };
+  type QueryStringDeclaration = { name: string; optional: boolean; repeated: boolean };
 
-  function createRouteParser<TParams extends object, TQuery extends object>(
-    parameters: readonly PathDeclaration[], queryParameters: readonly QueryDeclaration[]
+  function createRouteParser<TParams extends object, TQueryString extends object>(
+    parameters: readonly PathDeclaration[], queryStringDeclarations: readonly QueryStringDeclaration[]
   ) {
     // Path values have already been decoded by the router. Invalid declared values return null.
     return (params: Readonly<Record<string, string | undefined>>, search: URLSearchParams):
-      { params: TParams; query: TQuery } | null => {
+      { params: TParams; queryString: TQueryString } | null => {
       const parsedParams: Record<string, string> = Object.create(null);
-      const query: Record<string, string | readonly string[]> = Object.create(null);
+      const queryString: Record<string, string | readonly string[]> = Object.create(null);
       for (const { name, optional } of parameters) {
         const value = Object.prototype.hasOwnProperty.call(params, name) ? params[name] : undefined;
         if (value === undefined) {
-          if (!optional) return null;
+          if (!optional) {
+            return null;
+          }
         } else {
-          if (typeof value !== "string") return null;
+          if (typeof value !== "string") {
+            return null;
+          }
           parsedParams[name] = value;
         }
       }
-      for (const { name, optional, repeated } of queryParameters) {
+      for (const { name, optional, repeated } of queryStringDeclarations) {
         const values = search.getAll(name);
         if (values.length === 0) {
-          if (!optional) return null;
+          if (!optional) {
+            return null;
+          }
         } else {
-          if (!repeated && values.length !== 1) return null;
-          query[name] = repeated ? values : values[0];
+          if (!repeated && values.length !== 1) {
+            return null;
+          }
+          queryString[name] = repeated ? values : values[0];
         }
       }
       // The generator supplies matching declarations and types for each route.
-      return { params: parsedParams as TParams, query: query as TQuery };
+      return { params: parsedParams as TParams, queryString: queryString as TQueryString };
     };
   }
 
 """.trimIndent()
 
-private val QUERY_HELPERS = """
-  function appendQuery(path: string, query: object, declarations: readonly QueryDeclaration[]): string {
-    const values = query as Record<string, string | readonly string[] | null | undefined>;
+private val QUERY_STRING_HELPERS = """
+  function appendQueryString(path: string, queryString: object, declarations: readonly QueryStringDeclaration[]): string {
+    const values = queryString as Record<string, string | readonly string[] | null | undefined>;
     const search = new URLSearchParams();
     for (const { name, optional, repeated } of declarations) {
       const value = values != null && Object.prototype.hasOwnProperty.call(values, name) ? values[name] : undefined;
@@ -288,7 +296,7 @@ private val QUERY_HELPERS = """
     return encoded ? path + "?" + encoded : path;
   }
 
-  function readQuery<TKey extends string>(search: URLSearchParams, keys: readonly TKey[]): Readonly<Partial<Record<TKey, readonly string[]>>> {
+  function readQueryString<TKey extends string>(search: URLSearchParams, keys: readonly TKey[]): Readonly<Partial<Record<TKey, readonly string[]>>> {
     const values = Object.create(null) as Partial<Record<TKey, readonly string[]>>;
     for (const key of keys) {
       if (search.has(key)) values[key] = Object.freeze(search.getAll(key));

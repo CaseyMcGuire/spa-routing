@@ -6,8 +6,10 @@ import java.nio.charset.StandardCharsets
 data class SpaRouteDefinition(
   val path: String,
   val id: String,
-  val parameters: List<SpaRouteParameter> = emptyList(),
-  val queryParameters: List<SpaRouteParameter> = emptyList()
+  /** String parameters inferred from path placeholders; override to declare optional path values. */
+  val parameters: List<SpaRouteParameter> = inferPathParameters(path),
+  /** Declared query-string fields, including whether each is optional or repeated. */
+  val queryString: List<SpaRouteParameter> = emptyList()
 ) {
   init {
     require(id.isNotBlank()) {
@@ -22,13 +24,13 @@ data class SpaRouteDefinition(
       "Route $id cannot have repeated path parameters. Use repeated() only for query parameters."
     }
 
-    val queryNames = queryParameters.map { it.name }
+    val queryNames = queryString.map { it.name }
     require(queryNames.toSet().size == queryNames.size) {
       "Route $id has duplicate query parameter metadata: ${queryNames.joinToString(", ")}"
     }
     requireUniqueGeneratedNames(parameters, "path", false)
-    requireUniqueGeneratedNames(queryParameters, "query", false)
-    requireUniqueGeneratedNames(queryParameters, "query enum", true)
+    requireUniqueGeneratedNames(queryString, "query", false)
+    requireUniqueGeneratedNames(queryString, "query enum", true)
 
     val pathParameterNames = pathParameterNames()
     val routeParameterNames = parameters.map { it.name }
@@ -40,7 +42,7 @@ data class SpaRouteDefinition(
     val routeParameterNameSet = routeParameterNames.toSet()
     require(pathParameterNames == routeParameterNameSet) {
       buildString {
-        append("Route $id must explicitly specify parameter metadata matching path parameters.")
+        append("Route $id has explicit parameter metadata that does not match its path parameters.")
 
         val missingParameters = pathParameterNames - routeParameterNameSet
         if (missingParameters.isNotEmpty()) {
@@ -72,15 +74,15 @@ data class SpaRouteDefinition(
     return parameters.filter { !it.optional }
   }
 
-  fun hasValidQueryParameterValues(parameterValues: Map<String, List<String>>): Boolean {
-    return queryParameters.all { parameter ->
+  fun hasValidQueryStringValues(parameterValues: Map<String, List<String>>): Boolean {
+    return queryString.all { parameter ->
       val count = parameterValues[parameter.name]?.size ?: 0
       (parameter.optional || count > 0) && (parameter.repeated || count <= 1)
     }
   }
 
   fun resolveQueryString(parameterValues: Map<String, List<String>>): String {
-    require(hasValidQueryParameterValues(parameterValues)) {
+    require(hasValidQueryStringValues(parameterValues)) {
       "Invalid query parameters for SPA route $id"
     }
     return parameterValues.flatMap { (name, values) ->
@@ -96,7 +98,7 @@ data class SpaRouteDefinition(
     enumNames: Boolean
   ) {
     val names = declarations.map {
-      if (enumNames) it.name.queryKeyIdentifier() else it.name.routeParameterIdentifier()
+      if (enumNames) it.name.queryStringKeyIdentifier() else it.name.routeParameterIdentifier()
     }
     require(names.toSet().size == names.size) {
       "Route $id has colliding generated $kind identifiers: ${names.joinToString(", ")}"
@@ -126,5 +128,11 @@ data class SpaRouteDefinition(
   companion object {
     private val PATH_PARAMETER_PATTERN = "\\{([^}:]+)(?::[^}]*)?\\}".toRegex()
     private val ROUTE_ID_PATTERN = "[A-Z][A-Za-z0-9]*".toRegex()
+
+    internal fun inferPathParameters(path: String): List<SpaRouteParameter> {
+      return PATH_PARAMETER_PATTERN.findAll(path)
+        .map { SpaRouteParameter(it.groupValues[1]) }
+        .toList()
+    }
   }
 }

@@ -22,7 +22,7 @@ open class SpaRouteRuleActionResolver(
         }
 
         val path = route.resolvePath(application.getFullPathPattern(route), target.parameters)
-        val query = route.resolveQueryString(target.queryParameters)
+        val query = route.resolveQueryString(target.queryString)
         if (query.isEmpty()) path else "$path?$query"
       }
     )

@@ -1,7 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.route
-import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
@@ -23,7 +22,7 @@ class SpaRouterFunctionFactoryTest {
   fun `known route returns html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
@@ -41,7 +40,7 @@ class SpaRouterFunctionFactoryTest {
   fun `missing path segment returns not found`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))),
+        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )

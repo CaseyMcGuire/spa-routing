@@ -1,7 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.response
 
 import com.sparouting.contract.route
-import com.sparouting.contract.string
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
@@ -19,7 +18,7 @@ import kotlin.test.assertEquals
 class SpaRouteResponseServiceTest {
   private val config = TestSinglePageApplicationConfig(
     application = TestSpaApplicationDefinition(
-      routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))
+      routes = listOf(route("users/{id}", "UserDetail"))
     ),
     rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
     routeRules = mapOf(
@@ -67,7 +66,7 @@ class SpaRouteResponseServiceTest {
   fun `query parameters are included in evaluated request`() {
     val config = TestSinglePageApplicationConfig(
       application = TestSpaApplicationDefinition(
-        routes = listOf(route("users/{id}", "UserDetail", listOf(string("id"))))
+        routes = listOf(route("users/{id}", "UserDetail"))
       ),
       rules = listOf(RequireQueryParameterRule("tab", "billing"))
     )
@@ -81,7 +80,7 @@ class SpaRouteResponseServiceTest {
         applicationId = "test",
         routeId = "UserDetail",
         parameters = mapOf("id" to "550e8400-e29b-41d4-a716-446655440000"),
-        queryParameters = mapOf("tab" to listOf("billing"))
+        queryString = mapOf("tab" to listOf("billing"))
       )
     )
 
@@ -103,7 +102,7 @@ class SpaRouteResponseServiceTest {
     private val value: String
   ) : SpaRouteRule {
     override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
-      return if (request.queryParameter(name) == value) {
+      return if (request.queryStringValue(name) == value) {
         SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451))
       } else {
         SpaRouteRuleResult.Skip

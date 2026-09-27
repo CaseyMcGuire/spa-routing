@@ -4,7 +4,7 @@ import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.SpaApplicationDefinitionDiscovery
 import com.sparouting.contract.SpaRouteDefinition
 import com.sparouting.contract.SpaRouteParameter
-import com.sparouting.contract.queryKeyIdentifier
+import com.sparouting.contract.queryStringKeyIdentifier
 import com.sparouting.contract.routeParameterIdentifier
 import java.nio.file.Files
 import java.nio.file.Path
@@ -97,20 +97,20 @@ private fun SpaRouteDefinition.toKotlinRouteObjectFile(
     )
 
     appendLine("object $id : SpaTypedRoute(${applicationId.toKotlinStringLiteral()}, ${id.toKotlinStringLiteral()}) {")
-    var queryArgument = "query"
+    var queryArgument = "queryString"
     val pathIdentifiers = parameters.map { it.name.routeParameterIdentifier() }.toSet()
     while (queryArgument in pathIdentifiers) queryArgument += "_"
     val arguments = parameters.map { it.toKotlinParameter() }.toMutableList()
-    if (queryParameters.isNotEmpty()) {
-      val default = if (queryParameters.all { it.optional }) " = Query()" else ""
-      arguments.add("$queryArgument: Query$default")
+    if (queryString.isNotEmpty()) {
+      val default = if (queryString.all { it.optional }) " = QueryString()" else ""
+      arguments.add("$queryArgument: QueryString$default")
     }
     appendLine("  operator fun invoke(${arguments.joinToString(", ")}): SpaRouteTarget {")
-    val queryValues = if (queryParameters.isEmpty()) "" else ", queryParameters = $queryArgument.toQueryParameters()"
+    val queryValues = if (queryString.isEmpty()) "" else ", queryString = $queryArgument.toQueryStringValues()"
     appendLine("    return target(${parameters.toKotlinParameterMap()}$queryValues)")
     appendLine("  }")
-    if (queryParameters.isNotEmpty()) {
-      appendQueryModel(queryParameters)
+    if (queryString.isNotEmpty()) {
+      appendQueryStringModel(queryString)
     }
     appendLine("}")
   }
@@ -186,15 +186,15 @@ private fun String.toPackageSegment(): String {
   }
 }
 
-private fun StringBuilder.appendQueryModel(parameters: List<SpaRouteParameter>) {
+private fun StringBuilder.appendQueryStringModel(parameters: List<SpaRouteParameter>) {
   appendLine()
-  appendLine("  data class Query(")
+  appendLine("  data class QueryString(")
   parameters.forEachIndexed { index, parameter ->
     val comma = if (index == parameters.lastIndex) "" else ","
     appendLine("    val ${parameter.toKotlinParameter()}$comma")
   }
   appendLine("  ) {")
-  appendLine("    internal fun toQueryParameters(): Map<String, List<String>> {")
+  appendLine("    internal fun toQueryStringValues(): Map<String, List<String>> {")
   parameters.filter { it.repeated && !it.optional }.forEach { parameter ->
     appendLine("      require(this.${parameter.name.toKotlinIdentifier()}.isNotEmpty()) {")
     appendLine("        ${("Required query parameter ${parameter.name} must contain at least one value.").toKotlinStringLiteral()}")
@@ -222,16 +222,16 @@ private fun StringBuilder.appendQueryModel(parameters: List<SpaRouteParameter>) 
   appendLine("    }")
   appendLine("  }")
   appendLine()
-  appendLine("  enum class QueryKey(val wireName: String) {")
+  appendLine("  enum class QueryStringKey(val wireName: String) {")
   parameters.forEachIndexed { index, parameter ->
     val separator = if (index == parameters.lastIndex) "" else ","
-    appendLine("    ${parameter.name.queryKeyIdentifier()}(${parameter.name.toKotlinStringLiteral()})$separator")
+    appendLine("    ${parameter.name.queryStringKeyIdentifier()}(${parameter.name.toKotlinStringLiteral()})$separator")
   }
   appendLine("  }")
   appendLine()
-  appendLine("  fun queryParameters(values: Map<String, List<String>>): Map<QueryKey, List<String>> {")
+  appendLine("  fun queryString(values: Map<String, List<String>>): Map<QueryStringKey, List<String>> {")
   appendLine("    return buildMap {")
-  appendLine("      QueryKey.entries.forEach { key ->")
+  appendLine("      QueryStringKey.entries.forEach { key ->")
   appendLine("        values[key.wireName]?.let { put(key, it.toList()) }")
   appendLine("      }")
   appendLine("    }")

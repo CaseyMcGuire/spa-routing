@@ -50,7 +50,6 @@ package com.sparouting.contract.applications
 
 import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.route
-import com.sparouting.contract.string
 
 object AccountSpaApplication : SpaApplicationDefinition {
   override val id = "account"
@@ -59,103 +58,107 @@ object AccountSpaApplication : SpaApplicationDefinition {
   override val appRootPath = "src/main/web-frontend/apps/account"
   override val routes = listOf(
     route("settings", "Settings"),
-    route("users/{id}", "UserDetail", parameters = listOf(string("id")))
+    route("users/{id}", "UserDetail")
   )
 }
 ```
 
-Declare each path parameter with `string("name")`. Path parameters generate
-Kotlin `String` and TypeScript `string` values, including numeric IDs. Use
-`string("name").optional()` for optional parameters. The runtime checks required
-parameters and rejects unknown names; value-format validation belongs in
-application code.
+Path parameters are inferred from `{placeholders}` and generate Kotlin `String`
+and TypeScript `string` values, including numeric IDs. No separate declaration
+is needed for `id` in the example above. Explicit `parameters` metadata remains
+available for optional path values via `parameter("name").optional()`. The runtime
+checks required parameters and rejects unknown names; value-format validation
+belongs in application code.
 
-## Typed Query Parameters
+## Typed Query Strings
 
-Declare queries separately from path parameters:
+Declare query-string fields separately from path parameters:
 
 ```kotlin
+import com.sparouting.contract.parameter
+
 route(
   "users/{id}/search",
   "UserSearch",
-  parameters = listOf(string("id")),
-  queryParameters = listOf(
-    string("q"),
-    string("sort").optional(),
-    string("tag").repeated().optional()
+  queryString = listOf(
+    parameter("q"),
+    parameter("sort").optional(),
+    parameter("tag").repeated().optional()
   )
 )
 ```
 
-Generated TypeScript builders accept a separate query object:
+Generated TypeScript builders accept a separate `queryString` object:
 
 ```ts
 AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
 // /account/users/123/search?q=hello+world&tag=a&tag=b
 ```
 
-Generated Kotlin routes accept a nested `Query` value:
+Generated Kotlin routes accept a nested `QueryString` value:
 
 ```kotlin
 import com.example.generated.spa.routes.account.UserSearch
 
 val target = UserSearch(
   id = "123",
-  query = UserSearch.Query(q = "hello world", tag = listOf("a", "b"))
+  queryString = UserSearch.QueryString(q = "hello world", tag = listOf("a", "b"))
 )
 ```
 
-Required query fields must be supplied. Optional fields may be omitted; repeated
-fields take string lists. Query-only routes accept just the query object, and
-routes whose queries are all optional allow that object to be omitted. Generated
+Required fields must be supplied. Optional fields may be omitted; repeated fields
+take string lists. Routes without path parameters accept just the `queryString`
+object. When all its fields are optional, that object can be omitted. Generated
 `.path` metadata remains the path pattern without a query string.
 
-Each route with query declarations also generates an enum and a map helper:
+Each route with query-string declarations also generates an enum and a map helper:
 
 ```kotlin
-val query = UserSearch.queryParameters(request.queryParameters)
-val search = query[UserSearch.QueryKey.Q]?.firstOrNull()
+val queryString = UserSearch.queryString(request.queryString)
+val search = queryString[UserSearch.QueryStringKey.Q]?.firstOrNull()
 ```
 
 ```ts
-import { AccountRoutes, UserSearchQueryKey } from "./__generated__/routes/AccountRoutes";
+import { AccountRoutes, UserSearchQueryStringKey } from "./__generated__/routes/AccountRoutes";
 
-const query = AccountRoutes.UserSearch.queryParameters(new URLSearchParams(location.search));
-const search = query[UserSearchQueryKey.Q]?.[0];
+const queryString = AccountRoutes.UserSearch.queryString(new URLSearchParams(location.search));
+const search = queryString[UserSearchQueryStringKey.Q]?.[0];
 ```
 
-The runtime validates declared query parameters, while preserving extra incoming
-keys in the raw request map. See [the runtime guide](docs/spring-boot-client-apps.md#typed-query-parameters)
+The runtime validates declared query-string fields, while preserving extra incoming
+keys in the raw request map. See [the runtime guide](docs/spring-boot-client-apps.md#typed-query-strings)
 for validation rules, redirects, and route decisions.
 
 Generated route objects also expose `parse(params, searchParams)` for incoming
-requests. It returns typed `{ params, query }` values, or `null` for missing
-required values or invalid query cardinality. Path values should already be
+requests. It returns typed `{ params, queryString }` values, or `null` for missing
+required values or invalid query-string cardinality. Path values should already be
 decoded by the router; pass the query string as `URLSearchParams`.
 
 For example, a React Router 7 data loader can use:
 
 ```ts
 const parsed = AccountRoutes.UserSearch.parse(params, new URL(request.url).searchParams);
-if (parsed === null) throw new Response("Invalid route parameters", { status: 400 });
+if (parsed === null) {
+  throw new Response("Invalid route parameters", { status: 400 });
+}
 
-parsed.params.id;  // string
-parsed.query.q;    // string
-parsed.query.sort; // string | undefined
-parsed.query.tag;  // readonly string[] | undefined
+parsed.params.id;        // string
+parsed.queryString.q;    // string
+parsed.queryString.sort; // string | undefined
+parsed.queryString.tag;  // readonly string[] | undefined
 ```
 
 Optional values that are absent are omitted. Empty strings are valid, repeated
-query values preserve their order, and undeclared keys are ignored. Existing
-URL builders and enum-keyed query helpers remain available.
+query-string values preserve their order, and undeclared keys are ignored.
+URL builders and enum-keyed query-string helpers remain available.
 
-A consumer-defined `createSpaRouter` can infer each `render(params, query)`
+A consumer-defined `createSpaRouter` can infer each `render(params, queryString)`
 callback's arguments from the route's parser return type:
 
 ```ts
 type ViewData = NonNullable<ReturnType<typeof WikiRoutes.View.parse>>;
 // ViewData["params"] is { wikiId: string }
-// ViewData["query"] is { tab?: string } when tab is declared optional
+// ViewData["queryString"] is { tab?: string } when tab is declared optional
 ```
 
 ## Configure Generation
@@ -348,7 +351,7 @@ const params = new URLSearchParams({
   applicationId: route.applicationId,
   routeId: route.routeId,
   "parameters.id": "123",
-  "queryParameters.tab": "billing",
+  "queryString.tab": "billing",
 });
 
 const response = await fetch(`/__spa/route-decision?${params}`);
@@ -365,7 +368,7 @@ spa-routing:
   server:
     enabled: true
     invalid-path-parameter-status: 400
-    invalid-query-parameter-status: 400
+    invalid-query-string-status: 400
   route-decision:
     enabled: true
     path: /__spa/route-decision

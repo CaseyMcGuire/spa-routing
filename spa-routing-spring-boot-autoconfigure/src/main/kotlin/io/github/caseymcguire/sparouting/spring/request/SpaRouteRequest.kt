@@ -6,15 +6,17 @@ data class SpaRouteRequest(
   val method: String,
   val path: String,
   val pathParameters: Map<String, String> = emptyMap(),
-  val queryParameters: Map<String, List<String>> = emptyMap(),
+  /** Decoded query-string values, including undeclared keys and repeated values. */
+  val queryString: Map<String, List<String>> = emptyMap(),
   val headers: Map<String, List<String>> = emptyMap()
 ) {
   fun pathParameter(name: String): String? {
     return pathParameters[name]
   }
 
-  fun queryParameter(name: String): String? {
-    return queryParameters[name]?.firstOrNull()
+  /** Returns the first value for a query-string key, or null when absent. */
+  fun queryStringValue(name: String): String? {
+    return queryString[name]?.firstOrNull()
   }
 
   fun header(name: String): List<String> {
