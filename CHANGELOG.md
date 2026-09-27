@@ -43,6 +43,9 @@
 
 ### Added
 
+- Generated TypeScript route objects expose `parse(params, searchParams)`,
+  returning typed path and query objects or `null` for invalid declared values.
+  Consumer router adapters can infer renderer arguments from its return type.
 - Strongly typed query declarations via `queryParameters = listOf(string("q"),
   string("tag").repeated().optional())`. Generated Kotlin `Query` data classes
   and TypeScript query types support required/optional strings and lists, with

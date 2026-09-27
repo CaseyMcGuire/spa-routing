@@ -53,15 +53,24 @@ class GeneratedQueryApiTest {
 
   @Test
   fun `generated TypeScript builders and enums type check and run`() = withGeneratedRoutes { output ->
+    verifyTypeScript(output, "query-api", EXPECTED_URL)
+  }
+
+  @Test
+  fun `generated route objects infer renderer arguments and parse incoming values`() = withGeneratedRoutes { output ->
+    verifyTypeScript(output, "route-object-api", "route objects verified")
+  }
+
+  private fun verifyTypeScript(output: Path, fixture: String, expectedOutput: String) {
     val client = output.resolve("client")
-    Files.copy(Path.of("src/test/typescript/query-api.ts"), client.resolve("query-api.ts"))
+    Files.copy(Path.of("src/test/typescript/$fixture.ts"), client.resolve("$fixture.ts"))
     val compiled = output.resolve("javascript")
     runProcess(listOf(
       "node", System.getProperty("test.typescript.compiler"),
       "--strict", "--noEmitOnError", "--target", "ES2020", "--module", "commonjs",
-      "--outDir", compiled.toString(), client.resolve("query-api.ts").toString()
+      "--outDir", compiled.toString(), client.resolve("$fixture.ts").toString()
     ))
-    assertEquals(EXPECTED_URL, runProcess(listOf("node", compiled.resolve("query-api.js").toString())).trim())
+    assertEquals(expectedOutput, runProcess(listOf("node", compiled.resolve("$fixture.js").toString())).trim())
   }
 
   private fun compileKotlin(

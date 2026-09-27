@@ -128,6 +128,36 @@ The runtime validates declared query parameters, while preserving extra incoming
 keys in the raw request map. See [the runtime guide](docs/spring-boot-client-apps.md#typed-query-parameters)
 for validation rules, redirects, and route decisions.
 
+Generated route objects also expose `parse(params, searchParams)` for incoming
+requests. It returns typed `{ params, query }` values, or `null` for missing
+required values or invalid query cardinality. Path values should already be
+decoded by the router; pass the query string as `URLSearchParams`.
+
+For example, a React Router 7 data loader can use:
+
+```ts
+const parsed = AccountRoutes.UserSearch.parse(params, new URL(request.url).searchParams);
+if (parsed === null) throw new Response("Invalid route parameters", { status: 400 });
+
+parsed.params.id;  // string
+parsed.query.q;    // string
+parsed.query.sort; // string | undefined
+parsed.query.tag;  // readonly string[] | undefined
+```
+
+Optional values that are absent are omitted. Empty strings are valid, repeated
+query values preserve their order, and undeclared keys are ignored. Existing
+URL builders and enum-keyed query helpers remain available.
+
+A consumer-defined `createSpaRouter` can infer each `render(params, query)`
+callback's arguments from the route's parser return type:
+
+```ts
+type ViewData = NonNullable<ReturnType<typeof WikiRoutes.View.parse>>;
+// ViewData["params"] is { wikiId: string }
+// ViewData["query"] is { tab?: string } when tab is declared optional
+```
+
 ## Configure Generation
 
 Add this to the consuming app's `build.gradle.kts`:

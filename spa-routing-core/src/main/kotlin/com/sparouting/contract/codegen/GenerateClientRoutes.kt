@@ -52,8 +52,9 @@ internal fun generateClientRoutes() {
       appendLine()
       appendLine("type SpaRouteIds = { applicationId: string; routeId: string };")
       appendLine()
+      appendLine(ROUTE_PARSER)
       appendLine("function routeWithoutParams(path: string, ids: SpaRouteIds) {")
-      appendLine("  return Object.assign(() => path, { path, ...ids });")
+      appendLine("  return Object.assign(() => path, { path, ...ids, parse: createRouteParser<{}, {}>([], []) });")
       appendLine("}")
       appendLine()
       if (typescriptObjectEntries.any { it.parameters.isNotEmpty() }) {
@@ -61,8 +62,8 @@ internal fun generateClientRoutes() {
         appendLine("  return encodeURIComponent(value);")
         appendLine("}")
         appendLine()
-        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, ids: SpaRouteIds) {")
-        appendLine("  return Object.assign(buildPath, { path, ...ids });")
+        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, ids: SpaRouteIds, parameters: readonly PathDeclaration[]) {")
+        appendLine("  return Object.assign(buildPath, { path, ...ids, parse: createRouteParser<TParams, {}>(parameters, []) });")
         appendLine("}")
         appendLine()
       }
@@ -116,6 +117,9 @@ private data class TypeScriptRouteConfig(
 )
 
 private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
+  val pathDeclarations = parameters.joinToString(", ") {
+    "{ name: \"${it.name.toTypeScriptString()}\", optional: ${it.optional} }"
+  }
   if (queryParameters.isNotEmpty()) {
     val arguments = buildList {
       if (parameters.isNotEmpty()) add("params: ${parameters.toTypeScriptParameterObject()}")
@@ -130,7 +134,8 @@ private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
       appendLine("    ($arguments) => appendQuery(${path.toTypeScriptTemplate(parameters)}, query, [$declarations]),")
       appendLine("    {")
       appendLine("      path: \"${path.toTypeScriptString()}\", ...${toTypeScriptRouteIds()},")
-      appendLine("      queryParameters: (search: URLSearchParams) => readQuery(search, Object.values(${key}QueryKey))")
+      appendLine("      queryParameters: (search: URLSearchParams) => readQuery(search, Object.values(${key}QueryKey)),")
+      appendLine("      parse: createRouteParser<${parameters.toTypeScriptParameterObject()}, ${key}Query>([$pathDeclarations], [$declarations])")
       appendLine("    }")
       appendLine("  ),")
     }
@@ -143,7 +148,8 @@ private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
     appendLine("  $key: route(")
     appendLine("    \"${path.toTypeScriptString()}\",")
     appendLine("    (params: ${parameters.toTypeScriptParameterObject()}) => ${path.toTypeScriptTemplate(parameters)},")
-    appendLine("    ${toTypeScriptRouteIds()}")
+    appendLine("    ${toTypeScriptRouteIds()},")
+    appendLine("    [$pathDeclarations]")
     appendLine("  ),")
   }
 }
@@ -219,9 +225,44 @@ private fun String.toTypeScriptTemplateString(): String {
     .replace("\$", "\\$")
 }
 
-private val QUERY_HELPERS = """
+private val ROUTE_PARSER = """
+  type PathDeclaration = { name: string; optional: boolean };
   type QueryDeclaration = { name: string; optional: boolean; repeated: boolean };
 
+  function createRouteParser<TParams extends object, TQuery extends object>(
+    parameters: readonly PathDeclaration[], queryParameters: readonly QueryDeclaration[]
+  ) {
+    // Path values have already been decoded by the router. Invalid declared values return null.
+    return (params: Readonly<Record<string, string | undefined>>, search: URLSearchParams):
+      { params: TParams; query: TQuery } | null => {
+      const parsedParams: Record<string, string> = Object.create(null);
+      const query: Record<string, string | readonly string[]> = Object.create(null);
+      for (const { name, optional } of parameters) {
+        const value = Object.prototype.hasOwnProperty.call(params, name) ? params[name] : undefined;
+        if (value === undefined) {
+          if (!optional) return null;
+        } else {
+          if (typeof value !== "string") return null;
+          parsedParams[name] = value;
+        }
+      }
+      for (const { name, optional, repeated } of queryParameters) {
+        const values = search.getAll(name);
+        if (values.length === 0) {
+          if (!optional) return null;
+        } else {
+          if (!repeated && values.length !== 1) return null;
+          query[name] = repeated ? values : values[0];
+        }
+      }
+      // The generator supplies matching declarations and types for each route.
+      return { params: parsedParams as TParams, query: query as TQuery };
+    };
+  }
+
+""".trimIndent()
+
+private val QUERY_HELPERS = """
   function appendQuery(path: string, query: object, declarations: readonly QueryDeclaration[]): string {
     const values = query as Record<string, string | readonly string[] | null | undefined>;
     const search = new URLSearchParams();
