@@ -5,7 +5,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaRouteKey
+import com.sparouting.contract.Route
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -64,7 +64,7 @@ class SinglePageApplicationRouteRegistryTest {
     val config = TestSinglePageApplicationConfig(
       application = TestSpaApplicationDefinition(routes = listOf(route("known", "Known"))),
       routeRules = mapOf(
-        TestSpaRouteKey("test", "Missing") to listOf(RecordingRule(SpaRouteRuleResult.Allow))
+        Route("test", "Missing") to listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
 

@@ -2,7 +2,7 @@ package io.github.caseymcguire.sparouting.spring.config
 
 import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.RouteDefinition
-import com.sparouting.contract.RouteKey
+import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import org.springframework.web.servlet.function.ServerResponse
 
@@ -30,7 +30,7 @@ interface SinglePageApplicationConfig {
   val rules: List<SpaRouteRule>
     get() = emptyList()
 
-  val routeRules: Map<RouteKey, List<SpaRouteRule>>
+  val routeRules: Map<Route, List<SpaRouteRule>>
     get() = emptyMap()
 
   /**

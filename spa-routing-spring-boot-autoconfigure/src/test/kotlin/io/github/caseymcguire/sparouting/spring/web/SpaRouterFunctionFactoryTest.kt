@@ -12,7 +12,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaRouteKey
+import com.sparouting.contract.Route
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -74,7 +74,7 @@ class SpaRouterFunctionFactoryTest {
         application = TestSpaApplicationDefinition(routes = listOf(route("settings", "Settings"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
         routeRules = mapOf(
-          TestSpaRouteKey("test", "Settings") to listOf(
+          Route("test", "Settings") to listOf(
             RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.notFound()))
           )
         )

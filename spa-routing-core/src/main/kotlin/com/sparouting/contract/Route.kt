@@ -1,9 +1,9 @@
 package com.sparouting.contract
 
 open class Route(
-  override val applicationId: String,
-  override val routeId: String
-) : RouteKey {
+  val applicationId: String,
+  val routeId: String
+) {
   protected fun target(
     parameters: Map<String, String> = emptyMap(),
     queryString: Map<String, List<String>> = emptyMap()

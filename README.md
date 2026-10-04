@@ -299,7 +299,9 @@ Attach app-wide rules and route-level rules from a config bean:
 
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
+import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import org.springframework.context.annotation.Bean
 
 @Bean
@@ -307,7 +309,7 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
   return object : SinglePageApplicationConfig {
     override val application = AccountSpaApplication
     override val rules = listOf(RequireLogin())
-    override val routeRules = mapOf(
+    override val routeRules: Map<Route, List<SpaRouteRule>> = mapOf(
       AccountRoutes.UserDetail to listOf(RequireAccountAccess())
     )
   }

@@ -2,7 +2,7 @@ package io.github.caseymcguire.sparouting.spring.testsupport
 
 import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.RouteDefinition
-import com.sparouting.contract.RouteKey
+import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
@@ -17,15 +17,10 @@ internal data class TestSpaApplicationDefinition(
   override val bundleName: String = id
 ) : SpaApplicationDefinition
 
-internal data class TestSpaRouteKey(
-  override val applicationId: String,
-  override val routeId: String
-) : RouteKey
-
 internal data class TestSinglePageApplicationConfig(
   override val application: SpaApplicationDefinition,
   override val rules: List<SpaRouteRule> = emptyList(),
-  override val routeRules: Map<RouteKey, List<SpaRouteRule>> = emptyMap()
+  override val routeRules: Map<Route, List<SpaRouteRule>> = emptyMap()
 ) : SinglePageApplicationConfig
 
 internal class RecordingRule(

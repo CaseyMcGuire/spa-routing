@@ -4,7 +4,7 @@ package com.sparouting.contract
  * Base contract for route access. Applications extend a generated route-specific subclass,
  * which supplies the route identity and converts validated input to [R].
  */
-abstract class RouteAccessHandler<R>(val route: RouteKey) {
+abstract class RouteAccessHandler<R>(val route: Route) {
   abstract fun evaluate(request: R): RouteDecision
 
   protected abstract fun createRequest(context: RouteAccessContext): R

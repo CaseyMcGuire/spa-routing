@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.rules.builtin
 
-import com.sparouting.contract.RouteKey
+import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
@@ -11,8 +11,8 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
  * routes while every other route — including ones added later — stays gated by default. Route-level
  * rules still run and can veto even a public route.
  */
-class AllowPublic(vararg routes: RouteKey) : SpaRouteRule {
-  // RouteKey is an interface without value equality, so key the set on the id pair.
+class AllowPublic(vararg routes: Route) : SpaRouteRule {
+  // Match incoming requests by application and route IDs.
   private val publicRoutes = routes.mapTo(HashSet()) { it.applicationId to it.routeId }
 
   override fun evaluate(request: RouteRequest): SpaRouteRuleResult {

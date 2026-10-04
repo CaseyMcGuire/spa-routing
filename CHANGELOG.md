@@ -4,12 +4,18 @@
 
 ### Breaking changes
 
+- **The public `RouteKey` interface was removed.** `RouteAccessHandler.route`,
+  `AllowPublic`, and `SinglePageApplicationConfig.routeRules` now accept `Route`
+  directly. Replace `RouteKey` (or `SpaRouteKey`) type declarations with `Route`.
+  Custom implementations should extend `Route(applicationId, routeId)` or use
+  a `Route` instance directly. Generated route objects already extend `Route`.
+  Runtime matching continues to use application and route IDs.
+
 - **The following route API types drop the `Spa` prefix.** Rename imports and usages:
 
   | Previous name | New name |
   | --- | --- |
   | `SpaRouteAccessContext` | `RouteAccessContext` |
-  | `SpaRouteKey` | `RouteKey` |
   | `SpaRouteTarget` | `RouteTarget` |
   | `SpaRouteDefinition` | `RouteDefinition` |
   | `SpaRouteRequest` | `RouteRequest` |
@@ -20,8 +26,7 @@
   `com.sparouting.contract`. Regenerate server routes with
   `./gradlew generateServerSpaRoutes`, then recompile consumers. Custom route
   subclasses now extend `Route`. This is a source and binary API rename;
-  no aliases for the previous names are provided. Routing behavior and
-  `RouteKey` equality semantics are unchanged.
+  no aliases for the previous names are provided. Routing behavior is unchanged.
 
 - **`string(name)` was renamed to `parameter(name)`.** All values are strings;
   the declaration specifies the name and optional/repeated behavior. Update

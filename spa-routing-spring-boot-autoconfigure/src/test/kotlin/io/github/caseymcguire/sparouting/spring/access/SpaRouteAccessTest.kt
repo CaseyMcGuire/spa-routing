@@ -15,7 +15,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaRouteKey
+import com.sparouting.contract.Route
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
@@ -26,7 +26,7 @@ import org.springframework.web.servlet.function.RouterFunction
 import java.util.function.Supplier
 
 class SpaRouteAccessTest {
-  private val postKey = TestSpaRouteKey("test", "Post")
+  private val postKey = Route("test", "Post")
 
   @Test
   fun `missing handler fails startup even when page serving is disabled`() {
@@ -173,7 +173,7 @@ class SpaRouteAccessTest {
 
   data class PostRequest(val id: String, val context: RouteAccessContext)
 
-  class PostAccessHandler : RouteAccessHandler<PostRequest>(TestSpaRouteKey("test", "Post")) {
+  class PostAccessHandler : RouteAccessHandler<PostRequest>(Route("test", "Post")) {
     val requests = mutableListOf<PostRequest>()
 
     override fun createRequest(context: RouteAccessContext): PostRequest {
