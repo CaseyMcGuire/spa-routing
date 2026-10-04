@@ -6,6 +6,17 @@
 - typed Kotlin route objects for the server
 - bundle entry metadata for webpack or Vite
 
+## Runnable Examples
+
+The [examples](examples/README.md) include a Spring Boot application using the
+local library projects and shared Kotlin route definitions:
+
+```sh
+./gradlew :examples:spring:run
+```
+
+Then open [http://localhost:8080/](http://localhost:8080/).
+
 ## Install
 
 For Gradle route generation:
