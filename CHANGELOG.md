@@ -4,6 +4,45 @@
 
 ### Breaking changes
 
+- **The remaining API types and helpers drop the `Spa` prefix.** Update imports
+  and usages, then regenerate routes and recompile consumers. Packages stay
+  the same, and no aliases for the old names are provided.
+
+  | Previous name | New name |
+  | --- | --- |
+  | `SpaRouteParameter` | `RouteParameter` |
+  | `SpaRouteRule` | `RouteRule` |
+  | `SpaRouteRuleResult` | `RouteRuleResult` |
+  | `SpaRouteRuleAction` | `RouteRuleAction` |
+  | `SpaRouteRuleActionResolver` | `RouteRuleActionResolver` |
+  | `SpaRouteResponseEvaluator` | `RouteResponseEvaluator` |
+  | `SpaRouteHttpResponse` | `RouteHttpResponse` |
+  | `SpaRouteResponseRequest` | `RouteResponseRequest` |
+  | `SpaRouteResponseService` | `RouteResponseService` |
+  | `SpaRouteRequestFactory` | `RouteRequestFactory` |
+  | `DefaultSpaRouteRequestFactory` | `DefaultRouteRequestFactory` |
+  | `SpaHtmlRenderer` | `HtmlRenderer` |
+  | `DefaultSpaHtmlRenderer` | `DefaultHtmlRenderer` |
+  | `SpaRouterFunctionFactory` | `RouterFunctionFactory` |
+  | `SpaRouteDecisionRouterFunctionFactory` | `RouteDecisionRouterFunctionFactory` |
+  | `SpaRoutingAutoConfiguration` | `RoutingAutoConfiguration` |
+  | `SpaRoutingProperties` | `RoutingProperties` |
+  | `SpaRoutingPlugin` | `RoutingPlugin` |
+  | `SpaRoutingExtension` | `RoutingExtension` |
+  | `SpaRoutingConfiguration` | `RoutingConfiguration` |
+
+  Spring bean names also drop the prefix: for example, `spaHtmlRenderer` becomes
+  `htmlRenderer`, and `spaRouteDecisionRouterFunction` becomes
+  `routeDecisionRouterFunction`. Update any bean-name references or overrides.
+  Java callers of the top-level factories now use `RouteFactoriesKt` instead
+  of `SpaRouteFactoriesKt`; Kotlin `route` and `parameter` imports stay the same.
+
+  The Gradle task `generateServerSpaRoutes` is now `generateServerRoutes`.
+  Update task references and scripts. Generated TypeScript uses the internal
+  helper name `RouteIds`. Artifact IDs, plugin ID, `spaRouting` configuration,
+  generated source paths, `spa-routing.*` properties, and the
+  `/__spa/route-decision` endpoint remain unchanged. Routing behavior is unchanged.
+
 - **Per-route rule lists were replaced by typed access handlers.**
   `SinglePageApplicationConfig.routeRules` and `getRouteRules` were removed.
   Set `generateAccessHandler = true` on routes that need checks, then register
@@ -14,7 +53,7 @@
 
   Application-level `rules` remain a deny-by-default gate and must allow the
   request before its handler runs. Unflagged routes are served after that gate
-  passes. `SpaRouteResponseEvaluator.evaluate` now takes only
+  passes. `RouteResponseEvaluator.evaluate` now takes only
   `applicationRules` and `request`.
 
 - **`SpaApplicationDefinition` was renamed to `SinglePageApplicationDefinition`.**
@@ -44,7 +83,7 @@
   Packages stay the same: `RouteRequest` is in
   `io.github.caseymcguire.sparouting.spring.request`; the other types are in
   `com.sparouting.contract`. Regenerate server routes with
-  `./gradlew generateServerSpaRoutes`, then recompile consumers. Custom route
+  `./gradlew generateServerRoutes`, then recompile consumers. Custom route
   subclasses now extend `Route`. This is a source and binary API rename;
   no aliases for the previous names are provided. Routing behavior is unchanged.
 
@@ -101,7 +140,7 @@
   Migration: omit redundant path declarations and infer names from the path.
   For query-string declarations or explicit path overrides, replace `int("id")`
   and `uuid("id")` with `parameter("id")` and update the imports. For direct
-  construction, use `SpaRouteParameter("id")` without a type argument.
+  construction, use `RouteParameter("id")` without a type argument.
   Regenerate client and server routes, then pass string values to route builders
   (for example, `UserDetail(id = "123")` in Kotlin or
   `UserDetail({ id: "123" })` in TypeScript).

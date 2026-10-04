@@ -16,7 +16,7 @@ versions; the newest entry is the current semantics.
 
 Application rules are a deny-by-default gate, followed by an optional typed
 route access handler. Any config, test, or example needs an application-level
-`Allow` — e.g. the `AllowAll` builtin, or `RecordingRule(SpaRouteRuleResult.Allow)`
+`Allow` — e.g. the `AllowAll` builtin, or `RecordingRule(RouteRuleResult.Allow)`
 in tests — for a route to be served. Routes with `generateAccessHandler = true`
 also require a registered handler returning `RouteDecision.Allow` or `Redirect`.
 Per-route `routeRules` have been removed.

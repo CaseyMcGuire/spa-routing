@@ -4,8 +4,8 @@ import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.RouteDefinition
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
+import io.github.caseymcguire.sparouting.spring.rules.RouteRule
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 
 internal data class TestSinglePageApplicationDefinition(
   override val id: String = "test",
@@ -18,14 +18,14 @@ internal data class TestSinglePageApplicationDefinition(
 
 internal data class TestSinglePageApplicationConfig(
   override val application: SinglePageApplicationDefinition,
-  override val rules: List<SpaRouteRule> = emptyList()
+  override val rules: List<RouteRule> = emptyList()
 ) : SinglePageApplicationConfig
 
 internal class RecordingRule(
-  private val result: SpaRouteRuleResult,
+  private val result: RouteRuleResult,
   private val onEvaluate: () -> Unit = {}
-) : SpaRouteRule {
-  override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
+) : RouteRule {
+  override fun evaluate(request: RouteRequest): RouteRuleResult {
     onEvaluate()
     return result
   }

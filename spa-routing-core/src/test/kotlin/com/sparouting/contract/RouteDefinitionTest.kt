@@ -49,7 +49,7 @@ class RouteDefinitionTest {
       RouteDefinition(
         path = "users",
         id = "UserList",
-        parameters = listOf(SpaRouteParameter("id"))
+        parameters = listOf(RouteParameter("id"))
       )
     }
   }
@@ -61,8 +61,8 @@ class RouteDefinitionTest {
         path = "users/{id}",
         id = "UserDetail",
         parameters = listOf(
-          SpaRouteParameter("id"),
-          SpaRouteParameter("id")
+          RouteParameter("id"),
+          RouteParameter("id")
         )
       )
     }

@@ -2,7 +2,7 @@ package io.github.caseymcguire.sparouting.spring.config
 
 import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.RouteDefinition
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
+import io.github.caseymcguire.sparouting.spring.rules.RouteRule
 import org.springframework.web.servlet.function.ServerResponse
 
 interface SinglePageApplicationConfig {
@@ -26,13 +26,13 @@ interface SinglePageApplicationConfig {
   val applicationId: String
     get() = application.id
 
-  val rules: List<SpaRouteRule>
+  val rules: List<RouteRule>
     get() = emptyList()
 
   /**
    * Optional per-application HTML override.
    *
-   * Return null to use the configured SpaHtmlRenderer bean.
+   * Return null to use the configured HtmlRenderer bean.
    */
   fun renderHtml(): ServerResponse? = null
 

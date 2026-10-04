@@ -48,7 +48,7 @@ Use it from Spring Boot 4 applications.
 
 ## Define Routes
 
-Route definitions must live in a module separate from the one the plugin is applied to. The plugin compiles the generated server routes into the plugin's module, but generating them first needs the route definitions compiled, so keeping both in one module creates a `compileKotlin -> generateServerSpaRoutes -> classes -> compileKotlin` cycle. Put your concrete `SinglePageApplicationDefinition` objects in a dedicated module, commonly under:
+Route definitions must live in a module separate from the one the plugin is applied to. The plugin compiles the generated server routes into the plugin's module, but generating them first needs the route definitions compiled, so keeping both in one module creates a `compileKotlin -> generateServerRoutes -> classes -> compileKotlin` cycle. Put your concrete `SinglePageApplicationDefinition` objects in a dedicated module, commonly under:
 
 ```txt
 spa-route-definitions/src/main/kotlin/com/sparouting/contract/applications
@@ -62,7 +62,7 @@ package com.sparouting.contract.applications
 import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.route
 
-object AccountSpaApplication : SinglePageApplicationDefinition {
+object AccountApplication : SinglePageApplicationDefinition {
   override val id = "account"
   override val name = "Account"
   override val urlPrefix = "account"
@@ -215,16 +215,16 @@ routeDefinitions {
 The plugin adds:
 
 - `generateClientRoutes`
-- `generateServerSpaRoutes`
+- `generateServerRoutes`
 - `generateBundleEntries`
 
 Run all three manually:
 
 ```sh
-./gradlew generateClientRoutes generateServerSpaRoutes generateBundleEntries
+./gradlew generateClientRoutes generateServerRoutes generateBundleEntries
 ```
 
-When `org.jetbrains.kotlin.jvm` is applied, `generateServerSpaRoutes` is wired into Kotlin compilation and `serverRoutes.sourceRoot` is added as a generated source root.
+When `org.jetbrains.kotlin.jvm` is applied, `generateServerRoutes` is wired into Kotlin compilation and `serverRoutes.sourceRoot` is added as a generated source root.
 
 ## Defaults
 
@@ -260,11 +260,11 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class SpaRoutesConfiguration {
+class RoutesConfiguration {
   @Bean
-  fun accountSpaConfig(): SinglePageApplicationConfig {
+  fun accountConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
-      override val application = AccountSpaApplication
+      override val application = AccountApplication
       override val rules = listOf(AllowAll())
     }
   }
@@ -282,16 +282,16 @@ Add application-wide rules when every route in an SPA needs the same behavior:
 
 ```kotlin
 import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
+import io.github.caseymcguire.sparouting.spring.rules.RouteRule
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 
-class RequireLogin : SpaRouteRule {
-  override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
+class RequireLogin : RouteRule {
+  override fun evaluate(request: RouteRequest): RouteRuleResult {
     return if (request.header("X-User").isEmpty()) {
-      SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
+      RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
     } else {
-      SpaRouteRuleResult.Allow
+      RouteRuleResult.Allow
     }
   }
 }
@@ -304,9 +304,9 @@ import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConf
 import org.springframework.context.annotation.Bean
 
 @Bean
-fun accountSpaConfig(): SinglePageApplicationConfig {
+fun accountConfig(): SinglePageApplicationConfig {
   return object : SinglePageApplicationConfig {
-    override val application = AccountSpaApplication
+    override val application = AccountApplication
     override val rules = listOf(RequireLogin())
   }
 }
@@ -324,13 +324,13 @@ Redirect to a raw URL or a generated typed SPA route:
 
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 
-SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
+RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
 
-SpaRouteRuleResult.Deny(
-  SpaRouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
+RouteRuleResult.Deny(
+  RouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
 )
 ```
 
@@ -343,9 +343,9 @@ import org.springframework.http.MediaType
 import org.springframework.web.servlet.function.ServerResponse
 
 @Bean
-fun accountSpaConfig(): SinglePageApplicationConfig {
+fun accountConfig(): SinglePageApplicationConfig {
   return object : SinglePageApplicationConfig {
-    override val application = AccountSpaApplication
+    override val application = AccountApplication
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()
@@ -397,12 +397,12 @@ spa-routing:
 
 Override these beans to customize runtime behavior:
 
-- `SpaHtmlRenderer`
-- `SpaRouteRuleActionResolver`
-- `SpaRouteResponseEvaluator`
-- `SpaRouteRequestFactory`
+- `HtmlRenderer`
+- `RouteRuleActionResolver`
+- `RouteResponseEvaluator`
+- `RouteRequestFactory`
 - `SinglePageApplicationRouteRegistry`
-- `SpaRouteResponseService`
+- `RouteResponseService`
 
 ## Development
 

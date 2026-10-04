@@ -7,9 +7,9 @@ data class RouteDefinition(
   val path: String,
   val id: String,
   /** String parameters inferred from path placeholders; override to declare optional path values. */
-  val parameters: List<SpaRouteParameter> = inferPathParameters(path),
+  val parameters: List<RouteParameter> = inferPathParameters(path),
   /** Declared query-string fields, including whether each is optional or repeated. */
-  val queryString: List<SpaRouteParameter> = emptyList(),
+  val queryString: List<RouteParameter> = emptyList(),
   /** Generate a typed access-handler base class and require an implementation at runtime. */
   val generateAccessHandler: Boolean = false
 ) {
@@ -72,7 +72,7 @@ data class RouteDefinition(
     return missingRequiredParameters.isEmpty()
   }
 
-  fun requiredParameters(): List<SpaRouteParameter> {
+  fun requiredParameters(): List<RouteParameter> {
     return parameters.filter { !it.optional }
   }
 
@@ -95,7 +95,7 @@ data class RouteDefinition(
   }
 
   private fun requireUniqueGeneratedNames(
-    declarations: List<SpaRouteParameter>,
+    declarations: List<RouteParameter>,
     kind: String,
     enumNames: Boolean
   ) {
@@ -131,9 +131,9 @@ data class RouteDefinition(
     private val PATH_PARAMETER_PATTERN = "\\{([^}:]+)(?::[^}]*)?\\}".toRegex()
     private val ROUTE_ID_PATTERN = "[A-Z][A-Za-z0-9]*".toRegex()
 
-    internal fun inferPathParameters(path: String): List<SpaRouteParameter> {
+    internal fun inferPathParameters(path: String): List<RouteParameter> {
       return PATH_PARAMETER_PATTERN.findAll(path)
-        .map { SpaRouteParameter(it.groupValues[1]) }
+        .map { RouteParameter(it.groupValues[1]) }
         .toList()
     }
   }

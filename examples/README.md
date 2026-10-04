@@ -97,7 +97,7 @@ not checked in. Kotlin compilation automatically generates the server routes.
 Use the tasks below to generate both server and client routes explicitly.
 
 ```sh
-./gradlew :examples:spring:generateServerSpaRoutes :examples:spring:generateClientRoutes
+./gradlew :examples:spring:generateServerRoutes :examples:spring:generateClientRoutes
 ```
 
 Server output is in `spring/build/generated/source/spaRoutes/main`. Client

@@ -3,18 +3,18 @@ package io.github.caseymcguire.sparouting.spring.web
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
 import com.sparouting.contract.parameter
-import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
+import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
-import io.github.caseymcguire.sparouting.spring.request.DefaultSpaRouteRequestFactory
+import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
+import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseRequest
-import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
+import io.github.caseymcguire.sparouting.spring.response.RouteResponseRequest
+import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
+import io.github.caseymcguire.sparouting.spring.rules.RouteResponseEvaluator
+import io.github.caseymcguire.sparouting.spring.rules.RouteRule
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleActionResolver
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import org.springframework.test.web.servlet.get
@@ -32,15 +32,15 @@ class TypedQueryRoutingTest {
         parameter("foo"), parameter("tag").repeated(), parameter("baz").optional(), parameter("filter").repeated().optional()
       ))
     )),
-    rules = listOf(object : SpaRouteRule {
-      override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
+    rules = listOf(object : RouteRule {
+      override fun evaluate(request: RouteRequest): RouteRuleResult {
         requests.add(request)
-        return SpaRouteRuleResult.Allow
+        return RouteRuleResult.Allow
       }
     })
   )
-  private val resolver = SpaRouteRuleActionResolver(listOf(config))
-  private val evaluator = SpaRouteResponseEvaluator(resolver)
+  private val resolver = RouteRuleActionResolver(listOf(config))
+  private val evaluator = RouteResponseEvaluator(resolver)
   private val registry = SinglePageApplicationRouteRegistry(listOf(config))
   private val valid = linkedMapOf("foo" to listOf("a b+&=雪"), "tag" to listOf("x/y", "é"))
 
@@ -75,7 +75,7 @@ class TypedQueryRoutingTest {
 
   @Test
   fun `query error status is independently configurable for both endpoints`() {
-    val properties = SpaRoutingProperties().apply {
+    val properties = RoutingProperties().apply {
       server.invalidPathParameterStatus = 409
       server.invalidQueryStringStatus = 422
     }
@@ -85,18 +85,18 @@ class TypedQueryRoutingTest {
 
   @Test
   fun `service rejects empty required lists and permits empty optional lists`() {
-    val service = SpaRouteResponseService(registry, evaluator)
-    assertEquals(400, service.evaluate(SpaRouteResponseRequest(
+    val service = RouteResponseService(registry, evaluator)
+    assertEquals(400, service.evaluate(RouteResponseRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
     )).statusCode)
-    assertEquals(200, service.evaluate(SpaRouteResponseRequest(
+    assertEquals(200, service.evaluate(RouteResponseRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("filter" to emptyList())
     )).statusCode)
   }
 
   @Test
   fun `typed redirects encode declared and extra query parameters`() {
-    val result = resolver.resolve(SpaRouteRuleAction.redirectTo(RouteTarget(
+    val result = resolver.resolve(RouteRuleAction.redirectTo(RouteTarget(
       "test", "UserDetail", mapOf("id" to "123"),
       queryString = valid + mapOf("baz" to listOf(""), "utm_source" to listOf("extra"))
     )))
@@ -108,7 +108,7 @@ class TypedQueryRoutingTest {
   fun `typed redirects reject invalid query cardinality`() {
     for (query in listOf(valid - "foo", valid + mapOf("tag" to emptyList()), valid + mapOf("foo" to listOf("a", "b")))) {
       assertFailsWith<IllegalArgumentException> {
-        resolver.resolve(SpaRouteRuleAction.redirectTo(RouteTarget(
+        resolver.resolve(RouteRuleAction.redirectTo(RouteTarget(
           "test", "UserDetail", mapOf("id" to "123"), queryString = query
         )))
       }
@@ -118,14 +118,14 @@ class TypedQueryRoutingTest {
   private fun assertPageAndDecision(
     query: Map<String, List<String>>,
     expectedStatus: Int,
-    properties: SpaRoutingProperties = SpaRoutingProperties()
+    properties: RoutingProperties = RoutingProperties()
   ) {
     val mockMvc = MockMvcBuilders.routerFunctions(
-      SpaRouterFunctionFactory(
-        listOf(config), evaluator, DefaultSpaRouteRequestFactory(), DefaultSpaHtmlRenderer(properties), properties
+      RouterFunctionFactory(
+        listOf(config), evaluator, DefaultRouteRequestFactory(), DefaultHtmlRenderer(properties), properties
       ).routes(),
-      SpaRouteDecisionRouterFunctionFactory(
-        SpaRouteResponseService(registry, evaluator, properties.server.invalidPathParameterStatus, properties.server.invalidQueryStringStatus),
+      RouteDecisionRouterFunctionFactory(
+        RouteResponseService(registry, evaluator, properties.server.invalidPathParameterStatus, properties.server.invalidQueryStringStatus),
         properties
       ).routes()
     ).build()

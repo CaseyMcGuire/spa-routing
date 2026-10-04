@@ -1,7 +1,7 @@
 package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SinglePageApplicationDefinitionDiscovery
-import com.sparouting.contract.SpaRouteParameter
+import com.sparouting.contract.RouteParameter
 import com.sparouting.contract.queryStringKeyIdentifier
 import java.nio.file.Files
 import java.nio.file.Path
@@ -50,10 +50,10 @@ internal fun generateClientRoutes() {
       appendLine("// THIS FILE IS GENERATED. DO NOT EDIT BY HAND.")
       appendLine("// Run './gradlew generateClientRoutes' to regenerate.")
       appendLine()
-      appendLine("type SpaRouteIds = { applicationId: string; routeId: string };")
+      appendLine("type RouteIds = { applicationId: string; routeId: string };")
       appendLine()
       appendLine(ROUTE_PARSER)
-      appendLine("function routeWithoutParams(path: string, ids: SpaRouteIds) {")
+      appendLine("function routeWithoutParams(path: string, ids: RouteIds) {")
       appendLine("  return Object.assign(() => path, { path, ...ids, parse: createRouteParser<{}, {}>([], []) });")
       appendLine("}")
       appendLine()
@@ -62,7 +62,7 @@ internal fun generateClientRoutes() {
         appendLine("  return encodeURIComponent(value);")
         appendLine("}")
         appendLine()
-        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, ids: SpaRouteIds, parameters: readonly PathDeclaration[]) {")
+        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, ids: RouteIds, parameters: readonly PathDeclaration[]) {")
         appendLine("  return Object.assign(buildPath, { path, ...ids, parse: createRouteParser<TParams, {}>(parameters, []) });")
         appendLine("}")
         appendLine()
@@ -112,8 +112,8 @@ private data class TypeScriptRouteConfig(
   val applicationId: String,
   val key: String,
   val path: String,
-  val parameters: List<SpaRouteParameter>,
-  val queryString: List<SpaRouteParameter>
+  val parameters: List<RouteParameter>,
+  val queryString: List<RouteParameter>
 )
 
 private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
@@ -158,7 +158,7 @@ private fun TypeScriptRouteConfig.toTypeScriptRouteIds(): String {
   return "{ applicationId: \"${applicationId.toTypeScriptString()}\", routeId: \"${key.toTypeScriptString()}\" }"
 }
 
-private fun List<SpaRouteParameter>.toTypeScriptParameterObject(): String {
+private fun List<RouteParameter>.toTypeScriptParameterObject(): String {
   return joinToString(
     prefix = "{ ",
     separator = "; ",
@@ -170,7 +170,7 @@ private fun List<SpaRouteParameter>.toTypeScriptParameterObject(): String {
   }
 }
 
-private fun String.toTypeScriptTemplate(parameters: List<SpaRouteParameter>): String {
+private fun String.toTypeScriptTemplate(parameters: List<RouteParameter>): String {
   val parametersBySegment = parameters.associateBy { ":${it.name}" }
   val template = split("/").joinToString("/") { segment ->
     val parameter = parametersBySegment[segment] ?: return@joinToString segment.toTypeScriptTemplateString()

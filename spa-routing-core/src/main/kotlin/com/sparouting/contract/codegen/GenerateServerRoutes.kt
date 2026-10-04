@@ -3,7 +3,7 @@ package com.sparouting.contract.codegen
 import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.SinglePageApplicationDefinitionDiscovery
 import com.sparouting.contract.RouteDefinition
-import com.sparouting.contract.SpaRouteParameter
+import com.sparouting.contract.RouteParameter
 import com.sparouting.contract.queryStringKeyIdentifier
 import com.sparouting.contract.routeParameterIdentifier
 import java.nio.file.Files
@@ -209,7 +209,7 @@ private fun StringBuilder.appendGeneratedFileHeader(
     appendLine()
   }
   appendLine("// THIS FILE IS GENERATED. DO NOT EDIT BY HAND.")
-  appendLine("// Run './gradlew generateServerSpaRoutes' to regenerate.")
+  appendLine("// Run './gradlew generateServerRoutes' to regenerate.")
   appendLine()
 }
 
@@ -225,14 +225,14 @@ private fun SinglePageApplicationDefinition.routePackagePath(): String {
   return id.toPackageSegment()
 }
 
-private fun SpaRouteParameter.toKotlinParameter(): String {
+private fun RouteParameter.toKotlinParameter(): String {
   val nullableSuffix = if (optional) "?" else ""
   val defaultValue = if (optional) " = null" else ""
   val type = if (repeated) "List<String>" else "String"
   return "${name.toKotlinIdentifier()}: $type$nullableSuffix$defaultValue"
 }
 
-private fun List<SpaRouteParameter>.toKotlinParameterMap(): String {
+private fun List<RouteParameter>.toKotlinParameterMap(): String {
   if (all { !it.optional }) {
     return "mapOf(${joinToString(", ") { "${it.name.toKotlinStringLiteral()} to ${it.name.toKotlinIdentifier()}" }})"
   }
@@ -266,7 +266,7 @@ private fun String.toPackageSegment(): String {
   }
 }
 
-private fun StringBuilder.appendQueryStringModel(parameters: List<SpaRouteParameter>) {
+private fun StringBuilder.appendQueryStringModel(parameters: List<RouteParameter>) {
   appendLine()
   appendLine("  data class QueryString(")
   parameters.forEachIndexed { index, parameter ->

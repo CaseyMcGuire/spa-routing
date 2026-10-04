@@ -121,23 +121,23 @@ The starter reads these beans during auto-configuration.
 ```kotlin
 package com.example.web
 
-import com.example.routes.AccountSpaApplication
+import com.example.routes.AccountApplication
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class SpaRoutesConfiguration {
+class RoutesConfiguration {
   @Bean
-  fun accountSpaConfig(): SinglePageApplicationConfig {
+  fun accountConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
-      override val application = AccountSpaApplication
+      override val application = AccountApplication
     }
   }
 }
 ```
 
-If `AccountSpaApplication.urlPrefix` is `account` and it defines
+If `AccountApplication.urlPrefix` is `account` and it defines
 `route("users/{id}", "UserDetail")`, the starter registers:
 
 ```text
@@ -154,25 +154,25 @@ Application-wide rules run for every route in that SPA:
 ```kotlin
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
+import io.github.caseymcguire.sparouting.spring.rules.RouteRule
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 import org.springframework.context.annotation.Bean
 
-class RequireLogin : SpaRouteRule {
-  override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
+class RequireLogin : RouteRule {
+  override fun evaluate(request: RouteRequest): RouteRuleResult {
     return if (request.header("X-User").isEmpty()) {
-      SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
+      RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
     } else {
-      SpaRouteRuleResult.Allow
+      RouteRuleResult.Allow
     }
   }
 }
 
 @Bean
-fun accountSpaConfig(): SinglePageApplicationConfig {
+fun accountConfig(): SinglePageApplicationConfig {
   return object : SinglePageApplicationConfig {
-    override val application = AccountSpaApplication
+    override val application = AccountApplication
     override val rules = listOf(RequireLogin())
   }
 }
@@ -208,7 +208,7 @@ Opt a route into a required, typed handler in the shared definition:
 route("posts/{postId}", "Post", generateAccessHandler = true)
 ```
 
-`generateServerSpaRoutes` emits `Post.kt`, `PostRequest.kt`, and `PostAccessHandler.kt`
+`generateServerRoutes` emits `Post.kt`, `PostRequest.kt`, and `PostAccessHandler.kt`
 in the application's generated route package. `PostRequest` exposes `postId:
 String`; `PostAccessHandler` is a separate abstract class extending
 `RouteAccessHandler<PostRequest>`. Its generated implementation supplies the route
@@ -267,7 +267,7 @@ provides automatic discovery and execution through the Spring starter.
 Use a raw location when the target is outside the SPA route definitions:
 
 ```kotlin
-SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
+RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
 ```
 
 Use a typed generated route target when redirecting to another SPA route:
@@ -275,8 +275,8 @@ Use a typed generated route target when redirecting to another SPA route:
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
 
-SpaRouteRuleResult.Deny(
-  SpaRouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
+RouteRuleResult.Deny(
+  RouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
 )
 ```
 
@@ -320,8 +320,8 @@ AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
 ```kotlin
 import com.example.generated.spa.routes.account.UserSearch
 
-SpaRouteRuleResult.Deny(
-  SpaRouteRuleAction.redirectTo(
+RouteRuleResult.Deny(
+  RouteRuleAction.redirectTo(
     UserSearch(id = "123", queryString = UserSearch.QueryString(q = "hello world", tag = listOf("a", "b")))
   )
 )
@@ -400,9 +400,9 @@ import org.springframework.context.annotation.Bean
 import org.springframework.web.servlet.function.ServerResponse
 
 @Bean
-fun accountSpaConfig(): SinglePageApplicationConfig {
+fun accountConfig(): SinglePageApplicationConfig {
   return object : SinglePageApplicationConfig {
-    override val application = AccountSpaApplication
+    override val application = AccountApplication
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()
@@ -413,17 +413,17 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
-Override rendering for all SPAs by replacing the `SpaHtmlRenderer` bean:
+Override rendering for all SPAs by replacing the `HtmlRenderer` bean:
 
 ```kotlin
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.rendering.SpaHtmlRenderer
+import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import org.springframework.context.annotation.Bean
 import org.springframework.web.servlet.function.ServerResponse
 
 @Bean
-fun spaHtmlRenderer(): SpaHtmlRenderer {
-  return object : SpaHtmlRenderer {
+fun htmlRenderer(): HtmlRenderer {
+  return object : HtmlRenderer {
     override fun render(application: SinglePageApplicationConfig): ServerResponse {
       return ServerResponse.ok().body(MyPage(application).render())
     }
@@ -476,7 +476,7 @@ valid. The route decision is in the JSON body:
 Response bodies use this shape:
 
 ```ts
-type SpaRouteDecision = {
+type RouteDecision = {
   statusCode: number;
   location?: string | null;
 };
@@ -507,9 +507,9 @@ The decision endpoint builds a synthetic `RouteRequest` for the target route:
 - `queryString`: values from `queryString.*`
 - `headers`: real request headers from the decision request
 
-The endpoint does not call `SpaRouteRequestFactory`; that factory adapts real
+The endpoint does not call `RouteRequestFactory`; that factory adapts real
 page-load `ServerRequest` instances. Shared rules should rely on the fields
-above, or the application should replace `SpaRouteResponseService` for a custom
+above, or the application should replace `RouteResponseService` for a custom
 decision context.
 
 The generated TypeScript route files do not include a route decision helper, but
@@ -519,7 +519,7 @@ app-specific navigation behavior can read them instead of hardcoding strings:
 ```ts
 import { AccountRoutes } from "./__generated__/routes/AccountRoutes";
 
-type SpaRouteDecision = {
+type RouteDecision = {
   statusCode: number;
   location?: string | null;
 };
@@ -528,7 +528,7 @@ async function decideRoute(
   route: { applicationId: string; routeId: string },
   parameters: Record<string, string> = {},
   queryString: Record<string, readonly string[]> = {}
-): Promise<SpaRouteDecision> {
+): Promise<RouteDecision> {
   const decisionParams = new URLSearchParams({
     applicationId: route.applicationId,
     routeId: route.routeId,
@@ -543,7 +543,7 @@ async function decideRoute(
   });
 
   const response = await fetch(`/__spa/route-decision?${decisionParams}`);
-  return (await response.json()) as SpaRouteDecision;
+  return (await response.json()) as RouteDecision;
 }
 
 // decideRoute(AccountRoutes.UserDetail, { id: "123" });
@@ -559,22 +559,22 @@ Decision statuses match what the MVC route would use:
 - `404`: unknown route
 - any other 3xx, 4xx, or 5xx returned by your rules
 
-For custom GraphQL or REST APIs, call `SpaRouteResponseService` directly:
+For custom GraphQL or REST APIs, call `RouteResponseService` directly:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseRequest
-import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
+import io.github.caseymcguire.sparouting.spring.response.RouteResponseRequest
+import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
 
-class SpaRouteDecisionHandler(
-  private val spaRouteResponseService: SpaRouteResponseService
+class RouteDecisionHandler(
+  private val routeResponseService: RouteResponseService
 ) {
   fun evaluateAccountRoute(
     routeId: String,
     parameters: Map<String, String>,
     queryString: Map<String, List<String>>,
     headers: Map<String, List<String>>
-  ) = spaRouteResponseService.evaluate(
-    SpaRouteResponseRequest(
+  ) = routeResponseService.evaluate(
+    RouteResponseRequest(
       applicationId = "account",
       routeId = routeId,
       parameters = parameters,
@@ -590,21 +590,21 @@ class SpaRouteDecisionHandler(
 Define your own bean when the defaults are not enough:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequestFactory
+import io.github.caseymcguire.sparouting.spring.request.RouteRequestFactory
 import org.springframework.context.annotation.Bean
 
 @Bean
-fun spaRouteRequestFactory(): SpaRouteRequestFactory = MySpaRouteRequestFactory()
+fun routeRequestFactory(): RouteRequestFactory = MyRouteRequestFactory()
 ```
 
 Replaceable beans:
 
 - `SinglePageApplicationRouteRegistry`
-- `SpaRouteRuleActionResolver`
-- `SpaRouteResponseEvaluator`
-- `SpaRouteRequestFactory`
-- `SpaHtmlRenderer`
-- `SpaRouteResponseService`
+- `RouteRuleActionResolver`
+- `RouteResponseEvaluator`
+- `RouteRequestFactory`
+- `HtmlRenderer`
+- `RouteResponseService`
 
 ## Migration Checklist
 
@@ -615,5 +615,5 @@ For an existing Spring app that copied SPA routing code locally:
 3. Keep app-owned rules, but switch imports to the `io.github.caseymcguire.sparouting.spring.*` subpackages.
 4. Replace copied registry, evaluator, resolver, request adapter, and response classes with the starter.
 5. Expose one `SinglePageApplicationConfig` bean per SPA.
-6. Move any app-specific HTML page rendering into `renderHtml()` or a `SpaHtmlRenderer` bean.
-7. Call the built-in route decision endpoint from client navigation guards, or keep using `SpaRouteResponseService` from a custom GraphQL or REST endpoint.
+6. Move any app-specific HTML page rendering into `renderHtml()` or a `HtmlRenderer` bean.
+7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteResponseService` from a custom GraphQL or REST endpoint.

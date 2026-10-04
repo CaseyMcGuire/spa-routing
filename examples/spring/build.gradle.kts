@@ -39,7 +39,7 @@ val clientRoutesDirectory = layout.buildDirectory.dir("generated/client/routes")
 
 // Use this checkout's generator entry points: its Gradle plugin is a sibling
 // project and cannot be resolved through this build's plugins block.
-val generateServerSpaRoutes by tasks.registering(JavaExec::class) {
+val generateServerRoutes by tasks.registering(JavaExec::class) {
   group = "spa routing"
   description = "Generates Kotlin routes from the shared blog definitions."
   classpath = configurations.runtimeClasspath.get()
@@ -67,7 +67,7 @@ kotlin.sourceSets.named("main") {
 }
 
 tasks.withType<KotlinCompile>().configureEach {
-  dependsOn(generateServerSpaRoutes)
+  dependsOn(generateServerRoutes)
 }
 
 val frontendDirectory = layout.projectDirectory.dir("frontend")
