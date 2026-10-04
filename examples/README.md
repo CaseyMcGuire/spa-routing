@@ -4,20 +4,20 @@ The blog example exercises the library projects in this checkout. It shares
 route definitions in `route-definitions`, so another server example can reuse
 the same routes. The current server is Spring Boot.
 
-The route contracts, generation, in-memory store, REST controller, route rules,
-and React components are implemented. Frontend integration is next; the running
-Spring page still uses the small JavaScript shell displaying its URL.
+The blog uses shared generated routes, an in-memory store, a REST API, and a
+basic React UI with spa-kit navigation. It supports searching, reading,
+creating, editing, and deleting posts.
 
 ```text
 examples/
 ├── route-definitions/  Shared blog route definitions
 └── spring/             Spring Boot application, in-memory store, and REST API
-    └── frontend/       React components for the blog UI
+    └── frontend/       React UI, spa-kit router, and Vite build
 ```
 
 ## Run the Spring example
 
-Use JDK 21 and run this command from the repository root:
+Use JDK 21 and Node 22.12 or newer, with npm on `PATH`. From the repository root:
 
 ```sh
 ./gradlew :examples:spring:run
@@ -25,7 +25,9 @@ Use JDK 21 and run this command from the repository root:
 
 Open [http://localhost:8080/](http://localhost:8080/) or
 [http://localhost:8080/posts/1](http://localhost:8080/posts/1).
-Both routes serve the default SPA HTML shell. Stop the server with Ctrl+C.
+Gradle generates the routes, installs the locked frontend dependencies,
+builds the Vite bundle, and includes it in Spring's static resources. Both
+URLs serve the default SPA HTML shell. Stop the server with Ctrl+C.
 
 To use another port:
 
@@ -111,7 +113,7 @@ with its version managed by Spring Boot. This dependency belongs only to
 Missing posts return `404`; malformed or blank write inputs return `400`.
 The server assigns IDs. The synchronized in-memory store starts with sample
 posts `1` and `2` and resets on restart. Lists show newest posts first and search
-matches title or body, ignoring case. The UI will use plain text for post bodies
+matches title or body, ignoring case. The UI uses plain text for post bodies
 and basic list/read/edit forms, keeping attention on route generation, rules,
 and client navigation.
 
@@ -142,16 +144,28 @@ cases; its response body describes whether navigation is allowed. Using
 
 For the search route, use `routeId=Index` and `queryString.q=kotlin`.
 
-## Frontend components
+## Frontend
 
 `spring/frontend/src/components` contains the layout, searchable post list,
 post reader, shared create/edit form, and message page. Loading, empty, error,
 and saving states are supplied through props; form editing state stays local.
-Links use the generated `BlogRoutes` builders. API loading, mutations, router
-setup, and bundling are not connected yet.
+Links use the generated `BlogRoutes` builders. React Router loaders read posts;
+actions create, update, and delete them through the REST API. Successful writes
+navigate to generated route targets, while failed writes keep the form visible.
 
-To type-check the components, use Node with npm and generate the client routes
-first. All frontend dependencies belong to the example.
+`main.tsx` registers the generated routes with spa-kit's `createSpaRouter` and
+shared `createSpaRouteAuthorization` middleware. Navigation asks Spring's
+decision endpoint before running the page's loader or action. The error page
+is excluded from authorization so an unavailable decision endpoint cannot
+cause a redirect loop. `NavigationProgress` shows pending navigation.
+
+Vite emits `blog.bundle.js` and `blog.css` under
+`spring/build/generated/frontend/static/bundles`. Gradle's `processResources`
+includes these assets automatically. Rebuild and restart Spring after frontend
+changes; the example uses one server and has no separate development proxy.
+
+To type-check the frontend separately, generate the client routes first.
+All frontend dependencies belong to the example.
 
 ```sh
 ./gradlew :examples:spring:generateClientRoutes
@@ -159,12 +173,9 @@ npm --prefix examples/spring/frontend ci
 npm --prefix examples/spring/frontend run typecheck
 ```
 
-The published `@spa-kit/react-router` 0.1.0 still expects parsers to return
-`{ params, query }` and sends `queryParameters.*` to the decision endpoint.
-This checkout uses `{ params, queryString }` and `queryString.*`. Before router
-integration, spa-kit needs to adopt that contract or the example needs an
-adapter. The components use React Router 7, matching spa-kit's current
-development version.
+The example pins `@spa-kit/react-router` 0.2.0, which matches the generated
+`{ params, queryString }` parser results and the server's `queryString.*`
+decision parameters. No compatibility adapter is needed.
 
 ## Build
 

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { NavigationProgress } from "@spa-kit/react-router";
 import { BlogRoutes } from "../routes";
 
 type Props = {
@@ -14,6 +15,7 @@ const styles = {
 export default function BlogLayout(props: Props) {
   return (
     <div style={styles.page}>
+      <NavigationProgress />
       <header>
         <h1>Blog</h1>
         <nav aria-label="Main" style={styles.navigation}>

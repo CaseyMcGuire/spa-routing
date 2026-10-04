@@ -69,3 +69,40 @@ kotlin.sourceSets.named("main") {
 tasks.withType<KotlinCompile>().configureEach {
   dependsOn(generateServerSpaRoutes)
 }
+
+val frontendDirectory = layout.projectDirectory.dir("frontend")
+val frontendResourcesDirectory = layout.buildDirectory.dir("generated/frontend")
+
+val installFrontendDependencies by tasks.registering(Exec::class) {
+  group = "build"
+  description = "Installs the blog frontend's locked dependencies."
+  workingDir(frontendDirectory)
+  commandLine("npm", "ci", "--no-audit", "--no-fund")
+  inputs.files(frontendDirectory.file("package.json"), frontendDirectory.file("package-lock.json"))
+  outputs.dir(frontendDirectory.dir("node_modules"))
+}
+
+val buildFrontend by tasks.registering(Exec::class) {
+  group = "build"
+  description = "Builds the blog frontend assets served by Spring."
+  dependsOn(installFrontendDependencies, generateClientRoutes)
+  workingDir(frontendDirectory)
+  commandLine("npm", "run", "build")
+  inputs.dir(frontendDirectory.dir("src"))
+  inputs.dir(clientRoutesDirectory)
+  inputs.files(
+    frontendDirectory.file("package.json"),
+    frontendDirectory.file("package-lock.json"),
+    frontendDirectory.file("tsconfig.json"),
+    frontendDirectory.file("vite.config.mjs")
+  )
+  outputs.dir(frontendResourcesDirectory)
+}
+
+sourceSets.main {
+  resources.srcDir(frontendResourcesDirectory)
+}
+
+tasks.processResources {
+  dependsOn(buildFrontend)
+}

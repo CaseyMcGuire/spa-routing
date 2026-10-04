@@ -9,7 +9,7 @@ object BlogSpaApplication : SpaApplicationDefinition {
   override val id = "blog"
   override val name = "Blog"
   override val urlPrefix = ""
-  override val appRootPath = "src/main/resources/static/bundles/blog.bundle.js"
+  override val appRootPath = "frontend/src/main.tsx"
 
   override val routes = listOf(
     route("", "Index", queryString = listOf(parameter("q").optional())),
