@@ -4,14 +4,15 @@ The blog example exercises the library projects in this checkout. It shares
 route definitions in `route-definitions`, so another server example can reuse
 the same routes. The current server is Spring Boot.
 
-The route contracts, generation, in-memory store, REST controller, and route
-rules are implemented. The spa-kit UI follows the backend; the current page is
-a small JavaScript shell displaying its URL.
+The route contracts, generation, in-memory store, REST controller, route rules,
+and React components are implemented. Frontend integration is next; the running
+Spring page still uses the small JavaScript shell displaying its URL.
 
 ```text
 examples/
 ├── route-definitions/  Shared blog route definitions
 └── spring/             Spring Boot application, in-memory store, and REST API
+    └── frontend/       React components for the blog UI
 ```
 
 ## Run the Spring example
@@ -140,6 +141,30 @@ cases; its response body describes whether navigation is allowed. Using
 `"location": "/not-found"`.
 
 For the search route, use `routeId=Index` and `queryString.q=kotlin`.
+
+## Frontend components
+
+`spring/frontend/src/components` contains the layout, searchable post list,
+post reader, shared create/edit form, and message page. Loading, empty, error,
+and saving states are supplied through props; form editing state stays local.
+Links use the generated `BlogRoutes` builders. API loading, mutations, router
+setup, and bundling are not connected yet.
+
+To type-check the components, use Node with npm and generate the client routes
+first. All frontend dependencies belong to the example.
+
+```sh
+./gradlew :examples:spring:generateClientRoutes
+npm --prefix examples/spring/frontend ci
+npm --prefix examples/spring/frontend run typecheck
+```
+
+The published `@spa-kit/react-router` 0.1.0 still expects parsers to return
+`{ params, query }` and sends `queryParameters.*` to the decision endpoint.
+This checkout uses `{ params, queryString }` and `queryString.*`. Before router
+integration, spa-kit needs to adopt that contract or the example needs an
+adapter. The components use React Router 7, matching spa-kit's current
+development version.
 
 ## Build
 
