@@ -29,6 +29,7 @@ dependencies {
   implementation(platform("org.springframework.boot:spring-boot-dependencies:$springBootVersion"))
   implementation(project(":examples:route-definitions"))
   implementation(project(":spa-routing-spring-boot-starter"))
+  implementation("tools.jackson.module:jackson-module-kotlin")
 }
 
 val routeDefinitionsDirectory = project(":examples:route-definitions")
