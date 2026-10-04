@@ -1,11 +1,13 @@
 import { WikiRoutes } from "./WikiRoutes";
 import { QueryTestRoutes } from "./QueryTestRoutes";
 import { ClientGeneratorTestRoutes } from "./ClientGeneratorTestRoutes";
+import { AccessTestRoutes } from "./AccessTestRoutes";
 
 // A consumer-owned router can infer renderer arguments from the generated parser.
 // This declaration tests the contract without implementing or depending on a router.
 type Route = {
   path: string;
+  hasAccessHandler: boolean;
   parse(params: Readonly<Record<string, string | undefined>>, search: URLSearchParams):
     { params: object; queryString: object } | null;
 };
@@ -86,6 +88,14 @@ function equal(actual: unknown, expected: unknown): void {
 equal(WikiRoutes.Index.path, "/wiki");
 equal(WikiRoutes.View.path, "/wiki/:wikiId");
 equal(WikiRoutes.Edit.path, "/wiki/:wikiId/edit");
+// Every builder shape exposes whether its shared definition enables an access handler.
+equal(WikiRoutes.Index.hasAccessHandler, false);
+equal(WikiRoutes.Edit.hasAccessHandler, false);
+equal(WikiRoutes.View.hasAccessHandler, false);
+equal(AccessTestRoutes.Start.hasAccessHandler, true);
+equal(AccessTestRoutes.Optional.hasAccessHandler, true);
+equal(AccessTestRoutes.Post.hasAccessHandler, true);
+equal(AccessTestRoutes.RouteAccessContext.hasAccessHandler, true);
 equal(WikiRoutes.Index.parse({}, new URLSearchParams()), { params: {}, queryString: {} });
 equal(WikiRoutes.Edit.parse({ wikiId: "42" }, new URLSearchParams()), {
   params: { wikiId: "42" }, queryString: {},

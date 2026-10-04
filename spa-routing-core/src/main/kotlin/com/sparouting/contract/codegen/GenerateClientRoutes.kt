@@ -36,7 +36,8 @@ internal fun generateClientRoutes() {
         key = routeId,
         path = routeConverter.convertToReactRouter(config.getFullPathPattern(route)),
         parameters = route.parameters,
-        queryString = route.queryString
+        queryString = route.queryString,
+        hasAccessHandler = route.generateAccessHandler
       )
     }
   }
@@ -50,11 +51,11 @@ internal fun generateClientRoutes() {
       appendLine("// THIS FILE IS GENERATED. DO NOT EDIT BY HAND.")
       appendLine("// Run './gradlew generateClientRoutes' to regenerate.")
       appendLine()
-      appendLine("type RouteIds = { applicationId: string; routeId: string };")
+      appendLine("type RouteMetadata = { applicationId: string; routeId: string; hasAccessHandler: boolean };")
       appendLine()
       appendLine(ROUTE_PARSER)
-      appendLine("function routeWithoutParams(path: string, ids: RouteIds) {")
-      appendLine("  return Object.assign(() => path, { path, ...ids, parse: createRouteParser<{}, {}>([], []) });")
+      appendLine("function routeWithoutParams(path: string, metadata: RouteMetadata) {")
+      appendLine("  return Object.assign(() => path, { path, ...metadata, parse: createRouteParser<{}, {}>([], []) });")
       appendLine("}")
       appendLine()
       if (typescriptObjectEntries.any { it.parameters.isNotEmpty() }) {
@@ -62,8 +63,8 @@ internal fun generateClientRoutes() {
         appendLine("  return encodeURIComponent(value);")
         appendLine("}")
         appendLine()
-        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, ids: RouteIds, parameters: readonly PathDeclaration[]) {")
-        appendLine("  return Object.assign(buildPath, { path, ...ids, parse: createRouteParser<TParams, {}>(parameters, []) });")
+        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, metadata: RouteMetadata, parameters: readonly PathDeclaration[]) {")
+        appendLine("  return Object.assign(buildPath, { path, ...metadata, parse: createRouteParser<TParams, {}>(parameters, []) });")
         appendLine("}")
         appendLine()
       }
@@ -113,7 +114,8 @@ private data class TypeScriptRouteConfig(
   val key: String,
   val path: String,
   val parameters: List<RouteParameter>,
-  val queryString: List<RouteParameter>
+  val queryString: List<RouteParameter>,
+  val hasAccessHandler: Boolean
 )
 
 private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
@@ -133,7 +135,7 @@ private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
       appendLine("  $key: Object.assign(")
       appendLine("    ($arguments) => appendQueryString(${path.toTypeScriptTemplate(parameters)}, queryString, [$declarations]),")
       appendLine("    {")
-      appendLine("      path: \"${path.toTypeScriptString()}\", ...${toTypeScriptRouteIds()},")
+      appendLine("      path: \"${path.toTypeScriptString()}\", ...${toTypeScriptRouteMetadata()},")
       appendLine("      queryString: (search: URLSearchParams) => readQueryString(search, Object.values(${key}QueryStringKey)),")
       appendLine("      parse: createRouteParser<${parameters.toTypeScriptParameterObject()}, ${key}QueryString>([$pathDeclarations], [$declarations])")
       appendLine("    }")
@@ -141,21 +143,21 @@ private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
     }
   }
   if (parameters.isEmpty()) {
-    return "  $key: routeWithoutParams(\"${path.toTypeScriptString()}\", ${toTypeScriptRouteIds()}),\n"
+    return "  $key: routeWithoutParams(\"${path.toTypeScriptString()}\", ${toTypeScriptRouteMetadata()}),\n"
   }
 
   return buildString {
     appendLine("  $key: route(")
     appendLine("    \"${path.toTypeScriptString()}\",")
     appendLine("    (params: ${parameters.toTypeScriptParameterObject()}) => ${path.toTypeScriptTemplate(parameters)},")
-    appendLine("    ${toTypeScriptRouteIds()},")
+    appendLine("    ${toTypeScriptRouteMetadata()},")
     appendLine("    [$pathDeclarations]")
     appendLine("  ),")
   }
 }
 
-private fun TypeScriptRouteConfig.toTypeScriptRouteIds(): String {
-  return "{ applicationId: \"${applicationId.toTypeScriptString()}\", routeId: \"${key.toTypeScriptString()}\" }"
+private fun TypeScriptRouteConfig.toTypeScriptRouteMetadata(): String {
+  return "{ applicationId: \"${applicationId.toTypeScriptString()}\", routeId: \"${key.toTypeScriptString()}\", hasAccessHandler: $hasAccessHandler }"
 }
 
 private fun List<RouteParameter>.toTypeScriptParameterObject(): String {

@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 class GenerateClientRoutesTest {
   @Test
-  fun `includes application id and route id on generated builders`() {
+  fun `includes route metadata on generated builders`() {
     val outputDirectory = Files.createTempDirectory("spa-routing-client-routes")
     val previousSourceDirectory = System.getProperty("spa.application.source.dir")
     val previousOutputDirectory = System.getProperty("route.output.dir")
@@ -23,17 +23,17 @@ class GenerateClientRoutesTest {
 
       val generated = outputDirectory.resolve("ClientGeneratorTestRoutes.ts").readText()
 
-      // Route without params still carries both ids.
+      // Route without params carries IDs and an explicit access-handler flag.
       assertTrue(
         generated.contains(
           "Dashboard: routeWithoutParams(\"/clientgeneratortest/dashboard\", " +
-            "{ applicationId: \"clientgeneratortest\", routeId: \"Dashboard\" })"
+            "{ applicationId: \"clientgeneratortest\", routeId: \"Dashboard\", hasAccessHandler: false })"
         ),
         generated
       )
-      // Parameterized route carries both ids as the final argument.
+      // Parameterized routes carry the same metadata.
       assertTrue(
-        generated.contains("{ applicationId: \"clientgeneratortest\", routeId: \"UserDetail\" }"),
+        generated.contains("{ applicationId: \"clientgeneratortest\", routeId: \"UserDetail\", hasAccessHandler: false }"),
         generated
       )
       assertTrue(

@@ -39,7 +39,7 @@
 
   The Gradle task `generateServerSpaRoutes` is now `generateServerRoutes`.
   Update task references and scripts. Generated TypeScript uses the internal
-  helper name `RouteIds`. Artifact IDs, plugin ID, `spaRouting` configuration,
+  helper name `RouteMetadata`. Artifact IDs, plugin ID, `spaRouting` configuration,
   generated source paths, `spa-routing.*` properties, and the
   `/__spa/route-decision` endpoint remain unchanged. Routing behavior is unchanged.
 
@@ -146,6 +146,13 @@
   `UserDetail({ id: "123" })` in TypeScript).
 
 ### Added
+
+- Generated client route builders expose `hasAccessHandler: boolean`, derived
+  from `generateAccessHandler`. The flag is present on routes with and without
+  path or query-string parameters. Regenerate client routes to expose it.
+  It describes route-specific checks; application-wide rules remain separate.
+  The public blog example uses the flag to call the decision endpoint only for
+  `Post` and `EditPost`, while retaining parameter validation for every route.
 
 - Routes can opt into generated access handlers with `generateAccessHandler = true`.
   Server generation adds sibling `<Route>Request` models and `<Route>AccessHandler`

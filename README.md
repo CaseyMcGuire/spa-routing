@@ -163,6 +163,14 @@ Optional values that are absent are omitted. Empty strings are valid, repeated
 query-string values preserve their order, and undeclared keys are ignored.
 URL builders and enum-keyed query-string helpers remain available.
 
+Every generated client route also exposes `hasAccessHandler: boolean`, derived
+from its `generateAccessHandler` setting. For example,
+`BlogRoutes.Post.hasAccessHandler` is `true`, while
+`BlogRoutes.Index.hasAccessHandler` is `false`. A client router can use it to
+request a route decision only for routes with extra checks when the application
+gate is public. Application-wide rules are configured separately on the server;
+apps that need those rules checked on each navigation must still call the endpoint.
+
 A consumer-defined `createSpaRouter` can infer each `render(params, queryString)`
 callback's arguments from the route's parser return type:
 

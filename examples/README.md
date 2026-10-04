@@ -184,10 +184,17 @@ actions create, update, and delete them through the REST API. Successful writes
 navigate to generated route targets, while failed writes keep the form visible.
 
 `main.tsx` registers the generated routes with spa-kit's `createSpaRouter` and
-shared `createSpaRouteAuthorization` middleware. Navigation asks Spring's
-decision endpoint before running the page's loader or action. The error page
-is excluded from authorization so an unavailable decision endpoint cannot
-cause a redirect loop. `NavigationProgress` shows pending navigation.
+shared authorization middleware. The wrapper finds the generated route using
+the matched IDs from `spaRouteContext` and checks its `hasAccessHandler` flag.
+Only `Post` and `EditPost` call Spring's decision endpoint before running their
+loader or action. The blog uses `AllowAll` at application level, so the other
+routes can skip that request. The unflagged error page remains reachable when
+the decision endpoint is unavailable. `NavigationProgress` shows pending navigation.
+
+The installed spa-kit version exposes only IDs in its middleware context, so
+the wrapper reads the flag from `BlogRoutes`. Missing route metadata falls back
+to the authorization middleware. An application with global rules that need
+checking on every navigation should authorize every route.
 
 Vite emits `blog.bundle.js` and `blog.css` under
 `spring/build/generated/frontend/static/bundles`. Gradle's `processResources`

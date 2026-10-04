@@ -10,7 +10,10 @@ data class RouteDefinition(
   val parameters: List<RouteParameter> = inferPathParameters(path),
   /** Declared query-string fields, including whether each is optional or repeated. */
   val queryString: List<RouteParameter> = emptyList(),
-  /** Generate a typed access-handler base class and require an implementation at runtime. */
+  /**
+   * Generate a typed access-handler base class and require an implementation at runtime.
+   * Also exposes hasAccessHandler on the generated client route; application rules are separate.
+   */
   val generateAccessHandler: Boolean = false
 ) {
   init {

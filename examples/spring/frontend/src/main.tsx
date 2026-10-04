@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router/dom";
-import { createSpaRouter, createSpaRouteAuthorization } from "@spa-kit/react-router";
+import { createSpaRouter, createSpaRouteAuthorization, spaRouteContext } from "@spa-kit/react-router";
 import BlogLayout from "./components/BlogLayout";
 import MessagePage from "./components/MessagePage";
 import PostListPage from "./pages/PostListPage";
@@ -60,8 +60,12 @@ const router = createSpaRouter(BlogRoutes, {
   },
 }, {
   sharedMiddleware: [async (args, next) => {
-    // The fallback page must remain reachable when the decision endpoint fails.
-    if (new URL(args.request.url).pathname === BlogRoutes.Error()) {
+    const identity = args.context.get(spaRouteContext);
+    const route = Object.values(BlogRoutes).find((route) => (
+      route.applicationId === identity?.applicationId && route.routeId === identity?.routeId
+    ));
+    // The blog uses AllowAll at application level, so only handler routes need a check.
+    if (route?.hasAccessHandler === false) {
       await next();
       return;
     }
