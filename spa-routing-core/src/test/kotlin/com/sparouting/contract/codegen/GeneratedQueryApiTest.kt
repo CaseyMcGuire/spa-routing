@@ -13,8 +13,38 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class GeneratedQueryApiTest {
+  @Test
+  fun `generated access handlers compile decode typed requests and reject wrong request types`() = withGeneratedRoutes { output ->
+    assertFalse(Files.exists(output.resolve("server/accesstest/PublicAccessHandler.kt")))
+    assertFalse(Files.exists(output.resolve("server/accesstest/PublicRequest.kt")))
+    val sources = Files.walk(output.resolve("server")).use { files ->
+      files.filter { it.toString().endsWith(".kt") }.toList()
+    }
+    val classes = output.resolve("access-classes")
+    val (result, diagnostics) = compileKotlin(
+      sources + listOf(Path.of("src/test/fixtures/kotlin/AccessUsage.kt")), classes
+    )
+    assertEquals(ExitCode.OK, result, diagnostics)
+    URLClassLoader(arrayOf(classes.toUri().toURL()), javaClass.classLoader).use { loader ->
+      assertEquals("access verified", loader.loadClass("AccessUsageKt").getMethod("verifyAccess").invoke(null))
+    }
+
+    val invalid = output.resolve("WrongAccess.kt")
+    invalid.writeText("""
+      import com.sparouting.contract.RouteDecision
+      import generated.accesstest.*
+      class WrongAccess : PostAccessHandler() {
+        override fun evaluate(request: StartRequest): RouteDecision = RouteDecision.Allow
+      }
+    """.trimIndent())
+    val (failureResult, errors) = compileKotlin(listOf(invalid), output.resolve("invalid-access"), classes)
+    assertEquals(ExitCode.COMPILATION_ERROR, failureResult, errors)
+    assertContains(errors, "WrongAccess")
+  }
+
   @Test
   fun `generated Kotlin builders and enums compile and preserve query values`() = withGeneratedRoutes { output ->
     val sources = Files.walk(output.resolve("server")).use { files ->

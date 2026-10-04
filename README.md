@@ -314,6 +314,14 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
+For an automatically registered, typed handler, declare the route with
+`generateAccessHandler = true` and extend its generated `<Route>AccessHandler` class
+in a Spring `@Component`. The generated `<Route>Request` provides typed path
+and query-string values. The handler returns `RouteDecision.Allow` or
+`RouteDecision.Redirect(target)`; no `routeRules` map is needed. See
+[generated access handlers](docs/spring-boot-client-apps.md#generated-access-handlers)
+and the [blog example](examples/README.md).
+
 Redirect to a raw URL or a generated typed SPA route:
 
 ```kotlin

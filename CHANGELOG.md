@@ -64,6 +64,17 @@
 
 ### Added
 
+- Routes can opt into generated access handlers with `generateAccessHandler = true`.
+  Server generation adds sibling `<Route>Request` models and `<Route>AccessHandler`
+  abstract classes extending the framework-neutral `RouteAccessHandler<R>` base.
+  Requests expose typed path and declared query-string values, plus raw request
+  metadata through `context`. Handlers return `RouteDecision.Allow` or a typed
+  `RouteDecision.Redirect`.
+- Spring automatically registers access-handler beans and fails startup for
+  missing, duplicate, unknown-route, or unflagged-route handlers. Validated page
+  requests and client route decisions run the same handler after the application
+  gate and before existing route rules. Unflagged routes retain their existing
+  rule behavior; the flag does not disable application rules or client checks.
 - Path parameters are inferred as strings from route placeholders, so
   `route("users/{id}", "UserDetail")` needs no separate parameter declaration.
   Explicit metadata remains supported for optional path values. Duplicate and

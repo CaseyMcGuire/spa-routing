@@ -40,10 +40,36 @@ and exposes a `SinglePageApplicationConfig` bean. Its application-level
 `AllowAll()` rule explicitly allows access to the example routes. Removing that
 rule makes the application gate deny requests with `404`.
 
-Spring injects the `PostExists` rule into the configuration. It is registered
-against the generated `BlogRoutes.Post` and `BlogRoutes.EditPost` keys and
-checks the same store used by the API. Missing posts redirect to the generated
-`BlogRoutes.NotFound()` target; existing posts fall through with `Skip`.
+The post reader and editor opt into typed access handlers in the shared route
+definitions:
+
+```kotlin
+route("posts/{postId}", "Post", generateAccessHandler = true)
+route("posts/{postId}/edit", "EditPost", generateAccessHandler = true)
+```
+
+Generation adds `PostAccessHandler` / `PostRequest` and `EditPostAccessHandler` /
+`EditPostRequest` alongside the route builders. Spring discovers the example's
+`CheckPostAccess` and `CheckEditPostAccess` components automatically. Each
+receives the same `BlogPostStore` used by the API through constructor injection:
+
+```kotlin
+@Component
+class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
+  override fun evaluate(request: PostRequest): RouteDecision {
+    if (posts.find(request.postId) == null) {
+      return RouteDecision.Redirect(BlogRoutes.NotFound())
+    }
+    return RouteDecision.Allow
+  }
+}
+```
+
+The configuration needs no `routeRules` map or handler injection. Missing posts
+redirect to `/not-found` on both direct page requests and client-side navigation.
+Other routes need no handler. Spring fails startup if either required handler
+is missing or has multiple implementations. The generated request's `context`
+also exposes raw query-string values, headers, method, and path.
 
 Boot's servlet error endpoint is configured at `/internal/error` so it does
 not collide with the SPA's `/error` page. Otherwise an API error dispatch can

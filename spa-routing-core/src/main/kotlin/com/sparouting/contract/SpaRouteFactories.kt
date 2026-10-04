@@ -5,9 +5,16 @@ fun route(
   path: String,
   id: String,
   parameters: List<SpaRouteParameter> = SpaRouteDefinition.inferPathParameters(path),
-  queryString: List<SpaRouteParameter> = emptyList()
+  queryString: List<SpaRouteParameter> = emptyList(),
+  generateAccessHandler: Boolean = false
 ): SpaRouteDefinition {
-  return SpaRouteDefinition(path, id, parameters, queryString)
+  return SpaRouteDefinition(
+    path = path,
+    id = id,
+    parameters = parameters,
+    queryString = queryString,
+    generateAccessHandler = generateAccessHandler
+  )
 }
 
 /** Declares a required, single string value; use optional() or repeated() to change its cardinality. */

@@ -11,7 +11,21 @@ object SpaApplicationDefinitionValidator {
 
     applications.forEach { application ->
       validateRouteIds(application)
+      validateGeneratedRouteNames(application)
       validateRouteUrls(application)
+    }
+  }
+
+  private fun validateGeneratedRouteNames(application: SpaApplicationDefinition) {
+    val duplicateNames = application.routes.flatMap { route ->
+      if (route.generateAccessHandler) {
+        listOf(route.id, "${route.id}AccessHandler", "${route.id}Request")
+      } else {
+        listOf(route.id)
+      }
+    }.duplicates()
+    require(duplicateNames.isEmpty()) {
+      "Single page application ${application.id} has colliding generated route types: ${duplicateNames.joinToString(", ")}"
     }
   }
 

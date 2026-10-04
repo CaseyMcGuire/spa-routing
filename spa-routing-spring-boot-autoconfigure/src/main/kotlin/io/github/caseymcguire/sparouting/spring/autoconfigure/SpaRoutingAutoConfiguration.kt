@@ -1,5 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
+import com.sparouting.contract.RouteAccessHandler
+import io.github.caseymcguire.sparouting.spring.access.RouteHandlerRegistry
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
@@ -45,10 +47,20 @@ class SpaRoutingAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
+  fun routeHandlerRegistry(
+    routeRegistry: SinglePageApplicationRouteRegistry,
+    handlers: List<RouteAccessHandler<*>>
+  ): RouteHandlerRegistry {
+    return RouteHandlerRegistry(routeRegistry, handlers)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
   fun spaRouteResponseEvaluator(
-    actionResolver: SpaRouteRuleActionResolver
+    actionResolver: SpaRouteRuleActionResolver,
+    handlerRegistry: RouteHandlerRegistry
   ): SpaRouteResponseEvaluator {
-    return SpaRouteResponseEvaluator(actionResolver)
+    return SpaRouteResponseEvaluator(actionResolver, handlerRegistry)
   }
 
   @Bean

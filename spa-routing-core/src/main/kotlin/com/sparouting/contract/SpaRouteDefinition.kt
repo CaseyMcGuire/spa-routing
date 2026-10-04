@@ -9,7 +9,9 @@ data class SpaRouteDefinition(
   /** String parameters inferred from path placeholders; override to declare optional path values. */
   val parameters: List<SpaRouteParameter> = inferPathParameters(path),
   /** Declared query-string fields, including whether each is optional or repeated. */
-  val queryString: List<SpaRouteParameter> = emptyList()
+  val queryString: List<SpaRouteParameter> = emptyList(),
+  /** Generate a typed access-handler base class and require an implementation at runtime. */
+  val generateAccessHandler: Boolean = false
 ) {
   init {
     require(id.isNotBlank()) {

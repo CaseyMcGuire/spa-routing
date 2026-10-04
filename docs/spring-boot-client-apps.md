@@ -178,10 +178,10 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
-Rules evaluate in two stages:
+Rules evaluate in two chains, with an opted-in access handler between them:
 
 1. **Application rules are a gate, deny-by-default.** The first `Allow` passes
-   the request on to the route rules, the first `Deny` denies it, and if every
+   the request on to the access handler and route rules, the first `Deny` denies it, and if every
    rule returns `Skip` — including when the SPA has no rules at all — the
    request is answered with `404`. Every SPA must explicitly allow its routes;
    use the built-in `AllowAll` as the sole rule of an ungated SPA.
@@ -195,9 +195,10 @@ Within a chain the results always mean the same thing:
 - `Allow`: stop evaluating this chain successfully
 - `Deny`: stop evaluating and return the configured status or redirect
 
-Only the fallthrough differs between the stages. Note that an application-level
-`Allow` passes the gate but does not bypass route-level rules — those still run
-and can veto the route.
+Only the fallthrough differs between the rule chains. An application-level
+`Allow` passes the gate but does not bypass an access handler or route-level
+rules. An access handler's `Allow` continues to the route rules; its `Redirect`
+ends evaluation before those rules run.
 
 Route-level rules use generated server route objects as keys:
 
@@ -224,6 +225,69 @@ For a request to `UserDetail`, the starter evaluates the application gate
 `UserDetail` unless `RequireAccountAccess` returns `Deny`; every other route is
 served to any logged-in user, since routes without rules are allowed once the
 gate passes.
+
+## Generated Access Handlers
+
+Opt a route into a required, typed handler in the shared definition:
+
+```kotlin
+route("posts/{postId}", "Post", generateAccessHandler = true)
+```
+
+`generateServerSpaRoutes` emits `Post.kt`, `PostRequest.kt`, and `PostAccessHandler.kt`
+in the application's generated route package. `PostRequest` exposes `postId:
+String`; `PostAccessHandler` is a separate abstract class extending
+`RouteAccessHandler<PostRequest>`. Its generated implementation supplies the route
+identity and converts validated input into `PostRequest`.
+
+Implement the handler as a Spring bean. For example, the blog example uses:
+
+```kotlin
+import com.sparouting.contract.RouteDecision
+import com.sparouting.examples.generated.routes.BlogRoutes
+import com.sparouting.examples.generated.routes.blog.PostAccessHandler
+import com.sparouting.examples.generated.routes.blog.PostRequest
+import org.springframework.stereotype.Component
+
+@Component
+class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
+  override fun evaluate(request: PostRequest): RouteDecision {
+    if (posts.find(request.postId) == null) {
+      return RouteDecision.Redirect(BlogRoutes.NotFound())
+    }
+    return RouteDecision.Allow
+  }
+}
+```
+
+The starter collects `RouteAccessHandler<*>` beans automatically. No `routeRules`
+entry is needed, and route objects do not contain injected services. Exactly
+one handler must be registered for every enabled route. Missing or duplicate
+handlers fail startup, as do handlers for unknown routes or routes without
+`generateAccessHandler = true`.
+
+The flag defaults to `false`. Unflagged routes require no handler and retain
+their application and route-rule behavior. Application rules still deny by
+default: configure an explicit gate such as `AllowAll()` for a public SPA.
+The flag does not tell a client to skip the route-decision endpoint.
+
+Both page requests and route decisions validate parameters before evaluating
+the application gate, then the access handler, then any existing route rules.
+`RouteDecision.Allow` continues evaluation; `RouteDecision.Redirect(target)`
+resolves a generated `SpaRouteTarget` and produces a `302` redirect. The decision
+endpoint reports that redirect through its existing JSON response.
+
+Request models expose path values directly, with optional values nullable.
+For routes with declared query fields, `request.queryString` uses the route's
+existing `QueryString` model, including nullable and repeated values.
+`request.context` exposes headers (including a case-insensitive `header(name)`
+helper), method, path, raw path values, and all raw query-string values.
+If a path parameter uses `queryString` or `context`, the generated metadata
+property appends underscores until its name is unique. Generated access/request
+type names must not collide with another route ID in the application.
+
+The access contracts live in core and have no Spring dependency. This release
+provides automatic discovery and execution through the Spring starter.
 
 ## Redirect From Rules
 

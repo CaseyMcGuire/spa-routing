@@ -13,9 +13,9 @@ object BlogSpaApplication : SpaApplicationDefinition {
 
   override val routes = listOf(
     route("", "Index", queryString = listOf(parameter("q").optional())),
-    route("posts/{postId}", "Post"),
+    route("posts/{postId}", "Post", generateAccessHandler = true),
     route("new", "NewPost"),
-    route("posts/{postId}/edit", "EditPost"),
+    route("posts/{postId}/edit", "EditPost", generateAccessHandler = true),
     route("not-found", "NotFound"),
     route("error", "Error")
   )
