@@ -1,6 +1,6 @@
 package com.sparouting.contract
 
-interface SpaRouteKey {
+interface RouteKey {
   val applicationId: String
   val routeId: String
 }

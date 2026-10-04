@@ -1,7 +1,7 @@
 package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinition
-import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.parameter
 import java.nio.file.Files
 import kotlin.io.path.readText
@@ -35,12 +35,12 @@ class GenerateServerRoutesTest {
           .contains("import com.example.generated.test.GeneratedRoute as GeneratedRouteRoute")
       )
       val userRoute = outputDirectory.resolve("test/UserDetail.kt").readText()
-      assertTrue(userRoute.contains("operator fun invoke(id: String): SpaRouteTarget"), userRoute)
+      assertTrue(userRoute.contains("operator fun invoke(id: String): RouteTarget"), userRoute)
       assertTrue(userRoute.contains("return target(mapOf(\"id\" to id))"), userRoute)
 
       val documentRoute = outputDirectory.resolve("test/DocumentDetail.kt").readText()
       assertTrue(
-        documentRoute.contains("operator fun invoke(id: String, tab: String? = null): SpaRouteTarget"),
+        documentRoute.contains("operator fun invoke(id: String, tab: String? = null): RouteTarget"),
         documentRoute
       )
       assertTrue(documentRoute.contains("put(\"id\", id)"), documentRoute)
@@ -68,15 +68,15 @@ object GeneratorTestApplication : SpaApplicationDefinition {
   override val urlPrefix = "test"
   override val appRootPath = "src/test"
   override val routes = listOf(
-    SpaRouteDefinition(
+    RouteDefinition(
       path = "generated",
       id = "GeneratedRoute"
     ),
-    SpaRouteDefinition(
+    RouteDefinition(
       path = "users/{id}",
       id = "UserDetail"
     ),
-    SpaRouteDefinition(
+    RouteDefinition(
       path = "documents/{id}/{tab}",
       id = "DocumentDetail",
       parameters = listOf(parameter("id"), parameter("tab").optional())

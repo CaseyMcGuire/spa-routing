@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.request
 
-import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.RouteDefinition
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import org.springframework.web.servlet.function.ServerRequest
 
@@ -8,9 +8,9 @@ class DefaultSpaRouteRequestFactory : SpaRouteRequestFactory {
   override fun create(
     serverRequest: ServerRequest,
     application: SinglePageApplicationConfig,
-    route: SpaRouteDefinition
-  ): SpaRouteRequest {
-    return SpaRouteRequest(
+    route: RouteDefinition
+  ): RouteRequest {
+    return RouteRequest(
       applicationId = application.applicationId,
       routeId = route.id,
       method = serverRequest.method().name(),

@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.rules.builtin
 
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
@@ -14,7 +14,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 class DenyAll(
   private val action: SpaRouteRuleAction = SpaRouteRuleAction.notFound()
 ) : SpaRouteRule {
-  override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+  override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
     return SpaRouteRuleResult.Deny(action)
   }
 }

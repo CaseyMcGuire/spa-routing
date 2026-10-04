@@ -1,11 +1,11 @@
 package io.github.caseymcguire.sparouting.spring.rules
 
-import com.sparouting.contract.SpaRouteTarget
+import com.sparouting.contract.RouteTarget
 
 data class SpaRouteRuleAction(
   val statusCode: Int,
   val location: String? = null,
-  val routeTarget: SpaRouteTarget? = null
+  val routeTarget: RouteTarget? = null
 ) {
   init {
     require(statusCode in 300..599) {
@@ -33,7 +33,7 @@ data class SpaRouteRuleAction(
       return SpaRouteRuleAction(statusCode, location = location)
     }
 
-    fun redirectTo(target: SpaRouteTarget, statusCode: Int = 302): SpaRouteRuleAction {
+    fun redirectTo(target: RouteTarget, statusCode: Int = 302): SpaRouteRuleAction {
       return SpaRouteRuleAction(statusCode, routeTarget = target)
     }
   }

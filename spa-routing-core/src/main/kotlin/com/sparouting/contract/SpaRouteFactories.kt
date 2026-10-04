@@ -4,11 +4,11 @@ package com.sparouting.contract
 fun route(
   path: String,
   id: String,
-  parameters: List<SpaRouteParameter> = SpaRouteDefinition.inferPathParameters(path),
+  parameters: List<SpaRouteParameter> = RouteDefinition.inferPathParameters(path),
   queryString: List<SpaRouteParameter> = emptyList(),
   generateAccessHandler: Boolean = false
-): SpaRouteDefinition {
-  return SpaRouteDefinition(
+): RouteDefinition {
+  return RouteDefinition(
     path = path,
     id = id,
     parameters = parameters,

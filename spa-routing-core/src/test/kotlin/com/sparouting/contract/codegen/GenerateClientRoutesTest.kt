@@ -1,7 +1,7 @@
 package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinition
-import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.parameter
 import java.nio.file.Files
 import kotlin.io.path.readText
@@ -67,12 +67,12 @@ object ClientGeneratorTestApplication : SpaApplicationDefinition {
   override val urlPrefix = "clientgeneratortest"
   override val appRootPath = "src/test"
   override val routes = listOf(
-    SpaRouteDefinition(path = "dashboard", id = "Dashboard"),
-    SpaRouteDefinition(
+    RouteDefinition(path = "dashboard", id = "Dashboard"),
+    RouteDefinition(
       path = "users/{id}",
       id = "UserDetail"
     ),
-    SpaRouteDefinition(
+    RouteDefinition(
       path = "documents/{id}/{tab}",
       id = "DocumentDetail",
       parameters = listOf(parameter("id"), parameter("tab").optional())

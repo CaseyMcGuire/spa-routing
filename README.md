@@ -279,13 +279,13 @@ unless one of its rules returns `Deny`). See
 Add application-wide rules when every route in an SPA needs the same behavior:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 
 class RequireLogin : SpaRouteRule {
-  override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+  override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
     return if (request.header("X-User").isEmpty()) {
       SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
     } else {

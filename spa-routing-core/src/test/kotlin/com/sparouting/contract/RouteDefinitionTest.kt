@@ -6,10 +6,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class SpaRouteDefinitionTest {
+class RouteDefinitionTest {
   @Test
   fun `infers string parameters in path order`() {
-    val definition = SpaRouteDefinition("users/{id}/orders/{orderId:[0-9]+}", "UserOrder")
+    val definition = RouteDefinition("users/{id}/orders/{orderId:[0-9]+}", "UserOrder")
     assertEquals(listOf(parameter("id"), parameter("orderId")), definition.parameters)
     assertEquals(definition.parameters, route(definition.path, definition.id).parameters)
     assertTrue(definition.hasValidParameterValues(mapOf("id" to "user-42", "orderId" to "0042")))
@@ -19,7 +19,7 @@ class SpaRouteDefinitionTest {
   @Test
   fun `static routes infer no parameters`() {
     assertTrue(route("home", "Home").parameters.isEmpty())
-    assertTrue(SpaRouteDefinition("", "Index").parameters.isEmpty())
+    assertTrue(RouteDefinition("", "Index").parameters.isEmpty())
   }
 
   @Test
@@ -35,7 +35,7 @@ class SpaRouteDefinitionTest {
   @Test
   fun `rejects incomplete explicit parameter metadata`() {
     assertFailsWith<IllegalArgumentException> {
-      SpaRouteDefinition(
+      RouteDefinition(
         path = "users/{id}",
         id = "UserDetail",
         parameters = emptyList()
@@ -46,7 +46,7 @@ class SpaRouteDefinitionTest {
   @Test
   fun `rejects extra parameter metadata`() {
     assertFailsWith<IllegalArgumentException> {
-      SpaRouteDefinition(
+      RouteDefinition(
         path = "users",
         id = "UserList",
         parameters = listOf(SpaRouteParameter("id"))
@@ -57,7 +57,7 @@ class SpaRouteDefinitionTest {
   @Test
   fun `rejects duplicate parameter metadata`() {
     assertFailsWith<IllegalArgumentException> {
-      SpaRouteDefinition(
+      RouteDefinition(
         path = "users/{id}",
         id = "UserDetail",
         parameters = listOf(
@@ -70,7 +70,7 @@ class SpaRouteDefinitionTest {
 
   @Test
   fun `accepts string parameter values without format validation`() {
-    val route = SpaRouteDefinition(
+    val route = RouteDefinition(
       path = "users/{id}",
       id = "UserDetail"
     )

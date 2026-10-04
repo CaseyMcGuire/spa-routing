@@ -1,14 +1,14 @@
 package com.sparouting.contract
 
-open class SpaTypedRoute(
+open class Route(
   override val applicationId: String,
   override val routeId: String
-) : SpaRouteKey {
+) : RouteKey {
   protected fun target(
     parameters: Map<String, String> = emptyMap(),
     queryString: Map<String, List<String>> = emptyMap()
-  ): SpaRouteTarget {
-    return SpaRouteTarget(
+  ): RouteTarget {
+    return RouteTarget(
       applicationId = applicationId,
       routeId = routeId,
       parameters = parameters,

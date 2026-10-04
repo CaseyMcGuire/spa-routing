@@ -6,7 +6,7 @@ import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRout
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.rendering.SpaHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultSpaRouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
@@ -143,9 +143,9 @@ class SpaRoutingAutoConfigurationTest {
     override fun create(
       serverRequest: org.springframework.web.servlet.function.ServerRequest,
       application: SinglePageApplicationConfig,
-      route: com.sparouting.contract.SpaRouteDefinition
-    ): SpaRouteRequest {
-      return SpaRouteRequest(application.applicationId, route.id, serverRequest.method().name(), serverRequest.path())
+      route: com.sparouting.contract.RouteDefinition
+    ): RouteRequest {
+      return RouteRequest(application.applicationId, route.id, serverRequest.method().name(), serverRequest.path())
     }
   }
 }

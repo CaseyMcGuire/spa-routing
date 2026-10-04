@@ -3,7 +3,7 @@ package com.sparouting.contract
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-data class SpaRouteDefinition(
+data class RouteDefinition(
   val path: String,
   val id: String,
   /** String parameters inferred from path placeholders; override to declare optional path values. */

@@ -2,7 +2,7 @@ package io.github.caseymcguire.sparouting.spring.rules
 
 import com.sparouting.contract.RouteDecision
 import io.github.caseymcguire.sparouting.spring.access.RouteHandlerRegistry
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.response.SpaRouteHttpResponse
 
 /**
@@ -25,7 +25,7 @@ open class SpaRouteResponseEvaluator @JvmOverloads constructor(
   open fun evaluate(
     applicationRules: List<SpaRouteRule>,
     routeRules: List<SpaRouteRule>,
-    request: SpaRouteRequest
+    request: RouteRequest
   ): SpaRouteHttpResponse {
     val gate = firstDecision(applicationRules, request)
       ?: return SpaRouteHttpResponse.notFound()
@@ -46,7 +46,7 @@ open class SpaRouteResponseEvaluator @JvmOverloads constructor(
 
   private fun firstDecision(
     rules: List<SpaRouteRule>,
-    request: SpaRouteRequest
+    request: RouteRequest
   ): SpaRouteRuleResult? {
     for (rule in rules) {
       val result = rule.evaluate(request)

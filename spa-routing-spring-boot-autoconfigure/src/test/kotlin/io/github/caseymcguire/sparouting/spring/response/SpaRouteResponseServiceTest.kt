@@ -2,7 +2,7 @@ package io.github.caseymcguire.sparouting.spring.response
 
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
@@ -101,7 +101,7 @@ class SpaRouteResponseServiceTest {
     private val name: String,
     private val value: String
   ) : SpaRouteRule {
-    override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+    override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
       return if (request.queryStringValue(name) == value) {
         SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451))
       } else {

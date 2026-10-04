@@ -1,7 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.rules
 
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 
 interface SpaRouteRule {
-  fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult
+  fun evaluate(request: RouteRequest): SpaRouteRuleResult
 }

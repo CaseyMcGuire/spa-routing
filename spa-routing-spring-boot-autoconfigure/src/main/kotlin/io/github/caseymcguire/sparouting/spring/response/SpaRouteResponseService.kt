@@ -1,7 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.response
 
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 
 open class SpaRouteResponseService @JvmOverloads constructor(
@@ -24,7 +24,7 @@ open class SpaRouteResponseService @JvmOverloads constructor(
       return SpaRouteHttpResponse(invalidQueryStringStatus)
     }
 
-    val spaRouteRequest = SpaRouteRequest(
+    val routeRequest = RouteRequest(
       applicationId = match.application.applicationId,
       routeId = match.route.id,
       method = "GET",
@@ -37,7 +37,7 @@ open class SpaRouteResponseService @JvmOverloads constructor(
     return evaluator.evaluate(
       applicationRules = match.application.rules,
       routeRules = match.application.getRouteRules(match.route),
-      request = spaRouteRequest
+      request = routeRequest
     )
   }
 }

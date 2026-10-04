@@ -22,7 +22,7 @@ interface SpaApplicationDefinition {
   val appRootPath: String
 
   /** Routes with paths relative to [urlPrefix] and IDs unique within this application. */
-  val routes: List<SpaRouteDefinition>
+  val routes: List<RouteDefinition>
 
   /**
    * Bundler entry name, also used by the default HTML renderer for asset names
@@ -32,7 +32,7 @@ interface SpaApplicationDefinition {
     get() = id
 
   /** Returns the prefixed path pattern, preserving parameter placeholders. */
-  fun getFullPathPattern(route: SpaRouteDefinition): String {
+  fun getFullPathPattern(route: RouteDefinition): String {
     return when {
       route.path.isEmpty() -> "/$urlPrefix"
       urlPrefix.isEmpty() -> "/${route.path}"

@@ -1,15 +1,15 @@
 package io.github.caseymcguire.sparouting.spring.config
 
 import com.sparouting.contract.SpaApplicationDefinition
-import com.sparouting.contract.SpaRouteDefinition
-import com.sparouting.contract.SpaRouteKey
+import com.sparouting.contract.RouteDefinition
+import com.sparouting.contract.RouteKey
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import org.springframework.web.servlet.function.ServerResponse
 
 interface SinglePageApplicationConfig {
   val application: SpaApplicationDefinition
 
-  val routes: List<SpaRouteDefinition>
+  val routes: List<RouteDefinition>
     get() = application.routes
 
   val name: String
@@ -30,7 +30,7 @@ interface SinglePageApplicationConfig {
   val rules: List<SpaRouteRule>
     get() = emptyList()
 
-  val routeRules: Map<SpaRouteKey, List<SpaRouteRule>>
+  val routeRules: Map<RouteKey, List<SpaRouteRule>>
     get() = emptyMap()
 
   /**
@@ -44,11 +44,11 @@ interface SinglePageApplicationConfig {
     return routes.map { getFullPathPattern(it) }
   }
 
-  fun getFullPathPattern(route: SpaRouteDefinition): String {
+  fun getFullPathPattern(route: RouteDefinition): String {
     return application.getFullPathPattern(route)
   }
 
-  fun getRouteRules(route: SpaRouteDefinition): List<SpaRouteRule> {
+  fun getRouteRules(route: RouteDefinition): List<SpaRouteRule> {
     return routeRules.entries
       .firstOrNull {
         it.key.applicationId == applicationId && it.key.routeId == route.id

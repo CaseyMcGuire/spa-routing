@@ -2,8 +2,8 @@ package io.github.caseymcguire.sparouting.spring.access
 
 import com.sparouting.contract.RouteDecision
 import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.contract.SpaRouteAccessContext
-import com.sparouting.contract.SpaRouteTarget
+import com.sparouting.contract.RouteAccessContext
+import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingAutoConfiguration
@@ -171,12 +171,12 @@ class SpaRouteAccessTest {
     return SpaRouteResponseRequest(applicationId = "test", routeId = "Post", parameters = mapOf("id" to id))
   }
 
-  data class PostRequest(val id: String, val context: SpaRouteAccessContext)
+  data class PostRequest(val id: String, val context: RouteAccessContext)
 
   class PostAccessHandler : RouteAccessHandler<PostRequest>(TestSpaRouteKey("test", "Post")) {
     val requests = mutableListOf<PostRequest>()
 
-    override fun createRequest(context: SpaRouteAccessContext): PostRequest {
+    override fun createRequest(context: RouteAccessContext): PostRequest {
       return PostRequest(id = context.pathParameters.getValue("id"), context = context)
     }
 
@@ -185,7 +185,7 @@ class SpaRouteAccessTest {
       if (request.id == "42") {
         return RouteDecision.Allow
       }
-      return RouteDecision.Redirect(SpaRouteTarget(
+      return RouteDecision.Redirect(RouteTarget(
         applicationId = "test",
         routeId = "Missing",
         queryString = mapOf("from" to listOf("post access"))

@@ -4,6 +4,25 @@
 
 ### Breaking changes
 
+- **The following route API types drop the `Spa` prefix.** Rename imports and usages:
+
+  | Previous name | New name |
+  | --- | --- |
+  | `SpaRouteAccessContext` | `RouteAccessContext` |
+  | `SpaRouteKey` | `RouteKey` |
+  | `SpaRouteTarget` | `RouteTarget` |
+  | `SpaRouteDefinition` | `RouteDefinition` |
+  | `SpaRouteRequest` | `RouteRequest` |
+  | `SpaTypedRoute` | `Route` |
+
+  Packages stay the same: `RouteRequest` is in
+  `io.github.caseymcguire.sparouting.spring.request`; the other types are in
+  `com.sparouting.contract`. Regenerate server routes with
+  `./gradlew generateServerSpaRoutes`, then recompile consumers. Custom route
+  subclasses now extend `Route`. This is a source and binary API rename;
+  no aliases for the previous names are provided. Routing behavior and
+  `RouteKey` equality semantics are unchanged.
+
 - **`string(name)` was renamed to `parameter(name)`.** All values are strings;
   the declaration specifies the name and optional/repeated behavior. Update
   factory calls and imports. Required path parameters are now inferred from
@@ -27,7 +46,7 @@
 
 - **`getFullUrl` was replaced by `getFullPathPattern`.**
   `SpaApplicationDefinition` and `SinglePageApplicationConfig` now expose
-  `getFullPathPattern(route)`, taking a `SpaRouteDefinition` and returning its
+  `getFullPathPattern(route)`, taking a `RouteDefinition` and returning its
   prefixed path pattern with parameter placeholders intact. The string overload
   was removed. Parameter substitution is handled separately by `resolvePath`.
 
@@ -37,7 +56,7 @@
   `SinglePageApplicationConfig`, `getFullUrls()` was renamed to
   `getFullPathPatterns()`. Query-string handling is unchanged.
 
-- **Regenerate server routes after upgrading.** `SpaTypedRoute` no longer
+- **Regenerate server routes after upgrading.** `Route` no longer
   supplies an inherited zero-argument `invoke()`. The generator now emits each
   route's invocation method, so required path and query arguments cannot be
   bypassed by calling the route without arguments. Routes without required

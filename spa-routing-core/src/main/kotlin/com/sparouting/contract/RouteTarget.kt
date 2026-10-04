@@ -1,6 +1,6 @@
 package com.sparouting.contract
 
-data class SpaRouteTarget(
+data class RouteTarget(
   val applicationId: String,
   val routeId: String,
   val parameters: Map<String, String> = emptyMap(),

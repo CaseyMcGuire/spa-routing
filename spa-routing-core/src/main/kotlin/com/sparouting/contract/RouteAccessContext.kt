@@ -1,7 +1,7 @@
 package com.sparouting.contract
 
 /** Framework-neutral request metadata available alongside a handler's typed route values. */
-data class SpaRouteAccessContext(
+data class RouteAccessContext(
   val method: String,
   val path: String,
   val pathParameters: Map<String, String> = emptyMap(),

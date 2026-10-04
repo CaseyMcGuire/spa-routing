@@ -1,9 +1,9 @@
 import com.sparouting.contract.RouteDecision
-import com.sparouting.contract.SpaRouteAccessContext
+import com.sparouting.contract.RouteAccessContext
 import generated.accesstest.*
 
 fun verifyAccess(): String {
-  val context = SpaRouteAccessContext(
+  val context = RouteAccessContext(
     method = "GET",
     path = "/access/posts/42",
     pathParameters = mapOf("postId" to "42"),
@@ -59,5 +59,22 @@ fun verifyAccess(): String {
     pathParameters = mapOf("context" to "path context", "queryString" to "path query", "class" to "path keyword"),
     queryString = mapOf("class" to listOf("query keyword"))
   )) == RouteDecision.Allow)
+
+  // Route IDs may also be names of the library's core types.
+  val routeHandler = object : generated.accesstest.RouteAccessHandler() {
+    override fun evaluate(request: generated.accesstest.RouteRequest): RouteDecision {
+      return RouteDecision.Redirect(generated.accesstest.RouteTarget())
+    }
+  }
+  check(routeHandler.route === generated.accesstest.Route)
+  check(routeHandler.evaluateRequest(context) == RouteDecision.Redirect(generated.accesstest.RouteTarget()))
+  val contextHandler = object : RouteAccessContextAccessHandler() {
+    override fun evaluate(request: RouteAccessContextRequest): RouteDecision {
+      check(request.queryString.q == "hello + 雪")
+      return RouteDecision.Allow
+    }
+  }
+  check(contextHandler.route === generated.accesstest.RouteAccessContext)
+  check(contextHandler.evaluateRequest(context) == RouteDecision.Allow)
   return "access verified"
 }

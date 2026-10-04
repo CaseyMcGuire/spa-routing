@@ -103,6 +103,10 @@ Use the tasks below to generate both server and client routes explicitly.
 Server output is in `spring/build/generated/source/spaRoutes/main`. Client
 output is in `spring/build/generated/client/routes/BlogRoutes.ts`.
 
+Generated Kotlin route objects extend `com.sparouting.contract.Route` and
+return `RouteTarget` values when invoked. Access-handler requests expose raw
+metadata through `RouteAccessContext`.
+
 ```kotlin
 import com.sparouting.examples.generated.routes.BlogRoutes
 import com.sparouting.examples.generated.routes.blog.Index

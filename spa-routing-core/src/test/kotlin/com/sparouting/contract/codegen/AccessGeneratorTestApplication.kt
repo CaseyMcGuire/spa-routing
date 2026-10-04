@@ -12,6 +12,13 @@ object AccessGeneratorTestApplication : SpaApplicationDefinition {
   override val routes = listOf(
     route("public", "Public"),
     route("start", "Start", generateAccessHandler = true),
+    route("route", "Route", generateAccessHandler = true),
+    route("target", "RouteTarget", generateAccessHandler = true),
+    route(
+      "context", "RouteAccessContext",
+      queryString = listOf(parameter("q")),
+      generateAccessHandler = true
+    ),
     route(
       "posts/{postId}", "Post",
       queryString = listOf(

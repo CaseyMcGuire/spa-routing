@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.rules
 
-import com.sparouting.contract.SpaRouteTarget
+import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
@@ -30,7 +30,7 @@ class SpaRouteRuleActionResolverTest {
     for (id in listOf("user-42", "0042", "550e8400-e29b-41d4-a716-446655440000")) {
       val response = resolver.resolve(
         SpaRouteRuleAction.redirectTo(
-          SpaRouteTarget("test", "UserDetail", mapOf("id" to id))
+          RouteTarget("test", "UserDetail", mapOf("id" to id))
         )
       )
 
@@ -43,7 +43,7 @@ class SpaRouteRuleActionResolverTest {
   fun `unknown target app throws`() {
     assertFailsWith<IllegalStateException> {
       resolver.resolve(
-        SpaRouteRuleAction.redirectTo(SpaRouteTarget("missing", "UserDetail", mapOf("id" to "550e8400-e29b-41d4-a716-446655440000")))
+        SpaRouteRuleAction.redirectTo(RouteTarget("missing", "UserDetail", mapOf("id" to "550e8400-e29b-41d4-a716-446655440000")))
       )
     }
   }
@@ -52,7 +52,7 @@ class SpaRouteRuleActionResolverTest {
   fun `unknown target route throws`() {
     assertFailsWith<IllegalStateException> {
       resolver.resolve(
-        SpaRouteRuleAction.redirectTo(SpaRouteTarget("test", "Missing", mapOf("id" to "550e8400-e29b-41d4-a716-446655440000")))
+        SpaRouteRuleAction.redirectTo(RouteTarget("test", "Missing", mapOf("id" to "550e8400-e29b-41d4-a716-446655440000")))
       )
     }
   }
@@ -62,7 +62,7 @@ class SpaRouteRuleActionResolverTest {
     for (parameters in listOf(emptyMap(), mapOf("id" to "user-42", "unknown" to "value"))) {
       assertFailsWith<IllegalArgumentException> {
         resolver.resolve(
-          SpaRouteRuleAction.redirectTo(SpaRouteTarget("test", "UserDetail", parameters))
+          SpaRouteRuleAction.redirectTo(RouteTarget("test", "UserDetail", parameters))
         )
       }
     }

@@ -2,9 +2,9 @@ package io.github.caseymcguire.sparouting.spring.access
 
 import com.sparouting.contract.RouteDecision
 import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.contract.SpaRouteAccessContext
+import com.sparouting.contract.RouteAccessContext
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 
 /** Binds DI-managed handlers to routes and rejects missing, duplicate, or stale registrations. */
 class RouteHandlerRegistry(
@@ -37,12 +37,12 @@ class RouteHandlerRegistry(
   }
 
   /** Called after parameter validation and the application gate, for both navigation entry points. */
-  fun evaluate(request: SpaRouteRequest): RouteDecision {
+  fun evaluate(request: RouteRequest): RouteDecision {
     val key = RouteKey(applicationId = request.applicationId, routeId = request.routeId)
     val handler = routeToHandler[key]?.single()
       ?: return RouteDecision.Allow
     return handler.evaluateRequest(
-      SpaRouteAccessContext(
+      RouteAccessContext(
         method = request.method,
         path = request.path,
         pathParameters = request.pathParameters,

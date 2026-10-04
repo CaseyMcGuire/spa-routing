@@ -3,7 +3,7 @@ package io.github.caseymcguire.sparouting.spring.web
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
@@ -146,7 +146,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   private class RequireHeaderRule(
     private val headerName: String
   ) : SpaRouteRule {
-    override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+    override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
       return if (request.header(headerName).isEmpty()) {
         SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
       } else {
@@ -159,7 +159,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
     private val name: String,
     private val value: String
   ) : SpaRouteRule {
-    override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+    override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
       return if (request.queryStringValue(name) == value) {
         SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451))
       } else {

@@ -153,14 +153,14 @@ Application-wide rules run for every route in that SPA:
 
 ```kotlin
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import org.springframework.context.annotation.Bean
 
 class RequireLogin : SpaRouteRule {
-  override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+  override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
     return if (request.header("X-User").isEmpty()) {
       SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))
     } else {
@@ -274,7 +274,7 @@ The flag does not tell a client to skip the route-decision endpoint.
 Both page requests and route decisions validate parameters before evaluating
 the application gate, then the access handler, then any existing route rules.
 `RouteDecision.Allow` continues evaluation; `RouteDecision.Redirect(target)`
-resolves a generated `SpaRouteTarget` and produces a `302` redirect. The decision
+resolves a generated `RouteTarget` and produces a `302` redirect. The decision
 endpoint reports that redirect through its existing JSON response.
 
 Request models expose path values directly, with optional values nullable.
@@ -354,7 +354,7 @@ SpaRouteRuleResult.Deny(
 )
 ```
 
-Kotlin targets retain query-string values in `SpaRouteTarget.queryString` as
+Kotlin targets retain query-string values in `RouteTarget.queryString` as
 `Map<String, List<String>>`. The redirect resolver validates and URL-encodes
 these values. Encoding preserves repeated-value order and uses `+` for spaces;
 an omitted query string never adds a trailing `?`. Route `.path` metadata contains only
@@ -524,7 +524,7 @@ Pass repeated query values as repeated prefixed keys. For the declared
 GET /__spa/route-decision?applicationId=account&routeId=UserSearch&parameters.id=123&queryString.q=hello&queryString.tag=a&queryString.tag=b
 ```
 
-The decision endpoint builds a synthetic `SpaRouteRequest` for the target route:
+The decision endpoint builds a synthetic `RouteRequest` for the target route:
 
 - `applicationId`: from the `applicationId` query parameter
 - `routeId`: from the `routeId` query parameter

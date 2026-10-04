@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.request
 
-data class SpaRouteRequest(
+data class RouteRequest(
   val applicationId: String,
   val routeId: String,
   val method: String,

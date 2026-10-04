@@ -1,13 +1,13 @@
 package io.github.caseymcguire.sparouting.spring.web
 
-import com.sparouting.contract.SpaRouteTarget
+import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
 import com.sparouting.contract.parameter
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultSpaHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultSpaRouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.request.SpaRouteRequest
+import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseRequest
 import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
@@ -25,7 +25,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class TypedQueryRoutingTest {
-  private val requests = mutableListOf<SpaRouteRequest>()
+  private val requests = mutableListOf<RouteRequest>()
   private val config = TestSinglePageApplicationConfig(
     application = TestSpaApplicationDefinition(routes = listOf(
       route("users/{id}", "UserDetail", queryString = listOf(
@@ -33,7 +33,7 @@ class TypedQueryRoutingTest {
       ))
     )),
     rules = listOf(object : SpaRouteRule {
-      override fun evaluate(request: SpaRouteRequest): SpaRouteRuleResult {
+      override fun evaluate(request: RouteRequest): SpaRouteRuleResult {
         requests.add(request)
         return SpaRouteRuleResult.Allow
       }
@@ -96,7 +96,7 @@ class TypedQueryRoutingTest {
 
   @Test
   fun `typed redirects encode declared and extra query parameters`() {
-    val result = resolver.resolve(SpaRouteRuleAction.redirectTo(SpaRouteTarget(
+    val result = resolver.resolve(SpaRouteRuleAction.redirectTo(RouteTarget(
       "test", "UserDetail", mapOf("id" to "123"),
       queryString = valid + mapOf("baz" to listOf(""), "utm_source" to listOf("extra"))
     )))
@@ -108,7 +108,7 @@ class TypedQueryRoutingTest {
   fun `typed redirects reject invalid query cardinality`() {
     for (query in listOf(valid - "foo", valid + mapOf("tag" to emptyList()), valid + mapOf("foo" to listOf("a", "b")))) {
       assertFailsWith<IllegalArgumentException> {
-        resolver.resolve(SpaRouteRuleAction.redirectTo(SpaRouteTarget(
+        resolver.resolve(SpaRouteRuleAction.redirectTo(RouteTarget(
           "test", "UserDetail", mapOf("id" to "123"), queryString = query
         )))
       }

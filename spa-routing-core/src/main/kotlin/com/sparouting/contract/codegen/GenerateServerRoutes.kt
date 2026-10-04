@@ -2,7 +2,7 @@ package com.sparouting.contract.codegen
 
 import com.sparouting.contract.SpaApplicationDefinition
 import com.sparouting.contract.SpaApplicationDefinitionDiscovery
-import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.SpaRouteParameter
 import com.sparouting.contract.queryStringKeyIdentifier
 import com.sparouting.contract.routeParameterIdentifier
@@ -93,7 +93,7 @@ private fun SpaApplicationDefinition.toKotlinRoutesObjectFile(): String {
   }
 }
 
-private fun SpaRouteDefinition.toKotlinRouteObjectFile(
+private fun RouteDefinition.toKotlinRouteObjectFile(
   applicationId: String,
   packageName: String
 ): String {
@@ -101,12 +101,12 @@ private fun SpaRouteDefinition.toKotlinRouteObjectFile(
     appendGeneratedFileHeader(
       packageName = packageName,
       imports = listOf(
-        "com.sparouting.contract.SpaRouteTarget",
-        "com.sparouting.contract.SpaTypedRoute"
+        "com.sparouting.contract.RouteTarget",
+        "com.sparouting.contract.Route"
       )
     )
 
-    appendLine("object $id : SpaTypedRoute(${applicationId.toKotlinStringLiteral()}, ${id.toKotlinStringLiteral()}) {")
+    appendLine("object $id : Route(${applicationId.toKotlinStringLiteral()}, ${id.toKotlinStringLiteral()}) {")
     var queryArgument = "queryString"
     val pathIdentifiers = parameters.map { it.name.routeParameterIdentifier() }.toSet()
     while (queryArgument in pathIdentifiers) queryArgument += "_"
@@ -115,7 +115,7 @@ private fun SpaRouteDefinition.toKotlinRouteObjectFile(
       val default = if (queryString.all { it.optional }) " = QueryString()" else ""
       arguments.add("$queryArgument: QueryString$default")
     }
-    appendLine("  operator fun invoke(${arguments.joinToString(", ")}): SpaRouteTarget {")
+    appendLine("  operator fun invoke(${arguments.joinToString(", ")}): RouteTarget {")
     val queryValues = if (queryString.isEmpty()) "" else ", queryString = $queryArgument.toQueryStringValues()"
     appendLine("    return target(${parameters.toKotlinParameterMap()}$queryValues)")
     appendLine("  }")
@@ -126,7 +126,7 @@ private fun SpaRouteDefinition.toKotlinRouteObjectFile(
   }
 }
 
-private fun SpaRouteDefinition.requestPropertyNames(): Pair<String, String> {
+private fun RouteDefinition.requestPropertyNames(): Pair<String, String> {
   val used = parameters.map { it.name.routeParameterIdentifier() }.toMutableSet()
   fun available(name: String): String {
     var candidate = name
@@ -138,10 +138,10 @@ private fun SpaRouteDefinition.requestPropertyNames(): Pair<String, String> {
   return available("queryString") to available("context")
 }
 
-private fun SpaRouteDefinition.toKotlinRequestFile(packageName: String): String {
+private fun RouteDefinition.toKotlinRequestFile(packageName: String): String {
   val (queryProperty, contextProperty) = requestPropertyNames()
   return buildString {
-    appendGeneratedFileHeader(packageName, listOf("com.sparouting.contract.SpaRouteAccessContext"))
+    appendGeneratedFileHeader(packageName, listOf("com.sparouting.contract.RouteAccessContext"))
     appendLine("/** Typed input for $id access, with raw request metadata in [$contextProperty]. */")
     appendLine("data class ${id}Request(")
     parameters.forEach { parameter ->
@@ -150,21 +150,25 @@ private fun SpaRouteDefinition.toKotlinRequestFile(packageName: String): String 
     if (queryString.isNotEmpty()) {
       appendLine("  val $queryProperty: $id.QueryString,")
     }
-    appendLine("  val $contextProperty: SpaRouteAccessContext")
+    appendLine("  val $contextProperty: RouteAccessContext")
     appendLine(")")
   }
 }
 
-private fun SpaRouteDefinition.toKotlinAccessFile(packageName: String): String {
+private fun RouteDefinition.toKotlinAccessFile(packageName: String): String {
   val (queryProperty, contextProperty) = requestPropertyNames()
+  val routeReference = when (id) {
+    "RouteAccessHandler", "RouteAccessContext" -> "$packageName.$id"
+    else -> id
+  }
   return buildString {
     appendGeneratedFileHeader(
       packageName,
-      listOf("com.sparouting.contract.RouteAccessHandler", "com.sparouting.contract.SpaRouteAccessContext")
+      listOf("com.sparouting.contract.RouteAccessHandler", "com.sparouting.contract.RouteAccessContext")
     )
     appendLine("/** Implement evaluate and register the implementation with your server's DI container. */")
-    appendLine("abstract class ${id}AccessHandler : RouteAccessHandler<${id}Request>($id) {")
-    appendLine("  final override fun createRequest(context: SpaRouteAccessContext): ${id}Request {")
+    appendLine("abstract class ${id}AccessHandler : RouteAccessHandler<${id}Request>($routeReference) {")
+    appendLine("  final override fun createRequest(context: RouteAccessContext): ${id}Request {")
     appendLine("    return ${id}Request(")
     parameters.forEach { parameter ->
       val key = parameter.name.toKotlinStringLiteral()
@@ -172,7 +176,7 @@ private fun SpaRouteDefinition.toKotlinAccessFile(packageName: String): String {
       appendLine("      ${parameter.name.toKotlinIdentifier()} = $value,")
     }
     if (queryString.isNotEmpty()) {
-      appendLine("      $queryProperty = $id.QueryString(")
+      appendLine("      $queryProperty = $routeReference.QueryString(")
       queryString.forEach { parameter ->
         val key = parameter.name.toKotlinStringLiteral()
         val values = if (parameter.optional) "context.queryString[$key]?" else "context.queryString.getValue($key)"

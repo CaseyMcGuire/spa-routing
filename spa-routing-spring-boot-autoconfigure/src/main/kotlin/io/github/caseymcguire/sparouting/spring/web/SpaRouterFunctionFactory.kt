@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.web
 
-import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.RouteDefinition
 import io.github.caseymcguire.sparouting.spring.autoconfigure.SpaRoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.SpaHtmlRenderer
@@ -33,7 +33,7 @@ class SpaRouterFunctionFactory(
 
   private fun handleSinglePageApplicationRoute(
     config: SinglePageApplicationConfig,
-    route: SpaRouteDefinition,
+    route: RouteDefinition,
     request: ServerRequest
   ): ServerResponse {
     if (!route.hasValidParameterValues(request.pathVariables())) {

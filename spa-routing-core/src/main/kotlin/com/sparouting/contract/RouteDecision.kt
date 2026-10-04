@@ -4,5 +4,5 @@ package com.sparouting.contract
 sealed interface RouteDecision {
   data object Allow : RouteDecision
 
-  data class Redirect(val destination: SpaRouteTarget) : RouteDecision
+  data class Redirect(val destination: RouteTarget) : RouteDecision
 }
