@@ -65,8 +65,8 @@ class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
 }
 ```
 
-The configuration needs no `routeRules` map or handler injection. Missing posts
-redirect to `/not-found` on both direct page requests and client-side navigation.
+Spring registers the handler components automatically. Missing posts redirect
+to `/not-found` on both direct page requests and client-side navigation.
 Other routes need no handler. Spring fails startup if either required handler
 is missing or has multiple implementations. The generated request's `context`
 also exposes raw query-string values, headers, method, and path.

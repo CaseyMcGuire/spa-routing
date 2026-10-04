@@ -26,8 +26,6 @@ import org.springframework.web.servlet.function.RouterFunction
 import java.util.function.Supplier
 
 class SpaRouteAccessTest {
-  private val postKey = Route("test", "Post")
-
   @Test
   fun `missing handler fails startup even when page serving is disabled`() {
     runner().withPropertyValues("spa-routing.server.enabled=false").run { context ->
@@ -54,6 +52,19 @@ class SpaRouteAccessTest {
       .run { context ->
         assertThat(context).hasFailed()
         assertThat(context.startupFailure).hasStackTraceContaining("does not declare generateAccessHandler = true")
+      }
+  }
+
+  @Test
+  fun `handler for an unknown route fails startup`() {
+    val config = TestSinglePageApplicationConfig(
+      application = TestSinglePageApplicationDefinition(routes = listOf(route("known", "Known")))
+    )
+    runner(config)
+      .withBean(PostAccessHandler::class.java, Supplier { PostAccessHandler() })
+      .run { context ->
+        assertThat(context).hasFailed()
+        assertThat(context.startupFailure).hasStackTraceContaining("Access handler registered for test:Post")
       }
   }
 
@@ -125,7 +136,7 @@ class SpaRouteAccessTest {
   }
 
   @Test
-  fun `application denial prevents handler evaluation`() {
+  fun `application default denial prevents handler evaluation`() {
     val handler = PostAccessHandler()
     runner(config().copy(rules = emptyList()))
       .withBean(PostAccessHandler::class.java, Supplier { handler })
@@ -137,18 +148,16 @@ class SpaRouteAccessTest {
   }
 
   @Test
-  fun `access allow continues to legacy vetoes and legacy allow cannot bypass access`() {
-    for (rule in listOf(SpaRouteRuleResult.Allow, SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451)))) {
-      val handler = PostAccessHandler()
-      runner(config().copy(routeRules = mapOf(postKey to listOf(RecordingRule(rule)))))
-        .withBean(PostAccessHandler::class.java, Supplier { handler })
-        .run { context ->
-          val service = context.getBean(SpaRouteResponseService::class.java)
-          assertThat(service.evaluate(request("missing")).statusCode).isEqualTo(302)
-          assertThat(service.evaluate(request("42")).statusCode)
-            .isEqualTo(if (rule is SpaRouteRuleResult.Deny) 451 else 200)
-        }
-    }
+  fun `explicit application denial prevents handler evaluation`() {
+    val handler = PostAccessHandler()
+    runner(config().copy(rules = listOf(RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.status(451))))))
+      .withBean(PostAccessHandler::class.java, Supplier { handler })
+      .run { context ->
+        val service = context.getBean(SpaRouteResponseService::class.java)
+        assertThat(service.evaluate(request("missing")).statusCode).isEqualTo(451)
+        assertThat(service.evaluate(request("42")).statusCode).isEqualTo(451)
+        assertThat(handler.requests).isEmpty()
+      }
   }
 
   private fun runner(config: SinglePageApplicationConfig = config()): WebApplicationContextRunner {

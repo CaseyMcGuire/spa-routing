@@ -14,11 +14,12 @@ data or an older checkout suggests — read the breaking-changes entries in
 [CHANGELOG.md](CHANGELOG.md). Behavior listed there has changed between
 versions; the newest entry is the current semantics.
 
-Most notably, rule evaluation is two-stage (application rules are a
-deny-by-default gate; route-level rules are allow-by-default vetoes), so any
-config, test, or example needs an application-level `Allow` — e.g. the
-`AllowAll` builtin, or `RecordingRule(SpaRouteRuleResult.Allow)` in tests —
-for a route to be served.
+Application rules are a deny-by-default gate, followed by an optional typed
+route access handler. Any config, test, or example needs an application-level
+`Allow` — e.g. the `AllowAll` builtin, or `RecordingRule(SpaRouteRuleResult.Allow)`
+in tests — for a route to be served. Routes with `generateAccessHandler = true`
+also require a registered handler returning `RouteDecision.Allow` or `Redirect`.
+Per-route `routeRules` have been removed.
 
 User-facing runtime docs live in
 [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).

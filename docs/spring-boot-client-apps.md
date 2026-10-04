@@ -8,7 +8,7 @@ you want Spring to handle:
 
 - registering MVC `GET` routes for each SPA route
 - validating path parameters
-- evaluating app and route rules
+- evaluating application rules and route access handlers
 - resolving raw and typed redirects
 - rendering a default SPA HTML page
 - exposing a route decision endpoint for client-side navigation checks
@@ -56,7 +56,7 @@ Client apps usually import from these packages:
 - `io.github.caseymcguire.sparouting.spring.web`: Spring MVC router factory
 - `io.github.caseymcguire.sparouting.spring.autoconfigure`: Spring Boot properties and auto-configuration
 
-If the same Spring app also generates server route objects for route-level rules
+If the same Spring app also generates server route objects for typed access handlers
 or typed redirects, apply and configure the Gradle plugin too:
 
 ```kotlin
@@ -178,55 +178,27 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
 }
 ```
 
-Rules evaluate in two chains, with an opted-in access handler between them:
+Requests pass through the application gate, then the route's access handler:
 
 1. **Application rules are a gate, deny-by-default.** The first `Allow` passes
-   the request on to the access handler and route rules, the first `Deny` denies it, and if every
+   the request on to the access handler, the first `Deny` denies it, and if every
    rule returns `Skip` — including when the SPA has no rules at all — the
    request is answered with `404`. Every SPA must explicitly allow its routes;
    use the built-in `AllowAll` as the sole rule of an ungated SPA.
-2. **Route-level rules are vetoes, allow-by-default.** The first `Deny` denies
-   the request, the first `Allow` serves it, and if every rule skips the route
-   is served. Route rules only exist to deny specific cases.
+2. **Route access handlers decide whether to serve or redirect.** A handler's
+   `RouteDecision.Allow` serves the requested route; `RouteDecision.Redirect`
+   sends the user to another route. Routes without a handler are served once
+   the application gate passes.
 
-Within a chain the results always mean the same thing:
+Application rule results mean:
 
 - `Skip`: continue to the next rule
-- `Allow`: stop evaluating this chain successfully
+- `Allow`: stop evaluating application rules and proceed to the access handler
 - `Deny`: stop evaluating and return the configured status or redirect
 
-Only the fallthrough differs between the rule chains. An application-level
-`Allow` passes the gate but does not bypass an access handler or route-level
-rules. An access handler's `Allow` continues to the route rules; its `Redirect`
-ends evaluation before those rules run.
-
-Route-level rules accept `Route` objects, including the generated server routes:
-
-```kotlin
-import com.example.generated.spa.routes.AccountRoutes
-import com.sparouting.contract.Route
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
-import org.springframework.context.annotation.Bean
-
-@Bean
-fun accountSpaConfig(): SinglePageApplicationConfig {
-  return object : SinglePageApplicationConfig {
-    override val application = AccountSpaApplication
-    override val rules = listOf(RequireLogin())
-    override val routeRules: Map<Route, List<SpaRouteRule>> = mapOf(
-      AccountRoutes.UserDetail to listOf(RequireAccountAccess())
-    )
-  }
-}
-```
-
-For a request to `UserDetail`, the starter evaluates the application gate
-(`config.rules`) first, and only if it passes evaluates the route's vetoes
-(`config.getRouteRules(route)`). In the example above, a logged-in user reaches
-`UserDetail` unless `RequireAccountAccess` returns `Deny`; every other route is
-served to any logged-in user, since routes without rules are allowed once the
-gate passes.
+In the example above, `RequireLogin` must allow the request before any route's
+access handler runs. Put route-specific checks in the generated handler below;
+reusable checks can be injected into the handler through its constructor.
 
 ## Generated Access Handlers
 
@@ -262,20 +234,19 @@ class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
 }
 ```
 
-The starter collects `RouteAccessHandler<*>` beans automatically. No `routeRules`
-entry is needed, and route objects do not contain injected services. Exactly
-one handler must be registered for every enabled route. Missing or duplicate
+The starter collects `RouteAccessHandler<*>` beans automatically. Exactly one
+handler must be registered for every enabled route. Missing or duplicate
 handlers fail startup, as do handlers for unknown routes or routes without
 `generateAccessHandler = true`.
 
-The flag defaults to `false`. Unflagged routes require no handler and retain
-their application and route-rule behavior. Application rules still deny by
+The flag defaults to `false`. Unflagged routes require no handler and are served
+once the application gate passes. Application rules still deny by
 default: configure an explicit gate such as `AllowAll()` for a public SPA.
 The flag does not tell a client to skip the route-decision endpoint.
 
 Both page requests and route decisions validate parameters before evaluating
-the application gate, then the access handler, then any existing route rules.
-`RouteDecision.Allow` continues evaluation; `RouteDecision.Redirect(target)`
+the application gate, then the access handler.
+`RouteDecision.Allow` serves the route; `RouteDecision.Redirect(target)`
 resolves a generated `RouteTarget` and produces a `302` redirect. The decision
 endpoint reports that redirect through its existing JSON response.
 
@@ -377,7 +348,7 @@ values; empty optional lists and omitted optional fields add no key. Builders
 reject empty required lists at runtime. Path and query-string keys may share a
 name. Duplicate names and colliding generated identifiers are rejected.
 
-Validation runs before application and route rules on both page loads and route
+Validation runs before application rules and access handlers on both page loads and route
 decisions. Invalid query strings use `spa-routing.server.invalid-query-string-status`
 (default `400`); invalid typed redirect targets throw `IllegalArgumentException`.
 Extra incoming keys such as `utm_source` are accepted and remain in the raw

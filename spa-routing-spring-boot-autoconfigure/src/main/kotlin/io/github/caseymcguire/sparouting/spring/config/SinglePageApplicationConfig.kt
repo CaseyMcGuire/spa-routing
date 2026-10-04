@@ -2,7 +2,6 @@ package io.github.caseymcguire.sparouting.spring.config
 
 import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.RouteDefinition
-import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import org.springframework.web.servlet.function.ServerResponse
 
@@ -30,9 +29,6 @@ interface SinglePageApplicationConfig {
   val rules: List<SpaRouteRule>
     get() = emptyList()
 
-  val routeRules: Map<Route, List<SpaRouteRule>>
-    get() = emptyMap()
-
   /**
    * Optional per-application HTML override.
    *
@@ -46,14 +42,5 @@ interface SinglePageApplicationConfig {
 
   fun getFullPathPattern(route: RouteDefinition): String {
     return application.getFullPathPattern(route)
-  }
-
-  fun getRouteRules(route: RouteDefinition): List<SpaRouteRule> {
-    return routeRules.entries
-      .firstOrNull {
-        it.key.applicationId == applicationId && it.key.routeId == route.id
-      }
-      ?.value
-      .orEmpty()
   }
 }

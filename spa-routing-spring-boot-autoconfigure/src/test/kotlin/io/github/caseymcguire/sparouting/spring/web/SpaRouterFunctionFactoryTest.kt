@@ -12,7 +12,6 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
-import com.sparouting.contract.Route
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -68,16 +67,10 @@ class SpaRouterFunctionFactoryTest {
   }
 
   @Test
-  fun `app and route level rules are both applied`() {
+  fun `application without an allowing rule does not serve html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("settings", "Settings"))),
-        rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
-        routeRules = mapOf(
-          Route("test", "Settings") to listOf(
-            RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.notFound()))
-          )
-        )
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("settings", "Settings")))
       )
     )
 

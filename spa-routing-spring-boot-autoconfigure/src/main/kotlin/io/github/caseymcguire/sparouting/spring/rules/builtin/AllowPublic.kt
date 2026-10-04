@@ -8,8 +8,8 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 /**
  * spa-routing rule that allows the listed routes for everyone. Allow ends the chain it runs in, so
  * placing this ahead of an application-wide gate (e.g. a RequireLogin rule) exempts the public
- * routes while every other route — including ones added later — stays gated by default. Route-level
- * rules still run and can veto even a public route.
+ * routes while every other route — including ones added later — stays gated by default. A registered
+ * route access handler still runs and can redirect even a public route.
  */
 class AllowPublic(vararg routes: Route) : SpaRouteRule {
   // Match incoming requests by application and route IDs.

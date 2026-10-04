@@ -251,10 +251,11 @@ Do not point generation only at `spa-routing-core`; the generators need the comp
 
 The Spring Boot starter serves configured SPA routes from app-provided `SinglePageApplicationConfig` beans. Application code owns the configs and rules; the starter owns the registry, route matching, rule evaluation, redirects, the route decision endpoint, and default HTML response.
 
-For complete client setup, route rules, HTML rendering, properties, and route decision examples, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
+For complete client setup, access handlers, HTML rendering, properties, and route decision examples, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
 
 ```kotlin
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.spring.rules.builtin.AllowAll
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -264,16 +265,17 @@ class SpaRoutesConfiguration {
   fun accountSpaConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
       override val application = AccountSpaApplication
+      override val rules = listOf(AllowAll())
     }
   }
 }
 ```
 
-Rules evaluate in two stages: application-wide rules are a gate that is
-deny-by-default (an SPA whose rules all skip — or that has none — answers
-`404`; use the built-in `AllowAll` for an ungated SPA), while route-level rules
-are vetoes that are allow-by-default (a route is served once the gate passes,
-unless one of its rules returns `Deny`). See
+Application-wide rules are a deny-by-default gate: an SPA whose rules all skip
+or that has none answers `404`. Use the built-in `AllowAll` for a public SPA.
+Once the gate passes, a registered route access handler returns `Allow` to
+serve the route or `Redirect` to send the user elsewhere. Routes without an
+access handler are served once the gate passes. See
 [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md) for details.
 
 Add application-wide rules when every route in an SPA needs the same behavior:
@@ -295,13 +297,10 @@ class RequireLogin : SpaRouteRule {
 }
 ```
 
-Attach app-wide rules and route-level rules from a config bean:
+Attach application-wide rules from a config bean:
 
 ```kotlin
-import com.example.generated.spa.routes.AccountRoutes
-import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import org.springframework.context.annotation.Bean
 
 @Bean
@@ -309,9 +308,6 @@ fun accountSpaConfig(): SinglePageApplicationConfig {
   return object : SinglePageApplicationConfig {
     override val application = AccountSpaApplication
     override val rules = listOf(RequireLogin())
-    override val routeRules: Map<Route, List<SpaRouteRule>> = mapOf(
-      AccountRoutes.UserDetail to listOf(RequireAccountAccess())
-    )
   }
 }
 ```
@@ -320,7 +316,7 @@ For an automatically registered, typed handler, declare the route with
 `generateAccessHandler = true` and extend its generated `<Route>AccessHandler` class
 in a Spring `@Component`. The generated `<Route>Request` provides typed path
 and query-string values. The handler returns `RouteDecision.Allow` or
-`RouteDecision.Redirect(target)`; no `routeRules` map is needed. See
+`RouteDecision.Redirect(target)`. Spring registers and invokes the handler automatically. See
 [generated access handlers](docs/spring-boot-client-apps.md#generated-access-handlers)
 and the [blog example](examples/README.md).
 

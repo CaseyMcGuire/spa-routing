@@ -4,6 +4,19 @@
 
 ### Breaking changes
 
+- **Per-route rule lists were replaced by typed access handlers.**
+  `SinglePageApplicationConfig.routeRules` and `getRouteRules` were removed.
+  Set `generateAccessHandler = true` on routes that need checks, then register
+  an implementation of the generated `<Route>AccessHandler`. Return
+  `RouteDecision.Allow` to serve the requested route or `RouteDecision.Redirect`
+  to send the user to another route; reusable checks can be composed inside
+  the handler. Regenerate server routes after opting in.
+
+  Application-level `rules` remain a deny-by-default gate and must allow the
+  request before its handler runs. Unflagged routes are served after that gate
+  passes. `SpaRouteResponseEvaluator.evaluate` now takes only
+  `applicationRules` and `request`.
+
 - **`SpaApplicationDefinition` was renamed to `SinglePageApplicationDefinition`.**
   Update imports and implemented interfaces in shared route definitions. The
   discovery and validator helpers are now `SinglePageApplicationDefinitionDiscovery`
@@ -11,8 +24,8 @@
   `com.sparouting.contract`. Regenerate routes and recompile consumers after
   updating; the old type names are removed.
 
-- **The public `RouteKey` interface was removed.** `RouteAccessHandler.route`,
-  `AllowPublic`, and `SinglePageApplicationConfig.routeRules` now accept `Route`
+- **The public `RouteKey` interface was removed.** `RouteAccessHandler.route` and
+  `AllowPublic` now accept `Route`
   directly. Replace `RouteKey` (or `SpaRouteKey`) type declarations with `Route`.
   Custom implementations should extend `Route(applicationId, routeId)` or use
   a `Route` instance directly. Generated route objects already extend `Route`.
@@ -104,8 +117,8 @@
 - Spring automatically registers access-handler beans and fails startup for
   missing, duplicate, unknown-route, or unflagged-route handlers. Validated page
   requests and client route decisions run the same handler after the application
-  gate and before existing route rules. Unflagged routes retain their existing
-  rule behavior; the flag does not disable application rules or client checks.
+  gate. Unflagged routes are served once the application gate passes;
+  the flag does not disable application rules or client checks.
 - Path parameters are inferred as strings from route placeholders, so
   `route("users/{id}", "UserDetail")` needs no separate parameter declaration.
   Explicit metadata remains supported for optional path values. Duplicate and

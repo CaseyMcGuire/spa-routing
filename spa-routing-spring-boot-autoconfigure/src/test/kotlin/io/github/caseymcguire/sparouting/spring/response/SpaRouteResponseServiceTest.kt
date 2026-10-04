@@ -11,7 +11,6 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
-import com.sparouting.contract.Route
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -20,12 +19,7 @@ class SpaRouteResponseServiceTest {
     application = TestSinglePageApplicationDefinition(
       routes = listOf(route("users/{id}", "UserDetail"))
     ),
-    rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
-    routeRules = mapOf(
-      Route("test", "UserDetail") to listOf(
-        RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login")))
-      )
-    )
+    rules = listOf(RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))))
   )
   private val registry = SinglePageApplicationRouteRegistry(listOf(config))
   private val evaluator = SpaRouteResponseEvaluator(SpaRouteRuleActionResolver(listOf(config)))

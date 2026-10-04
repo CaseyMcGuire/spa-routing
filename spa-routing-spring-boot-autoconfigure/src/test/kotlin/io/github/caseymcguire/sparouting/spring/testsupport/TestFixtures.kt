@@ -2,7 +2,6 @@ package io.github.caseymcguire.sparouting.spring.testsupport
 
 import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.RouteDefinition
-import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
@@ -19,8 +18,7 @@ internal data class TestSinglePageApplicationDefinition(
 
 internal data class TestSinglePageApplicationConfig(
   override val application: SinglePageApplicationDefinition,
-  override val rules: List<SpaRouteRule> = emptyList(),
-  override val routeRules: Map<Route, List<SpaRouteRule>> = emptyMap()
+  override val rules: List<SpaRouteRule> = emptyList()
 ) : SinglePageApplicationConfig
 
 internal class RecordingRule(

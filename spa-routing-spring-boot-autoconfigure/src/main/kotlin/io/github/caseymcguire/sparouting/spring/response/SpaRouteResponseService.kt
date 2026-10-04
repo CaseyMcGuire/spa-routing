@@ -36,7 +36,6 @@ open class SpaRouteResponseService @JvmOverloads constructor(
 
     return evaluator.evaluate(
       applicationRules = match.application.rules,
-      routeRules = match.application.getRouteRules(match.route),
       request = routeRequest
     )
   }
