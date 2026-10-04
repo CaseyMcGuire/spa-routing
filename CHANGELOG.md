@@ -4,9 +4,35 @@
 
 ### Breaking changes
 
+- **Shared server logic now lives in `spa-routing-runtime`.** Update imports
+  from `io.github.caseymcguire.sparouting.spring` to
+  `io.github.caseymcguire.sparouting.runtime` for `config.*` (including
+  `SinglePageApplicationConfig`), `access.RouteHandlerRegistry`, `rules.*`,
+  `request.RouteRequest`, and the response models and `RouteResponseService`.
+  The Spring starter includes the new module transitively. No aliases for the
+  old packages are provided.
+
+  `SinglePageApplicationConfig` no longer exposes `renderHtml()`. Configurations
+  overriding that method must implement
+  `spring.config.SpringSinglePageApplicationConfig`. Spring request factories,
+  `HtmlRenderer`, response conversion extensions, router factories, and
+  auto-configuration remain in their Spring packages. Java callers of response
+  extensions now use `RouteResponsesKt` instead of `RouteHttpResponseKt`.
+
+  `RouterFunctionFactory` now takes a `RouteResponseService` instead of a
+  `RouteResponseEvaluator` and `RoutingProperties`. Both page serving and
+  navigation decisions use the service's shared validation and evaluation
+  pipeline. Custom services should account for both `evaluate(RouteRequest)`
+  and `evaluate(RouteResponseRequest)`. A custom `RouteRequestFactory` now runs
+  before validation, which checks its returned values.
+
+  The runtime also supplies `HtmlDocumentRenderer` and `HtmlRenderingOptions`
+  without HTTP framework types. Evaluation remains synchronous; a Ktor adapter
+  is not included. See [the runtime guide](docs/runtime.md).
+
 - **The remaining API types and helpers drop the `Spa` prefix.** Update imports
-  and usages, then regenerate routes and recompile consumers. Packages stay
-  the same, and no aliases for the old names are provided.
+  and usages, then regenerate routes and recompile consumers. Apply the runtime
+  package migration above as well; no aliases for the old names are provided.
 
   | Previous name | New name |
   | --- | --- |
@@ -80,8 +106,8 @@
   | `SpaRouteRequest` | `RouteRequest` |
   | `SpaTypedRoute` | `Route` |
 
-  Packages stay the same: `RouteRequest` is in
-  `io.github.caseymcguire.sparouting.spring.request`; the other types are in
+  With the runtime extraction above, `RouteRequest` is now in
+  `io.github.caseymcguire.sparouting.runtime.request`; the other types are in
   `com.sparouting.contract`. Regenerate server routes with
   `./gradlew generateServerRoutes`, then recompile consumers. Custom route
   subclasses now extend `Route`. This is a source and binary API rename;

@@ -1,0 +1,40 @@
+package io.github.caseymcguire.sparouting.runtime.rules
+
+import com.sparouting.contract.RouteTarget
+
+data class RouteRuleAction(
+  val statusCode: Int,
+  val location: String? = null,
+  val routeTarget: RouteTarget? = null
+) {
+  init {
+    require(statusCode in 300..599) {
+      "SPA route deny actions must use a 3xx, 4xx, or 5xx status code: $statusCode"
+    }
+    require(location == null || routeTarget == null) {
+      "SPA route deny actions must use either a raw location or a route target, not both."
+    }
+  }
+
+  companion object {
+    fun status(statusCode: Int): RouteRuleAction {
+      return RouteRuleAction(statusCode)
+    }
+
+    fun notFound(): RouteRuleAction {
+      return status(404)
+    }
+
+    fun internalServerError(): RouteRuleAction {
+      return status(500)
+    }
+
+    fun redirect(location: String, statusCode: Int = 302): RouteRuleAction {
+      return RouteRuleAction(statusCode, location = location)
+    }
+
+    fun redirectTo(target: RouteTarget, statusCode: Int = 302): RouteRuleAction {
+      return RouteRuleAction(statusCode, routeTarget = target)
+    }
+  }
+}

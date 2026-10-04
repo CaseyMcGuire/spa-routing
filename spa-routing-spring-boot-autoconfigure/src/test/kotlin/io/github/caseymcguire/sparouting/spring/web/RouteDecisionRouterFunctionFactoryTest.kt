@@ -1,15 +1,15 @@
 package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
-import io.github.caseymcguire.sparouting.spring.rules.RouteResponseEvaluator
-import io.github.caseymcguire.sparouting.spring.rules.RouteRule
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition

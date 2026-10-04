@@ -1,11 +1,11 @@
 package io.github.caseymcguire.sparouting.spring.testsupport
 
-import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.RouteDefinition
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.rules.RouteRule
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
+import com.sparouting.contract.SinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 
 internal data class TestSinglePageApplicationDefinition(
   override val id: String = "test",

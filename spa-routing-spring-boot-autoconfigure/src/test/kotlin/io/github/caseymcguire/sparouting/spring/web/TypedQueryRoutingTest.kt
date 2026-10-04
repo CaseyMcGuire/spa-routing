@@ -1,28 +1,28 @@
 package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.RouteTarget
-import com.sparouting.contract.route
 import com.sparouting.contract.parameter
+import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseRequest
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseRequest
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
-import io.github.caseymcguire.sparouting.spring.rules.RouteResponseEvaluator
-import io.github.caseymcguire.sparouting.spring.rules.RouteRule
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
-import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 class TypedQueryRoutingTest {
   private val requests = mutableListOf<RouteRequest>()
@@ -120,13 +120,22 @@ class TypedQueryRoutingTest {
     expectedStatus: Int,
     properties: RoutingProperties = RoutingProperties()
   ) {
+    val service = RouteResponseService(
+      routeRegistry = registry,
+      evaluator = evaluator,
+      invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
+      invalidQueryStringStatus = properties.server.invalidQueryStringStatus
+    )
     val mockMvc = MockMvcBuilders.routerFunctions(
       RouterFunctionFactory(
-        listOf(config), evaluator, DefaultRouteRequestFactory(), DefaultHtmlRenderer(properties), properties
+        routeConfigs = listOf(config),
+        routeResponseService = service,
+        requestFactory = DefaultRouteRequestFactory(),
+        htmlRenderer = DefaultHtmlRenderer(properties)
       ).routes(),
       RouteDecisionRouterFunctionFactory(
-        RouteResponseService(registry, evaluator, properties.server.invalidPathParameterStatus, properties.server.invalidQueryStringStatus),
-        properties
+        responseService = service,
+        properties = properties
       ).routes()
     ).build()
     mockMvc.get("/test/users/123") {

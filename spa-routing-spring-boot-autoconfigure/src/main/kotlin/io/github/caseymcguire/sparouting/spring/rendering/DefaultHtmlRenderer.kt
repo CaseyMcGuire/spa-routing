@@ -1,54 +1,24 @@
 package io.github.caseymcguire.sparouting.spring.rendering
 
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.rendering.HtmlDocumentRenderer
+import io.github.caseymcguire.sparouting.runtime.rendering.HtmlRenderingOptions
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
 import org.springframework.http.MediaType
 import org.springframework.web.servlet.function.ServerResponse
 
+/** Writes the framework-neutral HTML document as a Spring MVC response. */
 class DefaultHtmlRenderer(
   private val properties: RoutingProperties
 ) : HtmlRenderer {
   override fun render(application: SinglePageApplicationConfig): ServerResponse {
+    val renderer = HtmlDocumentRenderer(HtmlRenderingOptions(
+      bundleBasePath = properties.assets.bundleBasePath,
+      includeRouteStylesheet = properties.assets.includeRouteStylesheet,
+      globalStylesheet = properties.assets.globalStylesheet
+    ))
     return ServerResponse.ok()
       .contentType(MediaType.TEXT_HTML)
-      .body(application.toHtml())
-  }
-
-  private fun SinglePageApplicationConfig.toHtml(): String {
-    val bundleBasePath = properties.assets.bundleBasePath.trimEnd('/')
-    val routeStylesheet = "$bundleBasePath/${bundleName}.css"
-    val bundleScript = "$bundleBasePath/${bundleName}.bundle.js"
-
-    return buildString {
-      appendLine("<!doctype html>")
-      appendLine("<html lang=\"en\">")
-      appendLine("<head>")
-      appendLine("  <meta charset=\"utf-8\">")
-      appendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
-      appendLine("  <title>${name.escapeHtml()}</title>")
-      properties.assets.globalStylesheet?.let { stylesheet ->
-        appendLine("  <link rel=\"stylesheet\" href=\"${stylesheet.escapeHtmlAttribute()}\">")
-      }
-      if (properties.assets.includeRouteStylesheet) {
-        appendLine("  <link rel=\"stylesheet\" href=\"${routeStylesheet.escapeHtmlAttribute()}\">")
-      }
-      appendLine("</head>")
-      appendLine("<body>")
-      appendLine("  <div id=\"root\"></div>")
-      appendLine("  <script type=\"module\" src=\"${bundleScript.escapeHtmlAttribute()}\"></script>")
-      appendLine("</body>")
-      appendLine("</html>")
-    }
-  }
-
-  private fun String.escapeHtml(): String {
-    return replace("&", "&amp;")
-      .replace("<", "&lt;")
-      .replace(">", "&gt;")
-  }
-
-  private fun String.escapeHtmlAttribute(): String {
-    return escapeHtml()
-      .replace("\"", "&quot;")
+      .body(renderer.render(application))
   }
 }

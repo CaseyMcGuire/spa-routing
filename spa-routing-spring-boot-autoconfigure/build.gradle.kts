@@ -23,7 +23,7 @@ kotlin {
 }
 
 dependencies {
-  api(project(":spa-routing-core"))
+  api(project(":spa-routing-runtime"))
 
   compileOnlyApi("org.springframework.boot:spring-boot:$springBootVersion")
   compileOnlyApi("org.springframework.boot:spring-boot-autoconfigure:$springBootVersion")

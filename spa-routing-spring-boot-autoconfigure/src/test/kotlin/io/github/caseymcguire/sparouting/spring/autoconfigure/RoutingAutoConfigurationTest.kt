@@ -1,16 +1,16 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.route
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.request.RouteRequest
 import io.github.caseymcguire.sparouting.spring.request.RouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
-import io.github.caseymcguire.sparouting.spring.rules.RouteResponseEvaluator
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import org.assertj.core.api.Assertions.assertThat

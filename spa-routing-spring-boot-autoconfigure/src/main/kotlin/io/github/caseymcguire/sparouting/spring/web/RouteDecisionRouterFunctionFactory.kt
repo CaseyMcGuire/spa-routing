@@ -1,9 +1,9 @@
 package io.github.caseymcguire.sparouting.spring.web
 
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseRequest
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
 import io.github.caseymcguire.sparouting.spring.request.toRouteHeaders
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseRequest
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
 import io.github.caseymcguire.sparouting.spring.response.toRouteDecisionResponse
 import org.springframework.web.servlet.function.RouterFunction
 import org.springframework.web.servlet.function.ServerRequest

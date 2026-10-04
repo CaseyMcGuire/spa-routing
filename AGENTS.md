@@ -1,9 +1,10 @@
 # spa-routing
 
-Kotlin library for type-safe SPA route definitions shared between a Spring Boot
+Kotlin library for type-safe SPA route definitions shared between a Kotlin
 server and a generated TypeScript client. Modules: `spa-routing-core`
-(contracts), `spa-routing-gradle-plugin` (codegen), and
-`spa-routing-spring-boot-autoconfigure` / `-starter` (runtime).
+(contracts and generators), `spa-routing-gradle-plugin` (Gradle codegen),
+`spa-routing-runtime` (framework-neutral runtime), and
+`spa-routing-spring-boot-autoconfigure` / `-starter` (Spring adapters).
 
 Build and test with `./gradlew build`.
 
@@ -21,5 +22,5 @@ in tests — for a route to be served. Routes with `generateAccessHandler = true
 also require a registered handler returning `RouteDecision.Allow` or `Redirect`.
 Per-route `routeRules` have been removed.
 
-User-facing runtime docs live in
+User-facing runtime docs live in [docs/runtime.md](docs/runtime.md) and
 [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).

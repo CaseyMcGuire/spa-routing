@@ -6,6 +6,16 @@
 - typed Kotlin route objects for the server
 - bundle entry metadata for webpack or Vite
 
+## Modules
+
+- `spa-routing-core`: route contracts and generators
+- `spa-routing-gradle-plugin`: Gradle integration for code generation
+- `spa-routing-runtime`: framework-neutral configuration, validation, access evaluation, redirect resolution, and HTML generation
+- `spa-routing-spring-boot-autoconfigure` / `-starter`: Spring MVC adapters, properties, and bean wiring
+
+The runtime depends on core and has no Spring dependency. See the
+[runtime guide](docs/runtime.md) for using it from another server framework.
+
 ## Runnable Examples
 
 The [examples](examples/README.md) include a Spring Boot application using the
@@ -262,8 +272,8 @@ The Spring Boot starter serves configured SPA routes from app-provided `SinglePa
 For complete client setup, access handlers, HTML rendering, properties, and route decision examples, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.rules.builtin.AllowAll
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -289,10 +299,10 @@ access handler are served once the gate passes. See
 Add application-wide rules when every route in an SPA needs the same behavior:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.rules.RouteRule
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 
 class RequireLogin : RouteRule {
   override fun evaluate(request: RouteRequest): RouteRuleResult {
@@ -308,7 +318,7 @@ class RequireLogin : RouteRule {
 Attach application-wide rules from a config bean:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 
 @Bean
@@ -332,8 +342,8 @@ Redirect to a raw URL or a generated typed SPA route:
 
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 
 RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
 
@@ -345,15 +355,17 @@ RouteRuleResult.Deny(
 Override the default HTML page for one SPA:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
+import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
 import org.springframework.web.servlet.function.ServerResponse
 
 @Bean
-fun accountConfig(): SinglePageApplicationConfig {
-  return object : SinglePageApplicationConfig {
+fun accountConfig(): SpringSinglePageApplicationConfig {
+  return object : SpringSinglePageApplicationConfig {
     override val application = AccountApplication
+    override val rules = listOf(AllowAll())
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()

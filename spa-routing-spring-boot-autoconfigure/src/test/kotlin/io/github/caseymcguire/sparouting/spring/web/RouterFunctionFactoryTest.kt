@@ -1,20 +1,25 @@
 package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.rules.RouteResponseEvaluator
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
+import kotlin.test.assertFalse
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.servlet.function.ServerResponse
 
 class RouterFunctionFactoryTest {
   @Test
@@ -80,16 +85,64 @@ class RouterFunctionFactoryTest {
       }
   }
 
+  @Test
+  fun `spring config can render an application-specific response after access is allowed`() {
+    val config = object : SpringSinglePageApplicationConfig {
+      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
+      override val rules = listOf(RecordingRule(RouteRuleResult.Allow))
+
+      override fun renderHtml(): ServerResponse = ServerResponse.ok().body("Custom HTML")
+    }
+
+    mockMvc(config).get("/test").andExpect {
+      status { isOk() }
+      content { string("Custom HTML") }
+    }
+  }
+
+  @Test
+  fun `application-specific rendering is skipped when access is denied`() {
+    var rendered = false
+    val config = object : SpringSinglePageApplicationConfig {
+      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
+
+      override fun renderHtml(): ServerResponse {
+        rendered = true
+        return ServerResponse.ok().body("Custom HTML")
+      }
+    }
+
+    mockMvc(config).get("/test").andExpect { status { isNotFound() } }
+    assertFalse(rendered)
+  }
+
+  @Test
+  fun `spring config without a rendering override uses the default renderer`() {
+    val config = object : SpringSinglePageApplicationConfig {
+      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
+      override val rules = listOf(RecordingRule(RouteRuleResult.Allow))
+    }
+
+    mockMvc(config).get("/test").andExpect {
+      status { isOk() }
+      content { string(org.hamcrest.Matchers.containsString("<div id=\"root\"></div>")) }
+    }
+  }
+
   private fun mockMvc(
     config: SinglePageApplicationConfig,
     properties: RoutingProperties = RoutingProperties()
   ) = MockMvcBuilders.routerFunctions(
     RouterFunctionFactory(
       routeConfigs = listOf(config),
-      routeResponseEvaluator = RouteResponseEvaluator(RouteRuleActionResolver(listOf(config))),
+      routeResponseService = RouteResponseService(
+        routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
+        evaluator = RouteResponseEvaluator(RouteRuleActionResolver(listOf(config))),
+        invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
+        invalidQueryStringStatus = properties.server.invalidQueryStringStatus
+      ),
       requestFactory = DefaultRouteRequestFactory(),
-      htmlRenderer = DefaultHtmlRenderer(properties),
-      properties = properties
+      htmlRenderer = DefaultHtmlRenderer(properties)
     ).routes()
   ).build()
 }

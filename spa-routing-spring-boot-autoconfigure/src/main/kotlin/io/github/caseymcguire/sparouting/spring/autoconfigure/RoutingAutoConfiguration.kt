@@ -1,16 +1,16 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.RouteAccessHandler
-import io.github.caseymcguire.sparouting.spring.access.RouteHandlerRegistry
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.runtime.access.RouteHandlerRegistry
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.request.RouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
-import io.github.caseymcguire.sparouting.spring.rules.RouteResponseEvaluator
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.web.RouteDecisionRouterFunctionFactory
 import io.github.caseymcguire.sparouting.spring.web.RouterFunctionFactory
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -117,17 +117,15 @@ class RoutingAutoConfiguration {
   )
   fun routerFunction(
     configs: List<SinglePageApplicationConfig>,
-    evaluator: RouteResponseEvaluator,
+    responseService: RouteResponseService,
     requestFactory: RouteRequestFactory,
-    htmlRenderer: HtmlRenderer,
-    properties: RoutingProperties
+    htmlRenderer: HtmlRenderer
   ): RouterFunction<ServerResponse> {
     return RouterFunctionFactory(
       routeConfigs = configs,
-      routeResponseEvaluator = evaluator,
+      routeResponseService = responseService,
       requestFactory = requestFactory,
-      htmlRenderer = htmlRenderer,
-      properties = properties
+      htmlRenderer = htmlRenderer
     ).routes()
   }
 }

@@ -1,21 +1,22 @@
 package io.github.caseymcguire.sparouting.spring.access
 
-import com.sparouting.contract.RouteDecision
-import com.sparouting.contract.RouteAccessHandler
+import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
+import com.sparouting.contract.RouteAccessHandler
+import com.sparouting.contract.RouteDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseRequest
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingAutoConfiguration
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseRequest
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
-import com.sparouting.contract.Route
+import java.util.function.Supplier
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
@@ -23,7 +24,6 @@ import org.springframework.boot.test.context.runner.WebApplicationContextRunner
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.servlet.function.RouterFunction
-import java.util.function.Supplier
 
 class RouteAccessTest {
   @Test

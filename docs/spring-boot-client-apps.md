@@ -41,20 +41,29 @@ Use it from Spring Boot 4 applications.
 
 Prefer the starter for normal applications. If you depend directly on
 `spa-routing-spring-boot-autoconfigure`, your app still needs Spring Boot and
-Spring MVC on its classpath because the public runtime API exposes Spring MVC
-types such as `ServerResponse`.
+Spring MVC on its classpath because the adapter exposes Spring MVC types such
+as `ServerResponse`. Shared runtime types come from the transitive
+`spa-routing-runtime` dependency and have no Spring dependency. See the
+[framework-neutral runtime guide](runtime.md) for the adapter boundary.
 
 ## Public Packages
 
 Client apps usually import from these packages:
 
-- `io.github.caseymcguire.sparouting.spring.config`: SPA config beans and route registry
-- `io.github.caseymcguire.sparouting.spring.rules`: rule interfaces, results, actions, resolver, and evaluator
-- `io.github.caseymcguire.sparouting.spring.request`: request model and request factory
-- `io.github.caseymcguire.sparouting.spring.response`: route-decision request, response, and service
-- `io.github.caseymcguire.sparouting.spring.rendering`: HTML renderer interfaces and defaults
-- `io.github.caseymcguire.sparouting.spring.web`: Spring MVC router factory
-- `io.github.caseymcguire.sparouting.spring.autoconfigure`: Spring Boot properties and auto-configuration
+Packages below share the prefix `io.github.caseymcguire.sparouting`:
+
+- `runtime.config`: application configuration, validation, and route registry
+- `runtime.access`: access handler registry
+- `runtime.rules`: rule interfaces, results, actions, resolver, and evaluator
+- `runtime.request`: framework-neutral request model
+- `runtime.response`: route-decision request, response, and shared evaluation service
+- `runtime.rendering`: HTML document builder and asset options
+- `spring.config`: `SpringSinglePageApplicationConfig` with the optional `renderHtml()` override
+- `spring.request`: Spring request factory
+- `spring.response`: Spring response conversion
+- `spring.rendering`: Spring HTML renderer interface and default adapter
+- `spring.web`: Spring MVC router factories
+- `spring.autoconfigure`: Spring Boot properties and auto-configuration
 
 If the same Spring app also generates server route objects for typed access handlers
 or typed redirects, apply and configure the Gradle plugin too:
@@ -122,7 +131,8 @@ The starter reads these beans during auto-configuration.
 package com.example.web
 
 import com.example.routes.AccountApplication
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -132,6 +142,7 @@ class RoutesConfiguration {
   fun accountConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
       override val application = AccountApplication
+      override val rules = listOf(AllowAll())
     }
   }
 }
@@ -152,11 +163,11 @@ The route only matches `GET`. Invalid path parameter values return
 Application-wide rules run for every route in that SPA:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.request.RouteRequest
-import io.github.caseymcguire.sparouting.spring.rules.RouteRule
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.spring.rules.RouteRuleResult
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import org.springframework.context.annotation.Bean
 
 class RequireLogin : RouteRule {
@@ -249,7 +260,7 @@ BlogRoutes.Post.hasAccessHandler;  // true
 BlogRoutes.Index.hasAccessHandler; // false
 ```
 
-This describes route-specific checks. Application-wide rules live in Spring
+This describes route-specific checks. Application-wide rules live in runtime
 configuration and are not included in this flag. For a public application using
 `AllowAll`, the client can skip the decision request when `hasAccessHandler` is
 `false`. Applications that need their global rules checked on each navigation
@@ -271,8 +282,9 @@ If a path parameter uses `queryString` or `context`, the generated metadata
 property appends underscores until its name is unique. Generated access/request
 type names must not collide with another route ID in the application.
 
-The access contracts live in core and have no Spring dependency. This release
-provides automatic discovery and execution through the Spring starter.
+The access contracts live in core. Validation, registration, and execution live
+in the framework-neutral runtime. The Spring starter collects handler beans
+and supplies request data to that runtime.
 
 ## Redirect From Rules
 
@@ -403,18 +415,20 @@ By default, the starter renders a small HTML page:
 
 It can also include route CSS and a global stylesheet through properties.
 
-Override rendering for one SPA by implementing `renderHtml()`:
+Override rendering for one SPA by implementing `SpringSinglePageApplicationConfig`:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
+import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.http.MediaType
 import org.springframework.context.annotation.Bean
 import org.springframework.web.servlet.function.ServerResponse
 
 @Bean
-fun accountConfig(): SinglePageApplicationConfig {
-  return object : SinglePageApplicationConfig {
+fun accountConfig(): SpringSinglePageApplicationConfig {
+  return object : SpringSinglePageApplicationConfig {
     override val application = AccountApplication
+    override val rules = listOf(AllowAll())
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()
@@ -425,10 +439,15 @@ fun accountConfig(): SinglePageApplicationConfig {
 }
 ```
 
+The Spring-specific interface extends `SinglePageApplicationConfig`, so the
+starter discovers it through the same bean registration. Its rendering hook
+runs only after access is allowed; returning `null` uses the `HtmlRenderer` bean.
+The shared configuration interface has no HTTP rendering methods.
+
 Override rendering for all SPAs by replacing the `HtmlRenderer` bean:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import org.springframework.context.annotation.Bean
 import org.springframework.web.servlet.function.ServerResponse
@@ -524,6 +543,12 @@ page-load `ServerRequest` instances. Shared rules should rely on the fields
 above, or the application should replace `RouteResponseService` for a custom
 decision context.
 
+Both endpoints now use `RouteResponseService`: page loads call
+`evaluate(RouteRequest)` and navigation checks call `evaluate(RouteResponseRequest)`.
+A custom service should account for both overloads. For page loads,
+`RouteRequestFactory` runs before shared validation; validation applies to the
+values it returns before rules or handlers execute.
+
 The generated TypeScript route files do not include a route decision helper, but
 each generated route builder carries its `applicationId` and `routeId`, so
 app-specific navigation behavior can read them instead of hardcoding strings:
@@ -574,8 +599,8 @@ Decision statuses match what the MVC route would use:
 For custom GraphQL or REST APIs, call `RouteResponseService` directly:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseRequest
-import io.github.caseymcguire.sparouting.spring.response.RouteResponseService
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseRequest
+import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
 
 class RouteDecisionHandler(
   private val routeResponseService: RouteResponseService
@@ -612,6 +637,7 @@ fun routeRequestFactory(): RouteRequestFactory = MyRouteRequestFactory()
 Replaceable beans:
 
 - `SinglePageApplicationRouteRegistry`
+- `RouteHandlerRegistry`
 - `RouteRuleActionResolver`
 - `RouteResponseEvaluator`
 - `RouteRequestFactory`
@@ -624,8 +650,8 @@ For an existing Spring app that copied SPA routing code locally:
 
 1. Add `spa-routing-spring-boot-starter`.
 2. Keep app-owned `SinglePageApplicationDefinition` objects in the route definitions project.
-3. Keep app-owned rules, but switch imports to the `io.github.caseymcguire.sparouting.spring.*` subpackages.
+3. Keep app-owned rules, but switch their imports to the `io.github.caseymcguire.sparouting.runtime.*` subpackages. Request factories, HTTP renderers, and Spring wiring stay under `spring.*`.
 4. Replace copied registry, evaluator, resolver, request adapter, and response classes with the starter.
 5. Expose one `SinglePageApplicationConfig` bean per SPA.
-6. Move any app-specific HTML page rendering into `renderHtml()` or a `HtmlRenderer` bean.
+6. Move any app-specific HTML page rendering into `SpringSinglePageApplicationConfig.renderHtml()` or a `HtmlRenderer` bean.
 7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteResponseService` from a custom GraphQL or REST endpoint.
