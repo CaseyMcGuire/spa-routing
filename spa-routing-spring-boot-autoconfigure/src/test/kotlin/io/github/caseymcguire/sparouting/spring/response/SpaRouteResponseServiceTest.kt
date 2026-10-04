@@ -10,14 +10,14 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import com.sparouting.contract.Route
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class SpaRouteResponseServiceTest {
   private val config = TestSinglePageApplicationConfig(
-    application = TestSpaApplicationDefinition(
+    application = TestSinglePageApplicationDefinition(
       routes = listOf(route("users/{id}", "UserDetail"))
     ),
     rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
@@ -65,7 +65,7 @@ class SpaRouteResponseServiceTest {
   @Test
   fun `query parameters are included in evaluated request`() {
     val config = TestSinglePageApplicationConfig(
-      application = TestSpaApplicationDefinition(
+      application = TestSinglePageApplicationDefinition(
         routes = listOf(route("users/{id}", "UserDetail"))
       ),
       rules = listOf(RequireQueryParameterRule("tab", "billing"))

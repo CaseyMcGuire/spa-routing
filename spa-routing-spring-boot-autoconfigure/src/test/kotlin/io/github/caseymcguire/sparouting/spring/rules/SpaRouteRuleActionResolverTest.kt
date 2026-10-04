@@ -3,14 +3,14 @@ package io.github.caseymcguire.sparouting.spring.rules
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class SpaRouteRuleActionResolverTest {
   private val config = TestSinglePageApplicationConfig(
-    TestSpaApplicationDefinition(
+    TestSinglePageApplicationDefinition(
       routes = listOf(route("users/{id}", "UserDetail"))
     )
   )

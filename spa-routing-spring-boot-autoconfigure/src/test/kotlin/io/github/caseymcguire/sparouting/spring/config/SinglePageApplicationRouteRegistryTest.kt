@@ -4,7 +4,7 @@ import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import com.sparouting.contract.Route
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,7 +15,7 @@ class SinglePageApplicationRouteRegistryTest {
   @Test
   fun `indexes routes by application and route id`() {
     val config = TestSinglePageApplicationConfig(
-      TestSpaApplicationDefinition(
+      TestSinglePageApplicationDefinition(
         routes = listOf(route("users/{id}", "UserDetail"))
       )
     )
@@ -32,10 +32,10 @@ class SinglePageApplicationRouteRegistryTest {
   @Test
   fun `rejects duplicate application ids`() {
     val first = TestSinglePageApplicationConfig(
-      TestSpaApplicationDefinition(id = "duplicate", routes = listOf(route("first", "First")))
+      TestSinglePageApplicationDefinition(id = "duplicate", routes = listOf(route("first", "First")))
     )
     val second = TestSinglePageApplicationConfig(
-      TestSpaApplicationDefinition(id = "duplicate", routes = listOf(route("second", "Second")))
+      TestSinglePageApplicationDefinition(id = "duplicate", routes = listOf(route("second", "Second")))
     )
 
     assertFailsWith<IllegalArgumentException> {
@@ -46,7 +46,7 @@ class SinglePageApplicationRouteRegistryTest {
   @Test
   fun `rejects duplicate route ids within an application`() {
     val config = TestSinglePageApplicationConfig(
-      TestSpaApplicationDefinition(
+      TestSinglePageApplicationDefinition(
         routes = listOf(
           route("first", "Duplicate"),
           route("second", "Duplicate")
@@ -62,7 +62,7 @@ class SinglePageApplicationRouteRegistryTest {
   @Test
   fun `rejects route rules for unknown routes`() {
     val config = TestSinglePageApplicationConfig(
-      application = TestSpaApplicationDefinition(routes = listOf(route("known", "Known"))),
+      application = TestSinglePageApplicationDefinition(routes = listOf(route("known", "Known"))),
       routeRules = mapOf(
         Route("test", "Missing") to listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )

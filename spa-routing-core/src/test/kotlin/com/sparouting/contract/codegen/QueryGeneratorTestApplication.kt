@@ -1,10 +1,10 @@
 package com.sparouting.contract.codegen
 
-import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.route
 import com.sparouting.contract.parameter
 
-object QueryGeneratorTestApplication : SpaApplicationDefinition {
+object QueryGeneratorTestApplication : SinglePageApplicationDefinition {
   override val id = "querytest"
   override val name = "QueryTest"
   override val urlPrefix = "querytest"

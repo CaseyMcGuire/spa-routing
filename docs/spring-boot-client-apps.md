@@ -3,7 +3,7 @@
 This guide is for Spring Boot applications that want to serve SPA routes using
 `spa-routing`.
 
-Use the starter when your app already has `SpaApplicationDefinition` objects and
+Use the starter when your app already has `SinglePageApplicationDefinition` objects and
 you want Spring to handle:
 
 - registering MVC `GET` routes for each SPA route
@@ -34,7 +34,7 @@ dependencies {
 ```
 
 The `:spa-route-definitions` dependency is the project where your concrete
-`SpaApplicationDefinition` objects live.
+`SinglePageApplicationDefinition` objects live.
 
 The starter targets Spring Boot 4.x and brings in `spring-boot-starter-web`.
 Use it from Spring Boot 4 applications.
@@ -640,7 +640,7 @@ Replaceable beans:
 For an existing Spring app that copied SPA routing code locally:
 
 1. Add `spa-routing-spring-boot-starter`.
-2. Keep app-owned `SpaApplicationDefinition` objects in the route definitions project.
+2. Keep app-owned `SinglePageApplicationDefinition` objects in the route definitions project.
 3. Keep app-owned rules, but switch imports to the `io.github.caseymcguire.sparouting.spring.*` subpackages.
 4. Replace copied registry, evaluator, resolver, request adapter, and response classes with the starter.
 5. Expose one `SinglePageApplicationConfig` bean per SPA.

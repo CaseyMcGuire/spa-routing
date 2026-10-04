@@ -12,7 +12,7 @@ import io.github.caseymcguire.sparouting.spring.response.SpaRouteResponseService
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteResponseEvaluator
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
@@ -112,7 +112,7 @@ class SpaRoutingAutoConfigurationTest {
     @Bean
     fun testSpaApplicationConfig(): SinglePageApplicationConfig {
       return TestSinglePageApplicationConfig(
-        TestSpaApplicationDefinition(routes = listOf(route("home", "Home")))
+        TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home")))
       )
     }
   }

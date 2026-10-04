@@ -16,7 +16,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import kotlin.test.Test
@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 class TypedQueryRoutingTest {
   private val requests = mutableListOf<RouteRequest>()
   private val config = TestSinglePageApplicationConfig(
-    application = TestSpaApplicationDefinition(routes = listOf(
+    application = TestSinglePageApplicationDefinition(routes = listOf(
       route("users/{id}", "UserDetail", queryString = listOf(
         parameter("foo"), parameter("tag").repeated(), parameter("baz").optional(), parameter("filter").repeated().optional()
       ))

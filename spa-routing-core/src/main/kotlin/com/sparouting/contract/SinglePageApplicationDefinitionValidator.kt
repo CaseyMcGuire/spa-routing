@@ -1,7 +1,7 @@
 package com.sparouting.contract
 
-object SpaApplicationDefinitionValidator {
-  fun validate(applications: List<SpaApplicationDefinition>) {
+object SinglePageApplicationDefinitionValidator {
+  fun validate(applications: List<SinglePageApplicationDefinition>) {
     val duplicateApplicationIds = applications
       .map { it.id }
       .duplicates()
@@ -16,7 +16,7 @@ object SpaApplicationDefinitionValidator {
     }
   }
 
-  private fun validateGeneratedRouteNames(application: SpaApplicationDefinition) {
+  private fun validateGeneratedRouteNames(application: SinglePageApplicationDefinition) {
     val duplicateNames = application.routes.flatMap { route ->
       if (route.generateAccessHandler) {
         listOf(route.id, "${route.id}AccessHandler", "${route.id}Request")
@@ -29,7 +29,7 @@ object SpaApplicationDefinitionValidator {
     }
   }
 
-  private fun validateRouteIds(application: SpaApplicationDefinition) {
+  private fun validateRouteIds(application: SinglePageApplicationDefinition) {
     val duplicateRouteIds = application.routes
       .map { it.id }
       .duplicates()
@@ -40,7 +40,7 @@ object SpaApplicationDefinitionValidator {
     }
   }
 
-  private fun validateRouteUrls(application: SpaApplicationDefinition) {
+  private fun validateRouteUrls(application: SinglePageApplicationDefinition) {
     val duplicateRouteUrls = application.routes
       .map { application.getFullPathPattern(it) }
       .duplicates()

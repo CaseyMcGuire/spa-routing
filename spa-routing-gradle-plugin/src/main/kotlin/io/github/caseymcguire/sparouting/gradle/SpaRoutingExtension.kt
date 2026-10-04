@@ -92,7 +92,7 @@ class RouteDefinitionsConfiguration internal constructor(
           "The generated server routes are compiled into this module, but generating them needs " +
           "the route definitions compiled first, so keeping both in one module creates a " +
           "compileKotlin -> generateServerSpaRoutes -> classes -> compileKotlin cycle. Move your " +
-          "SpaApplicationDefinition objects into a dedicated module (commonly " +
+          "SinglePageApplicationDefinition objects into a dedicated module (commonly " +
           "':spa-route-definitions') and point projectPath at it."
       )
     }

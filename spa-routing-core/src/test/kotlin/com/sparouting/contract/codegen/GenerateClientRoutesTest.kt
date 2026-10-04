@@ -1,6 +1,6 @@
 package com.sparouting.contract.codegen
 
-import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.parameter
 import java.nio.file.Files
@@ -61,7 +61,7 @@ class GenerateClientRoutesTest {
   }
 }
 
-object ClientGeneratorTestApplication : SpaApplicationDefinition {
+object ClientGeneratorTestApplication : SinglePageApplicationDefinition {
   override val id = "clientgeneratortest"
   override val name = "ClientGeneratorTest"
   override val urlPrefix = "clientgeneratortest"

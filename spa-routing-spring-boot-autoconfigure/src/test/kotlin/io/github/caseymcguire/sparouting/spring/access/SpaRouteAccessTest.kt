@@ -14,7 +14,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleAction
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import com.sparouting.contract.Route
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -159,7 +159,7 @@ class SpaRouteAccessTest {
 
   private fun config(enabled: Boolean = true): TestSinglePageApplicationConfig {
     return TestSinglePageApplicationConfig(
-      application = TestSpaApplicationDefinition(routes = listOf(
+      application = TestSinglePageApplicationDefinition(routes = listOf(
         route("posts/{id}", "Post", queryString = listOf(parameter("view").optional()), generateAccessHandler = enabled),
         route("missing", "Missing", queryString = listOf(parameter("from").optional()))
       )),

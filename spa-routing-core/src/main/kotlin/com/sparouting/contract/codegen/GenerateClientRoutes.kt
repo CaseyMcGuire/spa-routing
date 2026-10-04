@@ -1,6 +1,6 @@
 package com.sparouting.contract.codegen
 
-import com.sparouting.contract.SpaApplicationDefinitionDiscovery
+import com.sparouting.contract.SinglePageApplicationDefinitionDiscovery
 import com.sparouting.contract.SpaRouteParameter
 import com.sparouting.contract.queryStringKeyIdentifier
 import java.nio.file.Files
@@ -15,7 +15,7 @@ fun main() {
 internal fun generateClientRoutes() {
   val outputDirectoryPath = System.getProperty("route.output.dir")
     ?: throw IllegalArgumentException("'route.output.dir' must be set in task config")
-  val configs = SpaApplicationDefinitionDiscovery.discoverFromSystemProperty()
+  val configs = SinglePageApplicationDefinitionDiscovery.discoverFromSystemProperty()
   val routeConverter = RoutePathConverter()
 
   val configNameToTypeScriptObjectEntries = mutableMapOf<String, List<TypeScriptRouteConfig>>()

@@ -12,7 +12,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -22,7 +22,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns allowed response`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
@@ -45,7 +45,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns denied response without redirecting`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("admin", "Admin"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"))),
         rules = listOf(RequireHeaderRule("X-User"))
       )
     )
@@ -65,7 +65,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision uses real request headers`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("admin", "Admin"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"))),
         rules = listOf(RequireHeaderRule("X-User"))
       )
     )
@@ -87,7 +87,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
     properties.server.invalidPathParameterStatus = 422
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       ),
       properties = properties
@@ -106,7 +106,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
   fun `route decision includes target route query parameters`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RequireQueryParameterRule("tab", "billing"))
       )
     )
@@ -128,7 +128,7 @@ class SpaRouteDecisionRouterFunctionFactoryTest {
     properties.routeDecision.path = "/internal/spa-route-decision"
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("home", "Home"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       ),
       properties = properties

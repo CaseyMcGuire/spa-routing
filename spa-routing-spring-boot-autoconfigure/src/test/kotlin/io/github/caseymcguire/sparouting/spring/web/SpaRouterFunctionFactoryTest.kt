@@ -11,7 +11,7 @@ import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRuleResult
 import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSpaApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import com.sparouting.contract.Route
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.get
@@ -22,7 +22,7 @@ class SpaRouterFunctionFactoryTest {
   fun `known route returns html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
@@ -40,7 +40,7 @@ class SpaRouterFunctionFactoryTest {
   fun `missing path segment returns not found`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow))
       )
     )
@@ -55,7 +55,7 @@ class SpaRouterFunctionFactoryTest {
   fun `denying rule returns response instead of html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("admin", "Admin"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Deny(SpaRouteRuleAction.redirect("/login"))))
       )
     )
@@ -71,7 +71,7 @@ class SpaRouterFunctionFactoryTest {
   fun `app and route level rules are both applied`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSpaApplicationDefinition(routes = listOf(route("settings", "Settings"))),
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("settings", "Settings"))),
         rules = listOf(RecordingRule(SpaRouteRuleResult.Allow)),
         routeRules = mapOf(
           Route("test", "Settings") to listOf(

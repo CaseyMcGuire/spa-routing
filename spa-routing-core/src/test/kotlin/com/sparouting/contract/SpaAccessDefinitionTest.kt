@@ -16,7 +16,7 @@ class SpaAccessDefinitionTest {
   @Test
   fun `generated access types cannot collide with route names`() {
     for (name in listOf("PostAccessHandler", "PostRequest")) {
-      val application = object : SpaApplicationDefinition {
+      val application = object : SinglePageApplicationDefinition {
         override val id = "test"
         override val name = "Test"
         override val urlPrefix = "test"
@@ -27,7 +27,7 @@ class SpaAccessDefinitionTest {
         )
       }
       val error = assertFailsWith<IllegalArgumentException> {
-        SpaApplicationDefinitionValidator.validate(listOf(application))
+        SinglePageApplicationDefinitionValidator.validate(listOf(application))
       }
       assertContains(error.message.orEmpty(), name)
     }

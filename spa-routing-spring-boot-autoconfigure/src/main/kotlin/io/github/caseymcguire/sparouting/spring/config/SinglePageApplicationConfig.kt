@@ -1,13 +1,13 @@
 package io.github.caseymcguire.sparouting.spring.config
 
-import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.Route
 import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
 import org.springframework.web.servlet.function.ServerResponse
 
 interface SinglePageApplicationConfig {
-  val application: SpaApplicationDefinition
+  val application: SinglePageApplicationDefinition
 
   val routes: List<RouteDefinition>
     get() = application.routes

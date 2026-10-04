@@ -4,6 +4,13 @@
 
 ### Breaking changes
 
+- **`SpaApplicationDefinition` was renamed to `SinglePageApplicationDefinition`.**
+  Update imports and implemented interfaces in shared route definitions. The
+  discovery and validator helpers are now `SinglePageApplicationDefinitionDiscovery`
+  and `SinglePageApplicationDefinitionValidator`. All three remain in
+  `com.sparouting.contract`. Regenerate routes and recompile consumers after
+  updating; the old type names are removed.
+
 - **The public `RouteKey` interface was removed.** `RouteAccessHandler.route`,
   `AllowPublic`, and `SinglePageApplicationConfig.routeRules` now accept `Route`
   directly. Replace `RouteKey` (or `SpaRouteKey`) type declarations with `Route`.
@@ -50,7 +57,7 @@
   are unchanged.
 
 - **`getFullUrl` was replaced by `getFullPathPattern`.**
-  `SpaApplicationDefinition` and `SinglePageApplicationConfig` now expose
+  `SinglePageApplicationDefinition` and `SinglePageApplicationConfig` now expose
   `getFullPathPattern(route)`, taking a `RouteDefinition` and returning its
   prefixed path pattern with parameter placeholders intact. The string overload
   was removed. Parameter substitution is handled separately by `resolvePath`.

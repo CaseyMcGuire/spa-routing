@@ -1,6 +1,6 @@
 package com.sparouting.contract.codegen
 
-import com.sparouting.contract.SpaApplicationDefinitionDiscovery
+import com.sparouting.contract.SinglePageApplicationDefinitionDiscovery
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.system.exitProcess
@@ -8,7 +8,7 @@ import kotlin.system.exitProcess
 fun main() {
   val outputDirectoryPath = System.getProperty("route.output.dir")
     ?: throw IllegalArgumentException("'route.output.dir' must be set in task config")
-  val configs = SpaApplicationDefinitionDiscovery.discoverFromSystemProperty()
+  val configs = SinglePageApplicationDefinitionDiscovery.discoverFromSystemProperty()
     .sortedBy { it.name }
 
   val fileContents = buildString {

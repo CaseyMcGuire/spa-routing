@@ -1,7 +1,7 @@
 package com.sparouting.contract.codegen
 
-import com.sparouting.contract.SpaApplicationDefinition
-import com.sparouting.contract.SpaApplicationDefinitionDiscovery
+import com.sparouting.contract.SinglePageApplicationDefinition
+import com.sparouting.contract.SinglePageApplicationDefinitionDiscovery
 import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.SpaRouteParameter
 import com.sparouting.contract.queryStringKeyIdentifier
@@ -28,7 +28,7 @@ internal fun generateServerRoutes() {
   outputDirectory.createDirectories()
   cleanGeneratedFiles(outputDirectory)
 
-  SpaApplicationDefinitionDiscovery.discoverFromSystemProperty()
+  SinglePageApplicationDefinitionDiscovery.discoverFromSystemProperty()
     .sortedBy { it.name }
     .forEach { application ->
       Files.writeString(
@@ -77,7 +77,7 @@ private fun Path.isEmptyDirectory(): Boolean {
   }
 }
 
-private fun SpaApplicationDefinition.toKotlinRoutesObjectFile(): String {
+private fun SinglePageApplicationDefinition.toKotlinRoutesObjectFile(): String {
   return buildString {
     appendGeneratedFileHeader(
       packageName = generatedPackage(),
@@ -213,15 +213,15 @@ private fun StringBuilder.appendGeneratedFileHeader(
   appendLine()
 }
 
-private fun SpaApplicationDefinition.routesObjectName(): String {
+private fun SinglePageApplicationDefinition.routesObjectName(): String {
   return "${name.withoutWhitespace()}Routes"
 }
 
-private fun SpaApplicationDefinition.routePackageName(): String {
+private fun SinglePageApplicationDefinition.routePackageName(): String {
   return "${generatedPackage()}.${routePackagePath()}"
 }
 
-private fun SpaApplicationDefinition.routePackagePath(): String {
+private fun SinglePageApplicationDefinition.routePackagePath(): String {
   return id.toPackageSegment()
 }
 

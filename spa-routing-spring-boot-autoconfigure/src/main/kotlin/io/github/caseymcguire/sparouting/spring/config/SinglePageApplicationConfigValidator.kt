@@ -1,11 +1,11 @@
 package io.github.caseymcguire.sparouting.spring.config
 
-import com.sparouting.contract.SpaApplicationDefinitionValidator
+import com.sparouting.contract.SinglePageApplicationDefinitionValidator
 
 class SinglePageApplicationConfigValidator private constructor() {
   companion object {
     fun validate(routeConfigs: List<SinglePageApplicationConfig>) {
-      SpaApplicationDefinitionValidator.validate(routeConfigs.map { it.application })
+      SinglePageApplicationDefinitionValidator.validate(routeConfigs.map { it.application })
 
       routeConfigs.forEach { config ->
         validateRouteRules(config)

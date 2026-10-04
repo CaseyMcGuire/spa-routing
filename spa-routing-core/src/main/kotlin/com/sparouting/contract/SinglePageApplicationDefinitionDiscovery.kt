@@ -3,8 +3,8 @@ package com.sparouting.contract
 import java.nio.file.Files
 import java.nio.file.Path
 
-object SpaApplicationDefinitionDiscovery {
-  fun discover(sourceDirectory: Path): List<SpaApplicationDefinition> {
+object SinglePageApplicationDefinitionDiscovery {
+  fun discover(sourceDirectory: Path): List<SinglePageApplicationDefinition> {
     require(Files.isDirectory(sourceDirectory)) {
       "SPA application source directory does not exist: $sourceDirectory"
     }
@@ -21,20 +21,20 @@ object SpaApplicationDefinitionDiscovery {
       "No SPA application definitions found in $sourceDirectory"
     }
 
-    SpaApplicationDefinitionValidator.validate(applications)
+    SinglePageApplicationDefinitionValidator.validate(applications)
     return applications
   }
 
-  fun discoverFromSystemProperty(): List<SpaApplicationDefinition> {
+  fun discoverFromSystemProperty(): List<SinglePageApplicationDefinition> {
     val sourceDirectoryPath = System.getProperty(SOURCE_DIRECTORY_PROPERTY)
       ?: throw IllegalArgumentException("'$SOURCE_DIRECTORY_PROPERTY' must be set in task config")
     return discover(Path.of(sourceDirectoryPath))
   }
 
-  private fun Path.discoverApplications(): List<SpaApplicationDefinition> {
+  private fun Path.discoverApplications(): List<SinglePageApplicationDefinition> {
     val source = Files.readString(this)
     val objectNames = APPLICATION_OBJECT_PATTERN.findAll(source)
-      .filter { match -> match.groupValues[2].contains("SpaApplicationDefinition") }
+      .filter { match -> match.groupValues[2].contains("SinglePageApplicationDefinition") }
       .map { match -> match.groupValues[1] }
       .toList()
 
@@ -50,13 +50,13 @@ object SpaApplicationDefinitionDiscovery {
     }
   }
 
-  private fun loadApplicationDefinition(className: String): SpaApplicationDefinition {
+  private fun loadApplicationDefinition(className: String): SinglePageApplicationDefinition {
     val instance = Class.forName(className)
       .getField("INSTANCE")
       .get(null)
 
-    require(instance is SpaApplicationDefinition) {
-      "$className must implement ${SpaApplicationDefinition::class.java.name}"
+    require(instance is SinglePageApplicationDefinition) {
+      "$className must implement ${SinglePageApplicationDefinition::class.java.name}"
     }
 
     return instance

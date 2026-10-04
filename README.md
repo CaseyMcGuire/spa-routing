@@ -32,7 +32,7 @@ dependencies {
 }
 ```
 
-The `:spa-route-definitions` project is your app-owned module containing concrete `SpaApplicationDefinition` objects. The plugin needs that project on the generator classpath because route discovery loads those objects at runtime.
+The `:spa-route-definitions` project is your app-owned module containing concrete `SinglePageApplicationDefinition` objects. The plugin needs that project on the generator classpath because route discovery loads those objects at runtime.
 
 For Spring Boot route serving:
 
@@ -48,7 +48,7 @@ Use it from Spring Boot 4 applications.
 
 ## Define Routes
 
-Route definitions must live in a module separate from the one the plugin is applied to. The plugin compiles the generated server routes into the plugin's module, but generating them first needs the route definitions compiled, so keeping both in one module creates a `compileKotlin -> generateServerSpaRoutes -> classes -> compileKotlin` cycle. Put your concrete `SpaApplicationDefinition` objects in a dedicated module, commonly under:
+Route definitions must live in a module separate from the one the plugin is applied to. The plugin compiles the generated server routes into the plugin's module, but generating them first needs the route definitions compiled, so keeping both in one module creates a `compileKotlin -> generateServerSpaRoutes -> classes -> compileKotlin` cycle. Put your concrete `SinglePageApplicationDefinition` objects in a dedicated module, commonly under:
 
 ```txt
 spa-route-definitions/src/main/kotlin/com/sparouting/contract/applications
@@ -59,10 +59,10 @@ Example:
 ```kotlin
 package com.sparouting.contract.applications
 
-import com.sparouting.contract.SpaApplicationDefinition
+import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.route
 
-object AccountSpaApplication : SpaApplicationDefinition {
+object AccountSpaApplication : SinglePageApplicationDefinition {
   override val id = "account"
   override val name = "Account"
   override val urlPrefix = "account"
@@ -241,7 +241,7 @@ If a generator task fails with `spaRouting.<name> must be set`, the plugin is mi
 
 If discovery fails to find or load route definitions, check that:
 
-- `routeDefinitions.projectPath` points to the module with your concrete `SpaApplicationDefinition` objects
+- `routeDefinitions.projectPath` points to the module with your concrete `SinglePageApplicationDefinition` objects
 - that module applies the Java or Kotlin JVM plugin
 - `routeDefinitions.sourceDirectory` points at the Kotlin source directory containing those objects
 
