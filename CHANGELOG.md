@@ -4,6 +4,24 @@
 
 ### Breaking changes
 
+- **HTML rendering belongs to each application config.** `SinglePageApplicationConfig`
+  and generated config constructors now require `htmlRenderer: com.sparouting.contract.HtmlRenderer`.
+  Its `render(application)` method returns an HTML string. The runtime's
+  `HtmlDocumentRenderer` implements this interface; generated code still depends
+  only on core. Regenerate server sources and supply a renderer when constructing configs.
+
+  Spring and Ktor use the config's renderer after an allowed page request.
+  Navigation decisions, redirects, and invalid requests do not invoke it.
+  Ktor's separate `htmlRenderer` argument is removed. Spring's `HtmlRenderer`,
+  `DefaultHtmlRenderer`, `SpringSinglePageApplicationConfig`, and automatic renderer
+  bean are removed. Pass a core renderer into the config instead of overriding
+  `renderHtml()` or replacing the Spring rendering bean. Adapters own the HTTP response.
+
+  `spa-routing.assets.*` properties and `HtmlRenderingOptions` are removed.
+  Pass `bundleBasePath`, `includeRouteStylesheet`, and `globalStylesheet` directly
+  to `HtmlDocumentRenderer` to configure bundle paths and stylesheets. Defaults
+  are unchanged.
+
 - **`RouteResponseService` now owns runtime assembly.** Construct it with
   `configs: List<SinglePageApplicationConfig>` and optional validation status
   codes. It builds and validates one registry and access evaluator at construction.
@@ -314,8 +332,8 @@
 ### Added
 
 - `spa-routing-ktor` provides `com.sparouting.ktor.singlePageApplicationRoutes`
-  for reusable Ktor integration. Register a list of application configs with an
-  HTML renderer to serve generated page paths and
+  for reusable Ktor integration. Register application configs containing their
+  HTML renderers to serve generated page paths and
   one shared decision endpoint. Its `routeDecisionPath` argument defaults to
   `/__spa/route-decision`; clients must use the same configured URL.
   The adapter converts real headers and

@@ -9,7 +9,6 @@ import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.response.RouteHttpResponse
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.autoconfigure.RoutingProperties
-import com.sparouting.spring.rendering.DefaultHtmlRenderer
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import kotlin.test.Test
@@ -130,8 +129,7 @@ class TypedQueryRoutingTest {
       SpringRouterFunctionFactory(
         routeConfigs = configs,
         routeResponseService = service,
-        requestFactory = DefaultRouteRequestFactory(),
-        htmlRenderer = DefaultHtmlRenderer(properties)
+        requestFactory = DefaultRouteRequestFactory()
       ).routes(),
       RouteDecisionRouterFunctionFactory(
         responseService = service,

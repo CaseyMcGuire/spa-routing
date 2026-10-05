@@ -1,16 +1,19 @@
 package com.sparouting.runtime.rendering
 
+import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.SinglePageApplicationConfig
 
 /** Builds the default HTML shell without depending on an HTTP framework. */
 class HtmlDocumentRenderer(
-  private val options: HtmlRenderingOptions = HtmlRenderingOptions()
-) {
+  private val bundleBasePath: String = "/bundles",
+  private val includeRouteStylesheet: Boolean = true,
+  private val globalStylesheet: String? = "/bundles/stylex.css"
+) : HtmlRenderer {
   /** Build the HTML document; adapters choose how to write it to their response. */
-  fun render(application: SinglePageApplicationConfig): String {
-    val bundleBasePath = options.bundleBasePath.trimEnd('/')
-    val routeStylesheet = "$bundleBasePath/${application.bundleName}.css"
-    val bundleScript = "$bundleBasePath/${application.bundleName}.bundle.js"
+  override fun render(application: SinglePageApplicationConfig): String {
+    val basePath = bundleBasePath.trimEnd('/')
+    val routeStylesheet = "$basePath/${application.bundleName}.css"
+    val bundleScript = "$basePath/${application.bundleName}.bundle.js"
 
     return buildString {
       appendLine("<!doctype html>")
@@ -19,10 +22,10 @@ class HtmlDocumentRenderer(
       appendLine("  <meta charset=\"utf-8\">")
       appendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
       appendLine("  <title>${application.name.escapeHtml()}</title>")
-      options.globalStylesheet?.let { stylesheet ->
+      globalStylesheet?.let { stylesheet ->
         appendLine("  <link rel=\"stylesheet\" href=\"${stylesheet.escapeHtmlAttribute()}\">")
       }
-      if (options.includeRouteStylesheet) {
+      if (includeRouteStylesheet) {
         appendLine("  <link rel=\"stylesheet\" href=\"${routeStylesheet.escapeHtmlAttribute()}\">")
       }
       appendLine("</head>")

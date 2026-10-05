@@ -2,8 +2,6 @@ package com.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.response.RouteResponseService
-import com.sparouting.spring.rendering.DefaultHtmlRenderer
-import com.sparouting.spring.rendering.HtmlRenderer
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.request.RouteRequestFactory
 import com.sparouting.spring.web.RouteDecisionRouterFunctionFactory
@@ -40,12 +38,6 @@ class RoutingAutoConfiguration(
   }
 
   @Bean
-  @ConditionalOnMissingBean
-  fun htmlRenderer(): HtmlRenderer {
-    return DefaultHtmlRenderer(properties)
-  }
-
-  @Bean
   @ConditionalOnMissingBean(name = ["routeDecisionRouterFunction"])
   @ConditionalOnProperty(
     prefix = "spa-routing.route-decision",
@@ -66,14 +58,12 @@ class RoutingAutoConfiguration(
     matchIfMissing = true
   )
   fun routerFunction(
-    requestFactory: RouteRequestFactory,
-    htmlRenderer: HtmlRenderer
+    requestFactory: RouteRequestFactory
   ): RouterFunction<ServerResponse> {
     return SpringRouterFunctionFactory(
       routeConfigs = configs,
       routeResponseService = responseService,
-      requestFactory = requestFactory,
-      htmlRenderer = htmlRenderer
+      requestFactory = requestFactory
     ).routes()
   }
 }

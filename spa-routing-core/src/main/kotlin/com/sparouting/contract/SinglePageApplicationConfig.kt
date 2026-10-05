@@ -1,6 +1,6 @@
 package com.sparouting.contract
 
-/** Application metadata and access handlers, usually supplied by a generated config class. */
+/** Application metadata, access handlers, and HTML rendering supplied by a generated config class. */
 interface SinglePageApplicationConfig {
   val id: String
   val name: String
@@ -8,4 +8,5 @@ interface SinglePageApplicationConfig {
   val routes: List<RouteManifest>
   val applicationAccessHandler: ApplicationAccessHandler<*>
   val routeAccessHandlers: RouteAccessHandlers<*>
+  val htmlRenderer: HtmlRenderer
 }

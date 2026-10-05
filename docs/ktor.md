@@ -24,15 +24,12 @@ The repository's [Ktor blog example](../examples/README.md) uses the local
 
 ## Register applications
 
-Construct your generated configs with their application and route access
-handlers, as described in the [runtime guide](runtime.md), then pass the configs
-and HTML renderer to the adapter:
+Construct your generated configs with their access handlers and HTML renderer,
+as described in the [runtime guide](runtime.md), then pass the configs to the adapter:
 
 ```kotlin
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.ktor.singlePageApplicationRoutes
-import com.sparouting.runtime.rendering.HtmlDocumentRenderer
-import com.sparouting.runtime.rendering.HtmlRenderingOptions
 import io.ktor.serialization.jackson.jackson
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -41,18 +38,11 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.routing
 
 fun Application.registerApplications(configs: List<SinglePageApplicationConfig>) {
-  val htmlRenderer = HtmlDocumentRenderer(
-    HtmlRenderingOptions(globalStylesheet = null)
-  )
-
   install(ContentNegotiation) {
     jackson()
   }
   routing {
-    singlePageApplicationRoutes(
-      configs = configs,
-      htmlRenderer = htmlRenderer
-    )
+    singlePageApplicationRoutes(configs = configs)
     staticResources("/bundles", "static/bundles")
   }
 }
@@ -83,7 +73,6 @@ The shared navigation endpoint defaults to `/__spa/route-decision`. Set
 ```kotlin
 singlePageApplicationRoutes(
   configs = configs,
-  htmlRenderer = htmlRenderer,
   routeDecisionPath = "/internal/navigation"
 )
 ```
@@ -94,8 +83,8 @@ Page route paths are unaffected.
 
 ## Page and navigation responses
 
-For generated page paths, an allowed request receives the HTML shell from
-`HtmlDocumentRenderer`. Other results become HTTP statuses and, for redirects,
+For generated page paths, an allowed request receives HTML from the matching
+config's `htmlRenderer`. Other results become HTTP statuses and, for redirects,
 a `Location` header. Unregistered URLs retain Ktor's normal routing behavior.
 
 Client navigation uses `GET` at the configured decision path, defaulting to
@@ -122,4 +111,4 @@ the same validation and access checks as page requests.
 
 The adapter does not register application REST APIs or static files. Register
 those alongside it, as shown by `blogApiRoutes` and `staticResources` in the
-example. Renderer configuration remains a separate argument to the extension.
+example. Each application config owns its renderer and any renderer options.

@@ -32,7 +32,7 @@ provide final `id`, `name`, `bundleName`, and `routes` properties, with full rou
 paths, parameter metadata, and handler requirements. Authoring definitions and
 build-only fields such as `appRootPath` stay on the generator classpath.
 
-Each config owns a required application handler and route-handler collection.
+Each config owns a required application handler, route-handler collection, and HTML renderer.
 `BlogApplicationAccessHandler` extends `ApplicationAccessHandler<BlogApplicationConfig>`;
 `BlogRouteAccessHandlers` implements `RouteAccessHandlers<BlogApplicationConfig>` and requires
 one constructor argument of the generated handler type for every gated route.
@@ -56,12 +56,15 @@ class CheckBlogAccess : BlogApplicationAccessHandler() {
 Construct the generated config directly; no subclass is required:
 
 ```kotlin
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
+
 val config = BlogApplicationConfig(
   applicationAccessHandler = CheckBlogAccess(),
   routeAccessHandlers = BlogRouteAccessHandlers(
     post = checkPostAccess,
     editPost = checkEditPostAccess
-  )
+  ),
+  htmlRenderer = HtmlDocumentRenderer()
 )
 ```
 
@@ -130,26 +133,29 @@ An adapter also owns URL matching, decoding, request authentication context,
 and HTTP serialization. Application access handlers that use a framework's security
 context will need an equivalent implementation when moving frameworks.
 
-## Render the default HTML document
+## Configure HTML rendering
 
-`HtmlDocumentRenderer` returns an HTML string with escaped application metadata
-and asset URLs. Adapters set the response status and content type:
+`com.sparouting.contract.HtmlRenderer` is a core interface with
+`render(application: SinglePageApplicationConfig): String`. Supply it through the
+generated config's required `htmlRenderer` constructor argument. Both adapters
+use that application's renderer only for allowed page loads; navigation checks,
+redirects, and validation errors do not render HTML.
+
+The runtime's `HtmlDocumentRenderer` implements this interface and escapes
+application metadata and asset URLs. Configure its asset options at construction:
 
 ```kotlin
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
-import com.sparouting.runtime.rendering.HtmlRenderingOptions
 
-val html = HtmlDocumentRenderer(
-  HtmlRenderingOptions(
-    bundleBasePath = "/bundles",
-    includeRouteStylesheet = true,
-    globalStylesheet = "/bundles/stylex.css"
-  )
-).render(config)
+val renderer = HtmlDocumentRenderer(
+  bundleBasePath = "/bundles",
+  includeRouteStylesheet = true,
+  globalStylesheet = "/bundles/stylex.css"
+)
 ```
 
 Read application metadata directly from `config.id`, `.name`, `.bundleName`, and
 `.routes`. Each route is a core `RouteManifest` value.
-Spring applications with a per-application `ServerResponse` override use
-`SpringSinglePageApplicationConfig`; global HTTP rendering remains a Spring
-`HtmlRenderer` bean. See the [Spring guide](spring-boot-client-apps.md#render-html).
+Pass the same renderer to multiple configs to share rendering, or a different
+implementation for each application. Renderers return HTML strings; adapters set
+HTTP status and content type. Generated code depends only on the core interface.

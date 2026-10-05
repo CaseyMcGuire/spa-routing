@@ -53,15 +53,13 @@ Client apps usually import from these packages:
 
 Packages below share the prefix `com.sparouting`:
 
-- `contract`: application configuration, route metadata, access handler contracts, and framework-neutral request models
+- `contract`: application configuration, route metadata, access and rendering contracts, and framework-neutral request models
 - `runtime.config`: configuration validation and route/handler registry
 - `runtime.access`: two-level access evaluation
 - `runtime.response`: response models and shared evaluation service
 - `runtime.rendering`: HTML document builder and asset options
-- `spring.config`: `SpringSinglePageApplicationConfig` with the optional `renderHtml()` override
 - `spring.request`: Spring request factory
 - `spring.response`: Spring response conversion
-- `spring.rendering`: Spring HTML renderer interface and default adapter
 - `spring.web`: Spring MVC router factories
 - `spring.autoconfigure`: Spring Boot properties and auto-configuration
 
@@ -130,13 +128,14 @@ your Vite config must append the entry filename when building the input map.
 For each SPA that should be served, expose its generated application config as
 a bean. `generateServerRoutes` emits a concrete `AccountApplicationConfig`,
 `AccountApplicationAccessHandler`, and `AccountRouteAccessHandlers` alongside
-`AccountRoutes`. Instantiate the config directly with its handlers:
+`AccountRoutes`. Instantiate the config directly with its handlers and renderer:
 
 ```kotlin
 package com.example.web
 
 import com.example.generated.spa.routes.AccountApplicationConfig
 import com.example.generated.spa.routes.AccountRouteAccessHandlers
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -146,7 +145,8 @@ class RoutesConfiguration {
   fun accountConfig(applicationAccessHandler: CheckAccountAccess): AccountApplicationConfig =
     AccountApplicationConfig(
       applicationAccessHandler = applicationAccessHandler,
-      routeAccessHandlers = AccountRouteAccessHandlers()
+      routeAccessHandlers = AccountRouteAccessHandlers(),
+      htmlRenderer = HtmlDocumentRenderer()
     )
 }
 ```
@@ -159,8 +159,8 @@ Generated code has no Spring annotations and also works with other DI containers
 The config implements `SinglePageApplicationConfig`. Read metadata directly from
 `config.id`, `.name`, `.bundleName`, and `.routes`. Routes are `RouteManifest`
 values with full paths, parameter metadata, and `hasAccessHandler` flags.
-The config owns `applicationAccessHandler` and `routeAccessHandlers`; the starter
-passes configs to the registry instead of discovering handlers independently.
+The config owns `applicationAccessHandler`, `routeAccessHandlers`, and `htmlRenderer`;
+the starter reads those dependencies from each config.
 No authoring definition is referenced at runtime.
 
 If the source definition has prefix `account` and declares
@@ -300,7 +300,8 @@ fun blogConfig(
   routeAccessHandlers: BlogRouteAccessHandlers
 ): BlogApplicationConfig = BlogApplicationConfig(
   applicationAccessHandler = applicationAccessHandler,
-  routeAccessHandlers = routeAccessHandlers
+  routeAccessHandlers = routeAccessHandlers,
+  htmlRenderer = HtmlDocumentRenderer()
 )
 ```
 
@@ -460,71 +461,37 @@ through `wireName`; TypeScript string enums use the URL name as their value.
 
 ## Render HTML
 
-By default, the starter renders a small HTML page:
-
-```html
-<div id="root"></div>
-<script type="module" src="/bundles/{bundleName}.bundle.js"></script>
-```
-
-It can also include route CSS and a global stylesheet through properties.
-
-Override rendering for one SPA by implementing `SpringSinglePageApplicationConfig`
-and delegating its metadata and handlers to a generated config instance:
+Supply a renderer when constructing the generated config. The runtime's
+`HtmlDocumentRenderer` builds the default shell with a root element and bundle
+script. Its options control bundle paths and stylesheets:
 
 ```kotlin
-import com.example.generated.spa.routes.AccountApplicationConfig
-import com.example.generated.spa.routes.AccountRouteAccessHandlers
-import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.spring.config.SpringSinglePageApplicationConfig
-import org.springframework.http.MediaType
-import org.springframework.context.annotation.Bean
-import org.springframework.web.servlet.function.ServerResponse
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 
-@Bean
-fun accountConfig(
-  applicationAccessHandler: CheckAccountAccess,
-  routeAccessHandlers: AccountRouteAccessHandlers
-): SpringSinglePageApplicationConfig {
-  val config = AccountApplicationConfig(
-    applicationAccessHandler = applicationAccessHandler,
-    routeAccessHandlers = routeAccessHandlers
-  )
-  return object : SpringSinglePageApplicationConfig, SinglePageApplicationConfig by config {
-    override fun renderHtml(): ServerResponse? {
-      return ServerResponse.ok()
-        .contentType(MediaType.TEXT_HTML)
-        .body(AccountPage().render())
-    }
-  }
-}
+val renderer = HtmlDocumentRenderer(
+  bundleBasePath = "/bundles",
+  includeRouteStylesheet = true,
+  globalStylesheet = "/bundles/stylex.css"
+)
 ```
 
-Register this bean in place of the ordinary config bean. The generated config
-is final; delegation adds the optional Spring rendering behavior.
-
-The Spring-specific interface extends `SinglePageApplicationConfig`, so the
-starter discovers it through the same bean registration. Its rendering hook
-runs only after access is allowed; returning `null` uses the `HtmlRenderer` bean.
-The shared configuration interface has no HTTP rendering methods.
-
-Override rendering for all SPAs by replacing the `HtmlRenderer` bean:
+For custom HTML, implement the core `HtmlRenderer` interface or use a lambda:
 
 ```kotlin
-import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.spring.rendering.HtmlRenderer
-import org.springframework.context.annotation.Bean
-import org.springframework.web.servlet.function.ServerResponse
+import com.sparouting.contract.HtmlRenderer
 
-@Bean
-fun htmlRenderer(): HtmlRenderer {
-  return object : HtmlRenderer {
-    override fun render(application: SinglePageApplicationConfig): ServerResponse {
-      return ServerResponse.ok().body(MyPage(application).render())
-    }
-  }
-}
+val config = AccountApplicationConfig(
+  applicationAccessHandler = checkAccountAccess,
+  routeAccessHandlers = AccountRouteAccessHandlers(),
+  htmlRenderer = HtmlRenderer { application -> MyPage(application).render() }
+)
 ```
+
+The renderer returns an HTML string. The adapter writes a `200 text/html`
+response only after access is allowed. Redirects, invalid requests, and navigation
+decisions skip rendering. Each application can use a different renderer; pass
+the same instance to multiple configs when they share a shell. A renderer can
+be injected into your config factory like any other application dependency.
 
 ## Configure Properties
 
@@ -537,10 +504,6 @@ spa-routing:
   route-decision:
     enabled: true
     path: /__spa/route-decision
-  assets:
-    bundle-base-path: /bundles
-    include-route-stylesheet: true
-    global-stylesheet: /bundles/stylex.css
 ```
 
 Set `spa-routing.server.enabled=false` when the application only wants the
@@ -698,10 +661,8 @@ import org.springframework.context.annotation.Bean
 fun routeRequestFactory(): RouteRequestFactory = MyRouteRequestFactory()
 ```
 
-Replaceable beans:
-
-- `RouteRequestFactory`
-- `HtmlRenderer`
+`RouteRequestFactory` is the replaceable page request converter. Rendering is
+configured through each application's `htmlRenderer` property.
 
 Runtime registration and evaluation are owned by the starter. Configure access
 through application and route handlers, and validation statuses through properties.
@@ -714,6 +675,6 @@ For an existing Spring app that copied SPA routing code locally:
 2. Keep `SinglePageApplicationDefinition` objects in the code-generation project and regenerate server routes/configs. Remove the definitions project from the server's implementation dependencies.
 3. Replace application rule lists with an implementation of each generated application access handler. Move reusable checks into its dependencies; use `AccessDecision` at both access levels.
 4. Replace copied registry, evaluator, request adapter, and response classes with the starter.
-5. Construct the generated route-handler collection with every gated handler, and pass it and the application handler to the generated `<ApplicationName>ApplicationConfig`. Expose that instance as a bean.
-6. Move any app-specific HTML page rendering into `SpringSinglePageApplicationConfig.renderHtml()` or a `HtmlRenderer` bean.
+5. Construct the generated route-handler collection with every gated handler, and pass it, the application handler, and a core `HtmlRenderer` to the generated `<ApplicationName>ApplicationConfig`. Expose that instance as a bean.
+6. Use `HtmlDocumentRenderer(...)` for the default shell or supply your own renderer returning an HTML string.
 7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteResponseService` from a custom GraphQL or REST endpoint.

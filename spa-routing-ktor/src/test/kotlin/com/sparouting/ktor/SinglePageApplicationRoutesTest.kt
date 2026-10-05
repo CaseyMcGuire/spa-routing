@@ -4,6 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.ApplicationAccessHandler
+import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteAccessHandlers
@@ -13,7 +14,6 @@ import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.parameter
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
-import com.sparouting.runtime.rendering.HtmlRenderingOptions
 import com.sparouting.runtime.response.RouteHttpResponse
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -36,6 +36,34 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SinglePageApplicationRoutesTest {
+  @Test
+  fun `each application renders with its own configured renderer only on page loads`() = testApplication {
+    val rendered = mutableListOf<String>()
+    val configs = listOf("one", "two").map { id ->
+      TestConfig(
+        id = id,
+        routes = listOf(RouteManifest(path = "/$id", id = "Home")),
+        htmlRenderer = HtmlRenderer { application ->
+          rendered.add(application.id)
+          "<h1>$id: ${application.name}</h1>"
+        }
+      )
+    }
+    application { installRoutes(configs) }
+
+    configs.forEach { config ->
+      val page = client.get("/${config.id}")
+      assertEquals(HttpStatusCode.OK, page.status)
+      assertEquals(ContentType.Text.Html, page.contentType()?.withoutParameters())
+      assertEquals("<h1>${config.id}: ${config.name}</h1>", page.bodyAsText())
+      assertEquals(
+        RouteHttpResponse.ok(),
+        client.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home").decision()
+      )
+    }
+    assertEquals(listOf("one", "two"), rendered)
+  }
+
   @Test
   fun `multiple applications serve their own HTML and share the decision endpoint`() = testApplication {
     val requests = mutableListOf<RouteRequest>()
@@ -139,6 +167,7 @@ class SinglePageApplicationRoutesTest {
         id = "User",
         queryString = listOf(parameter("q"))
       )),
+      htmlRenderer = HtmlRenderer { error("Invalid requests must not render HTML") },
       evaluateApplication = { request ->
         requests.add(request)
         AccessDecision.Allow
@@ -176,6 +205,7 @@ class SinglePageApplicationRoutesTest {
     val config = TestConfig(
       routes = listOf(RouteManifest(path = "/app/private", id = "Private", hasAccessHandler = true)),
       handlers = listOf(handler),
+      htmlRenderer = HtmlRenderer { error("Redirects must not render HTML") },
       evaluateApplication = { request ->
         if (request.header("X-User").isEmpty()) {
           AccessDecision.Redirect(loginTarget)
@@ -219,7 +249,6 @@ class SinglePageApplicationRoutesTest {
     routing {
       singlePageApplicationRoutes(
         configs = configs,
-        htmlRenderer = HtmlDocumentRenderer(HtmlRenderingOptions(bundleBasePath = "/assets", globalStylesheet = null)),
         routeDecisionPath = routeDecisionPath,
         invalidPathParameterStatus = invalidPathParameterStatus,
         invalidQueryStringStatus = invalidQueryStringStatus
@@ -239,6 +268,10 @@ class SinglePageApplicationRoutesTest {
     override val id: String = "app",
     override val routes: List<RouteManifest>,
     handlers: List<RouteAccessHandler<*>> = emptyList(),
+    override val htmlRenderer: HtmlRenderer = HtmlDocumentRenderer(
+      bundleBasePath = "/assets",
+      globalStylesheet = null
+    ),
     evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
   ) : SinglePageApplicationConfig {
     override val name: String = "Application $id"

@@ -53,6 +53,7 @@ class GeneratedQueryApiTest {
       assertEquals("configtest", root.id)
       assertEquals("Config Test", root.name)
       assertEquals("custom-assets", root.bundleName)
+      assertEquals("<h1>Config Test</h1>", root.htmlRenderer.render(root))
       assertEquals(AccessDecision.Allow, root.applicationAccessHandler.evaluate(RouteRequest("configtest", "Post")))
       assertEquals(listOf("Post", "Class", "Handlers"), root.routeAccessHandlers.handlers.map { it.route.routeId })
       assertEquals("/", root.routes.single { it.id == "Index" }.path)
@@ -76,13 +77,15 @@ class GeneratedQueryApiTest {
       assertTrue(config("SinglePageApplicationConfig").routes.isEmpty())
     }
 
+    val rendererArgument = "htmlRenderer = createConfigTestApplicationConfig().htmlRenderer"
     val failures = mapOf(
-      "MissingApplicationHandler" to "ConfigTestApplicationConfig(routeAccessHandlers = createConfigTestApplicationConfig().routeAccessHandlers)",
-      "MissingHandlerCollection" to "ConfigTestApplicationConfig(applicationAccessHandler = createConfigTestApplicationConfig().applicationAccessHandler)",
+      "MissingApplicationHandler" to "ConfigTestApplicationConfig(routeAccessHandlers = createConfigTestApplicationConfig().routeAccessHandlers, $rendererArgument)",
+      "MissingHandlerCollection" to "ConfigTestApplicationConfig(applicationAccessHandler = createConfigTestApplicationConfig().applicationAccessHandler, $rendererArgument)",
+      "MissingHtmlRenderer" to "ConfigTestApplicationConfig(createConfigTestApplicationConfig().applicationAccessHandler, createConfigTestApplicationConfig().routeAccessHandlers)",
       "MissingRouteHandler" to "ConfigTestRouteAccessHandlers(`class` = CheckClass(), handlers = CheckHandlers())",
       "WrongRouteHandler" to "ConfigTestRouteAccessHandlers(post = CheckClass(), `class` = CheckClass(), handlers = CheckHandlers())",
-      "WrongApplicationHandler" to "ConfigTestApplicationConfig(createRouteApplicationConfig().applicationAccessHandler, createConfigTestApplicationConfig().routeAccessHandlers)",
-      "WrongHandlerCollection" to "ConfigTestApplicationConfig(createConfigTestApplicationConfig().applicationAccessHandler, RouteRouteAccessHandlers())",
+      "WrongApplicationHandler" to "ConfigTestApplicationConfig(createRouteApplicationConfig().applicationAccessHandler, createConfigTestApplicationConfig().routeAccessHandlers, $rendererArgument)",
+      "WrongHandlerCollection" to "ConfigTestApplicationConfig(createConfigTestApplicationConfig().applicationAccessHandler, RouteRouteAccessHandlers(), $rendererArgument)",
       "WrongGenericApplication" to "run { val handler: ApplicationAccessHandler<RouteApplicationConfig> = createConfigTestApplicationConfig().applicationAccessHandler }",
       "WrongGenericCollection" to "run { val handlers: RouteAccessHandlers<RouteApplicationConfig> = createConfigTestApplicationConfig().routeAccessHandlers }",
     ).map { (name, expression) ->
@@ -111,6 +114,7 @@ class GeneratedQueryApiTest {
   private fun configUsage(): String = buildString {
     appendLine("import generated.*")
     appendLine("import com.sparouting.contract.AccessDecision")
+    appendLine("import com.sparouting.contract.HtmlRenderer")
     appendLine("import com.sparouting.contract.RouteRequest")
     // Instantiate every fixture, including empty applications and type-name collisions.
     SinglePageApplicationDefinitionDiscovery.discoverFromSystemProperty().forEach { application ->
@@ -126,7 +130,8 @@ class GeneratedQueryApiTest {
         appendLine("      override fun evaluate(request: $routePackage.${route.id}Request): AccessDecision = AccessDecision.Allow")
         appendLine("    },")
       }
-      appendLine("  )")
+      appendLine("  ),")
+      appendLine("  htmlRenderer = HtmlRenderer { application -> \"<h1>${'$'}{application.name}</h1>\" }")
       appendLine(")")
     }
   }

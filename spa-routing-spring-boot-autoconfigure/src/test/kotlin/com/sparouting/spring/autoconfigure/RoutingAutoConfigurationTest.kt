@@ -2,12 +2,11 @@ package com.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.ApplicationAccessHandler
+import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.parameter
 import com.sparouting.runtime.response.RouteResponseService
-import com.sparouting.spring.rendering.DefaultHtmlRenderer
-import com.sparouting.spring.rendering.HtmlRenderer
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.request.RouteRequestFactory
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -19,10 +18,10 @@ import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.servlet.function.RouterFunction
-import org.springframework.web.servlet.function.ServerResponse
 
 class RoutingAutoConfigurationTest {
   private val contextRunner = WebApplicationContextRunner()
@@ -38,7 +37,7 @@ class RoutingAutoConfigurationTest {
       assertThat(context).doesNotHaveBean("singlePageApplicationRouteRegistry")
       assertThat(context).doesNotHaveBean("routeAccessEvaluator")
       assertThat(context).hasSingleBean(DefaultRouteRequestFactory::class.java)
-      assertThat(context).hasSingleBean(DefaultHtmlRenderer::class.java)
+      assertThat(context).doesNotHaveBean(HtmlRenderer::class.java)
       assertThat(context).doesNotHaveBean(RouteResponseService::class.java)
       assertThat(context.getBeansOfType(RouterFunction::class.java)).hasSize(2)
       assertThat(context).hasBean("routerFunction")
@@ -65,13 +64,41 @@ class RoutingAutoConfigurationTest {
   }
 
   @Test
-  fun `user defined html renderer wins over default`() {
-    contextRunner
-      .withUserConfiguration(CustomHtmlRendererConfiguration::class.java)
+  fun `each application renders with its own configured renderer only on page loads`() {
+    val rendered = mutableListOf<String>()
+    val configs = listOf("one", "two").map { id ->
+      TestSinglePageApplicationConfig(
+        id = id,
+        name = "Application $id",
+        routes = listOf(RouteManifest("/$id", "Home")),
+        htmlRenderer = HtmlRenderer { application ->
+          rendered.add(application.id)
+          "<h1>$id: ${application.name}</h1>"
+        }
+      )
+    }
+    WebApplicationContextRunner()
+      .withConfiguration(AutoConfigurations.of(RoutingAutoConfiguration::class.java))
+      .withBean("firstConfig", SinglePageApplicationConfig::class.java, Supplier { configs[0] })
+      .withBean("secondConfig", SinglePageApplicationConfig::class.java, Supplier { configs[1] })
       .run { context ->
-        assertThat(context).hasSingleBean(HtmlRenderer::class.java)
-        assertThat(context).getBean(HtmlRenderer::class.java)
-          .isInstanceOf(CustomHtmlRenderer::class.java)
+        val mockMvc = MockMvcBuilders.routerFunctions(
+          *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
+        ).build()
+        configs.forEach { config ->
+          mockMvc.get("/${config.id}").andExpect {
+            status { isOk() }
+            content {
+              contentTypeCompatibleWith(MediaType.TEXT_HTML)
+              string("<h1>${config.id}: ${config.name}</h1>")
+            }
+          }
+          mockMvc.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home").andExpect {
+            status { isOk() }
+            jsonPath("$.statusCode") { value(200) }
+          }
+        }
+        assertThat(rendered).containsExactly("one", "two")
       }
   }
 
@@ -108,24 +135,18 @@ class RoutingAutoConfigurationTest {
   }
 
   @Test
-  fun `properties configure rendering and validation for both endpoints`() {
+  fun `properties configure validation for both endpoints`() {
     contextRunner
       .withPropertyValues(
         "spa-routing.server.invalid-path-parameter-status=422",
         "spa-routing.server.invalid-query-string-status=409",
-        "spa-routing.route-decision.path=/internal/spa-route-decision",
-        "spa-routing.assets.bundle-base-path=/assets",
-        "spa-routing.assets.include-route-stylesheet=false",
-        "spa-routing.assets.global-stylesheet=/assets/global.css"
+        "spa-routing.route-decision.path=/internal/spa-route-decision"
       )
       .run { context ->
         val properties = context.getBean(RoutingProperties::class.java)
         assertThat(properties.server.invalidPathParameterStatus).isEqualTo(422)
         assertThat(properties.server.invalidQueryStringStatus).isEqualTo(409)
         assertThat(properties.routeDecision.path).isEqualTo("/internal/spa-route-decision")
-        assertThat(properties.assets.bundleBasePath).isEqualTo("/assets")
-        assertThat(properties.assets.includeRouteStylesheet).isFalse()
-        assertThat(properties.assets.globalStylesheet).isEqualTo("/assets/global.css")
 
         val mockMvc = MockMvcBuilders.routerFunctions(
           *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
@@ -165,24 +186,10 @@ class RoutingAutoConfigurationTest {
   }
 
   @Configuration(proxyBeanMethods = false)
-  class CustomHtmlRendererConfiguration {
-    @Bean
-    fun customHtmlRenderer(): HtmlRenderer {
-      return CustomHtmlRenderer()
-    }
-  }
-
-  @Configuration(proxyBeanMethods = false)
   class CustomRequestFactoryConfiguration {
     @Bean
     fun customRouteRequestFactory(): RouteRequestFactory {
       return CustomRouteRequestFactory()
-    }
-  }
-
-  class CustomHtmlRenderer : HtmlRenderer {
-    override fun render(application: SinglePageApplicationConfig): ServerResponse {
-      return ServerResponse.ok().body("custom")
     }
   }
 

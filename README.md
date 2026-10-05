@@ -277,12 +277,15 @@ a typed `<ApplicationName>ApplicationAccessHandler` base class, and a required
 For the blog, construction is ordinary Kotlin:
 
 ```kotlin
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
+
 val config = BlogApplicationConfig(
   applicationAccessHandler = checkBlogAccess,
   routeAccessHandlers = BlogRouteAccessHandlers(
     post = checkPostAccess,
     editPost = checkEditPostAccess
-  )
+  ),
+  htmlRenderer = HtmlDocumentRenderer()
 )
 ```
 
@@ -310,6 +313,7 @@ import com.example.generated.spa.routes.AccountApplicationAccessHandler
 import com.example.generated.spa.routes.AccountRouteAccessHandlers
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteRequest
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
@@ -320,7 +324,8 @@ class RoutesConfiguration {
   fun accountConfig(applicationAccessHandler: CheckAccountAccess): AccountApplicationConfig =
     AccountApplicationConfig(
       applicationAccessHandler = applicationAccessHandler,
-      routeAccessHandlers = AccountRouteAccessHandlers()
+      routeAccessHandlers = AccountRouteAccessHandlers(),
+      htmlRenderer = HtmlDocumentRenderer()
     )
 }
 
@@ -354,10 +359,9 @@ import com.sparouting.contract.AccessDecision
 AccessDecision.Redirect(AccountRoutes.UserDetail(id = "123"))
 ```
 
-For application-specific HTML rendering, implement `SpringSinglePageApplicationConfig`
-and delegate its config properties to the generated config instance. See
-[HTML rendering](docs/spring-boot-client-apps.md#render-html) for this optional
-Spring hook and the global `HtmlRenderer` alternative.
+Each config supplies a framework-neutral `HtmlRenderer`. Use `HtmlDocumentRenderer`
+for the default shell or supply your own implementation returning an HTML string.
+See [HTML rendering](docs/spring-boot-client-apps.md#render-html) for configuration.
 
 Check a client-side navigation before changing routes. Each generated route
 builder carries its `applicationId` and `routeId`, so the decision call does not
@@ -392,16 +396,10 @@ spa-routing:
   route-decision:
     enabled: true
     path: /__spa/route-decision
-  assets:
-    bundle-base-path: /bundles
-    include-route-stylesheet: true
-    global-stylesheet: /bundles/stylex.css
 ```
 
-Override these beans to customize rendering and page request conversion:
-
-- `HtmlRenderer`
-- `RouteRequestFactory`
+Override the `RouteRequestFactory` bean to customize page request conversion.
+Configure rendering and asset options through each config's `htmlRenderer`.
 
 The adapters construct the runtime service internally from application configs.
 Configure access through application and route handlers; the registry and evaluator

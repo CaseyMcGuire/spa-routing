@@ -26,11 +26,11 @@ class HtmlDocumentRendererTest {
 
   @Test
   fun `asset options change bundle paths and can omit stylesheets`() {
-    val html = HtmlDocumentRenderer(HtmlRenderingOptions(
+    val html = HtmlDocumentRenderer(
       bundleBasePath = "/assets/",
       includeRouteStylesheet = false,
       globalStylesheet = null
-    )).render(config)
+    ).render(config)
 
     assertContains(html, "src=\"/assets/custom&quot;bundle.bundle.js\"")
     assertFalse(html.contains("rel=\"stylesheet\""))

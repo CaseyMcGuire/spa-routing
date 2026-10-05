@@ -1,22 +1,21 @@
 package com.sparouting.spring.web
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.autoconfigure.RoutingProperties
-import com.sparouting.spring.config.SpringSinglePageApplicationConfig
-import com.sparouting.spring.rendering.DefaultHtmlRenderer
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import kotlin.test.assertFalse
 import org.junit.jupiter.api.Test
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import org.springframework.web.servlet.function.ServerResponse
 
 class SpringRouterFunctionFactoryTest {
   @Test
@@ -79,32 +78,33 @@ class SpringRouterFunctionFactoryTest {
   }
 
   @Test
-  fun `spring config can render an application-specific response after access is allowed`() {
-    val config = object : SpringSinglePageApplicationConfig,
-      SinglePageApplicationConfig by TestSinglePageApplicationConfig(routes = listOf(RouteManifest("/test", "Index"))) {
-
-      override fun renderHtml(): ServerResponse = ServerResponse.ok().body("Custom HTML")
-    }
+  fun `config renderer receives application metadata after access is allowed`() {
+    val config = TestSinglePageApplicationConfig(
+      name = "Custom app",
+      routes = listOf(RouteManifest("/test", "Index")),
+      htmlRenderer = HtmlRenderer { application -> "<h1>${application.name}</h1>" }
+    )
 
     mockMvc(config).get("/test").andExpect {
       status { isOk() }
-      content { string("Custom HTML") }
+      content {
+        contentTypeCompatibleWith(MediaType.TEXT_HTML)
+        string("<h1>Custom app</h1>")
+      }
     }
   }
 
   @Test
   fun `application-specific rendering is skipped when the application redirects`() {
     var rendered = false
-    val config = object : SpringSinglePageApplicationConfig,
-      SinglePageApplicationConfig by TestSinglePageApplicationConfig(
-        routes = listOf(RouteManifest("/test", "Index"), RouteManifest("/test/login", "Login")),
-        applicationAccessHandler = applicationAccessHandler { AccessDecision.Redirect(RouteTarget("test", "Login")) }
-      ) {
-      override fun renderHtml(): ServerResponse {
+    val config = TestSinglePageApplicationConfig(
+      routes = listOf(RouteManifest("/test", "Index"), RouteManifest("/test/login", "Login")),
+      applicationAccessHandler = applicationAccessHandler { AccessDecision.Redirect(RouteTarget("test", "Login")) },
+      htmlRenderer = HtmlRenderer {
         rendered = true
-        return ServerResponse.ok().body("Custom HTML")
+        "Custom HTML"
       }
-    }
+    )
 
     mockMvc(config)
       .get("/test").andExpect { status { isFound() } }
@@ -112,14 +112,14 @@ class SpringRouterFunctionFactoryTest {
   }
 
   @Test
-  fun `spring config without a rendering override uses the default renderer`() {
-    val config = object : SpringSinglePageApplicationConfig,
-      SinglePageApplicationConfig by TestSinglePageApplicationConfig(routes = listOf(RouteManifest("/test", "Index"))) {
-    }
+  fun `invalid requests do not render HTML`() {
+    val config = TestSinglePageApplicationConfig(
+      routes = listOf(RouteManifest("/test", "Index", queryString = listOf(com.sparouting.contract.parameter("q")))),
+      htmlRenderer = HtmlRenderer { error("Rendering must follow validation") }
+    )
 
     mockMvc(config).get("/test").andExpect {
-      status { isOk() }
-      content { string(org.hamcrest.Matchers.containsString("<div id=\"root\"></div>")) }
+      status { isBadRequest() }
     }
   }
 
@@ -135,8 +135,7 @@ class SpringRouterFunctionFactoryTest {
           invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
           invalidQueryStringStatus = properties.server.invalidQueryStringStatus
         ),
-        requestFactory = DefaultRouteRequestFactory(),
-        htmlRenderer = DefaultHtmlRenderer(properties)
+        requestFactory = DefaultRouteRequestFactory()
       ).routes()
     ).build()
   }

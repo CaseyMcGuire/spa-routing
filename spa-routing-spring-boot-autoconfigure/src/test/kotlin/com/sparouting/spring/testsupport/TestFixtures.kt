@@ -1,12 +1,14 @@
 package com.sparouting.spring.testsupport
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.ApplicationAccessHandler
 import com.sparouting.contract.RouteAccessHandlers
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.RouteRequest
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 
 internal data class TestSinglePageApplicationConfig(
   override val id: String = "test",
@@ -14,7 +16,8 @@ internal data class TestSinglePageApplicationConfig(
   override val routes: List<RouteManifest>,
   override val bundleName: String = id,
   override val applicationAccessHandler: ApplicationAccessHandler<TestSinglePageApplicationConfig> = applicationAccessHandler(),
-  override val routeAccessHandlers: RouteAccessHandlers<TestSinglePageApplicationConfig> = routeAccessHandlers()
+  override val routeAccessHandlers: RouteAccessHandlers<TestSinglePageApplicationConfig> = routeAccessHandlers(),
+  override val htmlRenderer: HtmlRenderer = HtmlDocumentRenderer()
 ) : SinglePageApplicationConfig
 
 internal fun applicationAccessHandler(

@@ -1,6 +1,7 @@
 package com.sparouting.contract.codegen
 
 import com.sparouting.contract.ApplicationAccessHandler
+import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteAccessHandlers
 import com.sparouting.contract.SinglePageApplicationConfig
@@ -119,16 +120,18 @@ private fun SinglePageApplicationDefinition.routeAccessHandlersClassName(): Stri
 
 private fun SinglePageApplicationDefinition.toKotlinConfigFile(): String {
   val configInterface = SinglePageApplicationConfig::class.java
+  val rendererInterface = HtmlRenderer::class.java
   val shadowsInterface = configClassName() == configInterface.simpleName
   return buildString {
     appendGeneratedFileHeader(
       generatedPackage(),
-      listOf("com.sparouting.contract.RouteManifest", "com.sparouting.contract.RouteParameter") +
+      listOf("com.sparouting.contract.RouteManifest", "com.sparouting.contract.RouteParameter", rendererInterface.name) +
         if (shadowsInterface) emptyList() else listOf(configInterface.name)
     )
     appendLine("class ${configClassName()}(")
     appendLine("  override val applicationAccessHandler: ${applicationAccessHandlerClassName()},")
-    appendLine("  override val routeAccessHandlers: ${routeAccessHandlersClassName()}")
+    appendLine("  override val routeAccessHandlers: ${routeAccessHandlersClassName()},")
+    appendLine("  override val htmlRenderer: ${rendererInterface.simpleName}")
     appendLine(") : ${if (shadowsInterface) configInterface.name else configInterface.simpleName} {")
     appendLine("  override val id: String = ${id.toKotlinStringLiteral()}")
     appendLine("  override val name: String = ${name.toKotlinStringLiteral()}")

@@ -9,7 +9,6 @@ import com.sparouting.examples.generated.routes.BlogApplicationConfig
 import com.sparouting.examples.generated.routes.BlogRouteAccessHandlers
 import com.sparouting.ktor.singlePageApplicationRoutes
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
-import com.sparouting.runtime.rendering.HtmlRenderingOptions
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.jackson.jackson
 import io.ktor.server.application.Application
@@ -35,9 +34,9 @@ fun Application.blogModule() {
     routeAccessHandlers = BlogRouteAccessHandlers(
       post = CheckPostAccess(posts),
       editPost = CheckEditPostAccess(posts)
-    )
+    ),
+    htmlRenderer = HtmlDocumentRenderer(globalStylesheet = null)
   )
-  val htmlRenderer = HtmlDocumentRenderer(HtmlRenderingOptions(globalStylesheet = null))
 
   install(ContentNegotiation) {
     jackson()
@@ -50,10 +49,7 @@ fun Application.blogModule() {
 
   routing {
     blogApiRoutes(posts)
-    singlePageApplicationRoutes(
-      configs = listOf(config),
-      htmlRenderer = htmlRenderer
-    )
+    singlePageApplicationRoutes(configs = listOf(config))
     staticResources("/bundles", "static/bundles")
   }
 }

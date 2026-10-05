@@ -6,7 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 class RoutingProperties {
   val server = Server()
   val routeDecision = RouteDecision()
-  val assets = Assets()
 
   class Server {
     var enabled: Boolean = true
@@ -17,11 +16,5 @@ class RoutingProperties {
   class RouteDecision {
     var enabled: Boolean = true
     var path: String = "/__spa/route-decision"
-  }
-
-  class Assets {
-    var bundleBasePath: String = "/bundles"
-    var includeRouteStylesheet: Boolean = true
-    var globalStylesheet: String? = "/bundles/stylex.css"
   }
 }

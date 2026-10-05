@@ -8,6 +8,7 @@ import com.sparouting.examples.generated.routes.BlogApplicationConfig
 import com.sparouting.examples.generated.routes.BlogRouteAccessHandlers
 import com.sparouting.examples.generated.routes.blog.EditPostAccessHandler
 import com.sparouting.examples.generated.routes.blog.PostAccessHandler
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -37,6 +38,7 @@ class ExampleConfiguration {
     routeAccessHandlers: BlogRouteAccessHandlers
   ): BlogApplicationConfig = BlogApplicationConfig(
     applicationAccessHandler = applicationAccessHandler,
-    routeAccessHandlers = routeAccessHandlers
+    routeAccessHandlers = routeAccessHandlers,
+    htmlRenderer = HtmlDocumentRenderer(globalStylesheet = null)
   )
 }

@@ -2,7 +2,6 @@ package com.sparouting.ktor
 
 import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 import com.sparouting.runtime.response.RouteResponseService
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -16,6 +15,7 @@ import io.ktor.server.routing.get
  * Registers page routes for [configs] and one shared endpoint at [routeDecisionPath].
  *
  * Call once at the routing root. Builds and validates the shared runtime service at registration.
+ * Allowed pages use the matching config's HTML renderer.
  * Install ContentNegotiation with a converter for RouteHttpResponse, such as Jackson.
  * Configure client authorization to use the same [routeDecisionPath].
  * [invalidPathParameterStatus] and [invalidQueryStringStatus] apply to both pages and navigation checks.
@@ -23,7 +23,6 @@ import io.ktor.server.routing.get
  */
 fun Route.singlePageApplicationRoutes(
   configs: List<SinglePageApplicationConfig>,
-  htmlRenderer: HtmlDocumentRenderer,
   routeDecisionPath: String = "/__spa/route-decision",
   invalidPathParameterStatus: Int = 400,
   invalidQueryStringStatus: Int = 400
@@ -49,7 +48,7 @@ fun Route.singlePageApplicationRoutes(
           )
         )
         if (response.statusCode == 200) {
-          call.respondText(htmlRenderer.render(config), ContentType.Text.Html)
+          call.respondText(config.htmlRenderer.render(config), ContentType.Text.Html)
         } else {
           response.location?.let { call.response.headers.append(HttpHeaders.Location, it) }
           call.respond(HttpStatusCode.fromValue(response.statusCode))
