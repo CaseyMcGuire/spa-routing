@@ -1,9 +1,9 @@
 package io.github.caseymcguire.sparouting.runtime.response
 
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
@@ -22,8 +22,9 @@ class RouteResponseServiceTest {
     rules = listOf(RecordingRule(RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))))
   )
   private val registry = SinglePageApplicationRouteRegistry(listOf(config))
-  private val evaluator = RouteResponseEvaluator(RouteRuleActionResolver(listOf(config)))
-  private val service = RouteResponseService(registry, evaluator)
+  private val evaluator = RouteAccessEvaluator(registry)
+  private val actionResolver = RouteRuleActionResolver(listOf(config))
+  private val service = RouteResponseService(registry, evaluator, actionResolver)
 
   @Test
   fun `unknown app or route returns not found`() {
@@ -45,7 +46,8 @@ class RouteResponseServiceTest {
   fun `unknown params returns configured status`() {
     val service = RouteResponseService(
       routeRegistry = registry,
-      evaluator = evaluator,
+      accessEvaluator = evaluator,
+      actionResolver = actionResolver,
       invalidPathParameterStatus = 422
     )
 
@@ -64,9 +66,11 @@ class RouteResponseServiceTest {
       ),
       rules = listOf(RequireQueryParameterRule("tab", "billing"))
     )
+    val registry = SinglePageApplicationRouteRegistry(listOf(config))
     val service = RouteResponseService(
-      routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
-      evaluator = RouteResponseEvaluator(RouteRuleActionResolver(listOf(config)))
+      routeRegistry = registry,
+      accessEvaluator = RouteAccessEvaluator(registry),
+      actionResolver = RouteRuleActionResolver(listOf(config))
     )
 
     val response = service.evaluate(
@@ -89,6 +93,44 @@ class RouteResponseServiceTest {
 
     assertEquals(302, response.statusCode)
     assertEquals("/login", response.location)
+  }
+
+  @Test
+  fun `service converts access actions using the supplied resolver for both entry points`() {
+    val actions = mutableListOf<RouteRuleAction>()
+    val expected = RouteHttpResponse(statusCode = 307, location = "/custom-login")
+    val resolver = object : RouteRuleActionResolver(listOf(config)) {
+      override fun resolve(action: RouteRuleAction): RouteHttpResponse {
+        actions.add(action)
+        return expected
+      }
+    }
+    val service = RouteResponseService(registry, evaluator, resolver)
+    val parameters = mapOf("id" to "42")
+
+    assertEquals(expected, service.evaluate(RouteResponseRequest("test", "UserDetail", parameters)))
+    assertEquals(expected, service.evaluate(RouteRequest(
+      applicationId = "test",
+      routeId = "UserDetail",
+      method = "GET",
+      path = "/test/users/42",
+      pathParameters = parameters
+    )))
+    assertEquals(List(2) { RouteRuleAction.redirect("/login") }, actions)
+  }
+
+  @Test
+  fun `custom evaluator without an access decision is denied`() {
+    val evaluator = object : RouteAccessEvaluator(registry) {
+      override fun evaluate(applicationRules: List<RouteRule>, request: RouteRequest): RouteRuleResult {
+        return RouteRuleResult.Skip
+      }
+    }
+    val service = RouteResponseService(registry, evaluator, actionResolver)
+
+    val response = service.evaluate(RouteResponseRequest("test", "UserDetail", mapOf("id" to "42")))
+
+    assertEquals(404, response.statusCode)
   }
 
   private class RequireQueryParameterRule(

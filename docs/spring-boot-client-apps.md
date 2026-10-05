@@ -53,8 +53,8 @@ Client apps usually import from these packages:
 Packages below share the prefix `io.github.caseymcguire.sparouting`:
 
 - `runtime.config`: application configuration, validation, and route registry
-- `runtime.access`: access handler registry
-- `runtime.rules`: rule interfaces, results, actions, resolver, and evaluator
+- `runtime.access`: application gate and route handler evaluation, plus handler registration validation
+- `runtime.rules`: rule interfaces, results, actions, and action resolver
 - `runtime.request`: framework-neutral request model
 - `runtime.response`: route-decision request, response, and shared evaluation service
 - `runtime.rendering`: HTML document builder and asset options
@@ -637,9 +637,8 @@ fun routeRequestFactory(): RouteRequestFactory = MyRouteRequestFactory()
 Replaceable beans:
 
 - `SinglePageApplicationRouteRegistry`
-- `RouteHandlerRegistry`
+- `RouteAccessEvaluator`
 - `RouteRuleActionResolver`
-- `RouteResponseEvaluator`
 - `RouteRequestFactory`
 - `HtmlRenderer`
 - `RouteResponseService`

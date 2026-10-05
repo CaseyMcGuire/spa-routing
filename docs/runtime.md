@@ -7,7 +7,7 @@ Its public types live under `io.github.caseymcguire.sparouting.runtime`.
 | Module | Responsibility |
 | --- | --- |
 | `spa-routing-core` | Route definitions, generated route contracts, access handler contracts, and generators |
-| `spa-routing-runtime` | Application configuration, route and handler registries, validation, application rules, access evaluation, redirect resolution, and HTML document generation |
+| `spa-routing-runtime` | Application configuration, route registry, handler registration validation, application rules, access evaluation, redirect resolution, and HTML document generation |
 | `spa-routing-spring-boot-autoconfigure` | Bean discovery, properties, MVC route registration, request conversion, HTTP/JSON responses, and Spring rendering hooks |
 | `spa-routing-spring-boot-starter` | Dependencies for Spring Boot applications |
 
@@ -35,11 +35,10 @@ An adapter or dependency injection container assembles the runtime once:
 
 ```kotlin
 import com.sparouting.contract.RouteAccessHandler
-import io.github.caseymcguire.sparouting.runtime.access.RouteHandlerRegistry
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 
 fun createRouteService(
@@ -47,22 +46,27 @@ fun createRouteService(
   handlers: List<RouteAccessHandler<*>>
 ): RouteResponseService {
   val routes = SinglePageApplicationRouteRegistry(configs)
-  val handlerRegistry = RouteHandlerRegistry(routes, handlers)
   return RouteResponseService(
     routeRegistry = routes,
-    evaluator = RouteResponseEvaluator(
-      actionResolver = RouteRuleActionResolver(configs),
-      handlerRegistry = handlerRegistry
-    ),
+    accessEvaluator = RouteAccessEvaluator(routes, handlers),
+    actionResolver = RouteRuleActionResolver(configs),
     invalidPathParameterStatus = 400,
     invalidQueryStringStatus = 400
   )
 }
 ```
 
-Construct `RouteHandlerRegistry` even if the handler list is empty. It rejects
-missing, duplicate, and stale handlers for routes with `generateAccessHandler`.
-Spring performs this wiring automatically through its starter.
+`RouteAccessEvaluator` validates registrations during construction, even when
+the handler list is empty. It rejects missing, duplicate, and stale handlers
+for routes with `generateAccessHandler`. Spring performs this wiring
+automatically through its starter.
+
+The evaluator runs application rules and the matching handler, returning
+`RouteRuleResult.Allow` or `RouteRuleResult.Deny`. Redirects remain unresolved
+actions at this point. `RouteResponseService` owns request validation and
+response conversion, using `RouteRuleActionResolver` to resolve those actions.
+The evaluator does not construct HTTP responses. If a custom evaluator returns
+`Skip`, the service denies access with `404`.
 
 ## Adapt requests and responses
 

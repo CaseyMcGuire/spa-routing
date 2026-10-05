@@ -1,10 +1,10 @@
 package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
@@ -175,7 +175,8 @@ class RouteDecisionRouterFunctionFactoryTest {
     RouteDecisionRouterFunctionFactory(
       responseService = RouteResponseService(
         routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
-        evaluator = RouteResponseEvaluator(RouteRuleActionResolver(listOf(config))),
+        accessEvaluator = RouteAccessEvaluator(SinglePageApplicationRouteRegistry(listOf(config))),
+        actionResolver = RouteRuleActionResolver(listOf(config)),
         invalidPathParameterStatus = properties.server.invalidPathParameterStatus
       ),
       properties = properties

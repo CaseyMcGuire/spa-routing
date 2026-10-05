@@ -419,7 +419,7 @@ Override these beans to customize runtime behavior:
 
 - `HtmlRenderer`
 - `RouteRuleActionResolver`
-- `RouteResponseEvaluator`
+- `RouteAccessEvaluator`
 - `RouteRequestFactory`
 - `SinglePageApplicationRouteRegistry`
 - `RouteResponseService`

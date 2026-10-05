@@ -4,10 +4,27 @@
 
 ### Breaking changes
 
+- **Access evaluation is consolidated in `runtime.access.RouteAccessEvaluator`.**
+  It replaces `RouteResponseEvaluator` and `RouteHandlerRegistry`, taking the
+  route registry and access handlers. It validates handler registrations at
+  construction and evaluates the application gate before the matching handler.
+  Its `evaluate(applicationRules, request)` method returns `RouteRuleResult`
+  (`Allow` or `Deny`) instead of `RouteHttpResponse`. Redirect actions retain
+  their unresolved targets; handler contracts remain `RouteDecision.Allow` or
+  `RouteDecision.Redirect`.
+
+  `RouteResponseService` now takes `accessEvaluator` and `actionResolver` along
+  with the route registry. It validates requests and converts access results
+  into response data, including resolving redirects. The Spring bean is now
+  `routeAccessEvaluator`; the separate `routeResponseEvaluator` and
+  `routeHandlerRegistry` beans are removed. Update custom wiring and overrides.
+  No aliases are provided. Registration validation, deny-by-default behavior,
+  and HTTP outcomes are unchanged.
+
 - **Shared server logic now lives in `spa-routing-runtime`.** Update imports
   from `io.github.caseymcguire.sparouting.spring` to
   `io.github.caseymcguire.sparouting.runtime` for `config.*` (including
-  `SinglePageApplicationConfig`), `access.RouteHandlerRegistry`, `rules.*`,
+  `SinglePageApplicationConfig`), access evaluation, `rules.*`,
   `request.RouteRequest`, and the response models and `RouteResponseService`.
   The Spring starter includes the new module transitively. No aliases for the
   old packages are provided.
@@ -41,7 +58,7 @@
   | `SpaRouteRuleResult` | `RouteRuleResult` |
   | `SpaRouteRuleAction` | `RouteRuleAction` |
   | `SpaRouteRuleActionResolver` | `RouteRuleActionResolver` |
-  | `SpaRouteResponseEvaluator` | `RouteResponseEvaluator` |
+  | `SpaRouteResponseEvaluator` | `RouteAccessEvaluator` |
   | `SpaRouteHttpResponse` | `RouteHttpResponse` |
   | `SpaRouteResponseRequest` | `RouteResponseRequest` |
   | `SpaRouteResponseService` | `RouteResponseService` |
@@ -79,7 +96,7 @@
 
   Application-level `rules` remain a deny-by-default gate and must allow the
   request before its handler runs. Unflagged routes are served after that gate
-  passes. `RouteResponseEvaluator.evaluate` now takes only
+  passes. `RouteAccessEvaluator.evaluate` takes only
   `applicationRules` and `request`.
 
 - **`SpaApplicationDefinition` was renamed to `SinglePageApplicationDefinition`.**

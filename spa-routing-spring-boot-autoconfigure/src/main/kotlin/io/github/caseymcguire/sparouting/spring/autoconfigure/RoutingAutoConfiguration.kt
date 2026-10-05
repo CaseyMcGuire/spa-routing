@@ -1,11 +1,10 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.RouteAccessHandler
-import io.github.caseymcguire.sparouting.runtime.access.RouteHandlerRegistry
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
@@ -47,20 +46,11 @@ class RoutingAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  fun routeHandlerRegistry(
+  fun routeAccessEvaluator(
     routeRegistry: SinglePageApplicationRouteRegistry,
     handlers: List<RouteAccessHandler<*>>
-  ): RouteHandlerRegistry {
-    return RouteHandlerRegistry(routeRegistry, handlers)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun routeResponseEvaluator(
-    actionResolver: RouteRuleActionResolver,
-    handlerRegistry: RouteHandlerRegistry
-  ): RouteResponseEvaluator {
-    return RouteResponseEvaluator(actionResolver, handlerRegistry)
+  ): RouteAccessEvaluator {
+    return RouteAccessEvaluator(routeRegistry, handlers)
   }
 
   @Bean
@@ -81,12 +71,14 @@ class RoutingAutoConfiguration {
   @ConditionalOnMissingBean
   fun routeResponseService(
     routeRegistry: SinglePageApplicationRouteRegistry,
-    evaluator: RouteResponseEvaluator,
+    accessEvaluator: RouteAccessEvaluator,
+    actionResolver: RouteRuleActionResolver,
     properties: RoutingProperties
   ): RouteResponseService {
     return RouteResponseService(
       routeRegistry = routeRegistry,
-      evaluator = evaluator,
+      accessEvaluator = accessEvaluator,
+      actionResolver = actionResolver,
       invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
       invalidQueryStringStatus = properties.server.invalidQueryStringStatus
     )

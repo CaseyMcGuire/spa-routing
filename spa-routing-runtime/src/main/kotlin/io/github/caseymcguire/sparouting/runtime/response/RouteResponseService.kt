@@ -1,14 +1,17 @@
 package io.github.caseymcguire.sparouting.runtime.response
 
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistration
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
+import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 
-/** Validates and evaluates both real page requests and client-side navigation decisions. */
+/** Validates requests and converts access decisions into response data for pages and client navigation. */
 open class RouteResponseService @JvmOverloads constructor(
   private val routeRegistry: SinglePageApplicationRouteRegistry,
-  private val evaluator: RouteResponseEvaluator,
+  private val accessEvaluator: RouteAccessEvaluator,
+  private val actionResolver: RouteRuleActionResolver,
   private val invalidPathParameterStatus: Int = 400,
   private val invalidQueryStringStatus: Int = 400
 ) {
@@ -53,9 +56,15 @@ open class RouteResponseService @JvmOverloads constructor(
       return RouteHttpResponse(invalidQueryStringStatus)
     }
 
-    return evaluator.evaluate(
+    val decision = accessEvaluator.evaluate(
       applicationRules = match.application.rules,
       request = request
     )
+
+    return when (decision) {
+      RouteRuleResult.Allow -> RouteHttpResponse.ok()
+      is RouteRuleResult.Deny -> actionResolver.resolve(decision.action)
+      RouteRuleResult.Skip -> RouteHttpResponse.notFound()
+    }
   }
 }

@@ -7,10 +7,9 @@ import com.sparouting.contract.RouteDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
-import io.github.caseymcguire.sparouting.runtime.access.RouteHandlerRegistry
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
@@ -138,10 +137,8 @@ class RouteEvaluationTest {
     }
     val service = RouteResponseService(
       routeRegistry = routeRegistry,
-      evaluator = RouteResponseEvaluator(
-        actionResolver = RouteRuleActionResolver(listOf(config)),
-        handlerRegistry = RouteHandlerRegistry(routeRegistry, listOf(handler))
-      ),
+      accessEvaluator = RouteAccessEvaluator(routeRegistry, listOf(handler)),
+      actionResolver = RouteRuleActionResolver(listOf(config)),
       invalidPathParameterStatus = 422
     )
   }

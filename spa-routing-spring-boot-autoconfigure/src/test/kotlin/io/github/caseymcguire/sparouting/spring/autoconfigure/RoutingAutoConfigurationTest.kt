@@ -1,11 +1,11 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
@@ -32,7 +32,10 @@ class RoutingAutoConfigurationTest {
     contextRunner.run { context ->
       assertThat(context).hasSingleBean(SinglePageApplicationRouteRegistry::class.java)
       assertThat(context).hasSingleBean(RouteRuleActionResolver::class.java)
-      assertThat(context).hasSingleBean(RouteResponseEvaluator::class.java)
+      assertThat(context).hasSingleBean(RouteAccessEvaluator::class.java)
+      assertThat(context).hasBean("routeAccessEvaluator")
+      assertThat(context).doesNotHaveBean("routeResponseEvaluator")
+      assertThat(context).doesNotHaveBean("routeHandlerRegistry")
       assertThat(context).hasSingleBean(DefaultRouteRequestFactory::class.java)
       assertThat(context).hasSingleBean(DefaultHtmlRenderer::class.java)
       assertThat(context).hasSingleBean(RouteResponseService::class.java)

@@ -3,11 +3,11 @@ package io.github.caseymcguire.sparouting.spring.web
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseRequest
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteResponseEvaluator
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
 import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
@@ -40,8 +40,8 @@ class TypedQueryRoutingTest {
     })
   )
   private val resolver = RouteRuleActionResolver(listOf(config))
-  private val evaluator = RouteResponseEvaluator(resolver)
   private val registry = SinglePageApplicationRouteRegistry(listOf(config))
+  private val evaluator = RouteAccessEvaluator(registry)
   private val valid = linkedMapOf("foo" to listOf("a b+&=雪"), "tag" to listOf("x/y", "é"))
 
   @Test
@@ -85,7 +85,7 @@ class TypedQueryRoutingTest {
 
   @Test
   fun `service rejects empty required lists and permits empty optional lists`() {
-    val service = RouteResponseService(registry, evaluator)
+    val service = RouteResponseService(registry, evaluator, resolver)
     assertEquals(400, service.evaluate(RouteResponseRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
     )).statusCode)
@@ -122,7 +122,8 @@ class TypedQueryRoutingTest {
   ) {
     val service = RouteResponseService(
       routeRegistry = registry,
-      evaluator = evaluator,
+      accessEvaluator = evaluator,
+      actionResolver = resolver,
       invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
       invalidQueryStringStatus = properties.server.invalidQueryStringStatus
     )
