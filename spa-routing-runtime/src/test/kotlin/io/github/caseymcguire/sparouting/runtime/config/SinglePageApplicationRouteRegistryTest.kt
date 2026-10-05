@@ -4,9 +4,9 @@ import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.contract.route
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -20,12 +20,12 @@ class SinglePageApplicationRouteRegistryTest {
   @Test
   fun `indexes routes by application and route id`() {
     val config = TestSinglePageApplicationConfig(
-      TestSinglePageApplicationDefinition(
-        routes = listOf(route("users/{id}", "UserDetail"))
+      TestSinglePageApplicationManifest(
+        routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))
       )
     )
 
-    val handler = applicationAccessHandler(config.application)
+    val handler = applicationAccessHandler(config.manifest)
     val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
 
     val registration = registry.findByApplicationAndRouteId("test", "UserDetail")
@@ -40,37 +40,53 @@ class SinglePageApplicationRouteRegistryTest {
   @Test
   fun `rejects duplicate application ids`() {
     val first = TestSinglePageApplicationConfig(
-      TestSinglePageApplicationDefinition(id = "duplicate", routes = listOf(route("first", "First")))
+      TestSinglePageApplicationManifest(id = "duplicate", routes = listOf(RouteManifest("/test/first", "First")))
     )
     val second = TestSinglePageApplicationConfig(
-      TestSinglePageApplicationDefinition(id = "duplicate", routes = listOf(route("second", "Second")))
+      TestSinglePageApplicationManifest(id = "duplicate", routes = listOf(RouteManifest("/test/second", "Second")))
     )
 
-    assertFailsWith<IllegalArgumentException> {
+    val failure = assertFailsWith<IllegalArgumentException> {
       SinglePageApplicationRouteRegistry(listOf(first, second), emptyList())
     }
+    assertContains(failure.message.orEmpty(), "Duplicate single page application IDs")
   }
 
   @Test
   fun `rejects duplicate route ids within an application`() {
     val config = TestSinglePageApplicationConfig(
-      TestSinglePageApplicationDefinition(
+      TestSinglePageApplicationManifest(
         routes = listOf(
-          route("first", "Duplicate"),
-          route("second", "Duplicate")
+          RouteManifest("/test/first", "Duplicate"),
+          RouteManifest("/test/second", "Duplicate")
         )
       )
     )
 
-    assertFailsWith<IllegalArgumentException> {
+    val failure = assertFailsWith<IllegalArgumentException> {
       SinglePageApplicationRouteRegistry(listOf(config), emptyList())
+    }
+    assertContains(failure.message.orEmpty(), "duplicate route IDs")
+  }
+
+  @Test
+  fun `duplicate paths and relative paths are rejected in runtime manifests`() {
+    for ((routes, message) in listOf(
+      listOf(RouteManifest("/test/path", "First"), RouteManifest("/test/path", "Second")) to "duplicate route URLs",
+      listOf(RouteManifest("relative", "Relative")) to "must have an absolute path pattern"
+    )) {
+      val config = TestSinglePageApplicationConfig(TestSinglePageApplicationManifest(routes = routes))
+      val failure = assertFailsWith<IllegalArgumentException> {
+        SinglePageApplicationRouteRegistry(listOf(config), listOf(applicationAccessHandler(config.manifest)))
+      }
+      assertContains(failure.message.orEmpty(), message)
     }
   }
 
   @Test
   fun `missing application handlers are rejected even for apps without routes`() {
-    for (routes in listOf(emptyList(), listOf(route("", "Index")))) {
-      val config = TestSinglePageApplicationConfig(TestSinglePageApplicationDefinition(routes = routes))
+    for (routes in listOf(emptyList(), listOf(RouteManifest("/test", "Index")))) {
+      val config = TestSinglePageApplicationConfig(TestSinglePageApplicationManifest(routes = routes))
       val failure = assertFailsWith<IllegalArgumentException> {
         SinglePageApplicationRouteRegistry(listOf(config), emptyList())
       }
@@ -80,8 +96,8 @@ class SinglePageApplicationRouteRegistryTest {
 
   @Test
   fun `duplicate application handlers are rejected`() {
-    val config = TestSinglePageApplicationConfig(TestSinglePageApplicationDefinition(routes = listOf(route("", "Index"))))
-    val handlers = listOf(applicationAccessHandler(config.application), applicationAccessHandler(config.application))
+    val config = TestSinglePageApplicationConfig(TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test", "Index"))))
+    val handlers = listOf(applicationAccessHandler(config.manifest), applicationAccessHandler(config.manifest))
     val failure = assertFailsWith<IllegalArgumentException> {
       SinglePageApplicationRouteRegistry(listOf(config), handlers)
     }
@@ -90,11 +106,11 @@ class SinglePageApplicationRouteRegistryTest {
 
   @Test
   fun `handlers for unknown applications are rejected`() {
-    val config = TestSinglePageApplicationConfig(TestSinglePageApplicationDefinition(routes = listOf(route("", "Index"))))
-    val unknown = TestSinglePageApplicationDefinition(id = "unknown", routes = emptyList())
+    val config = TestSinglePageApplicationConfig(TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test", "Index"))))
+    val unknown = TestSinglePageApplicationManifest(id = "unknown", routes = emptyList())
     val failure = assertFailsWith<IllegalArgumentException> {
       SinglePageApplicationRouteRegistry(
-        listOf(config), listOf(applicationAccessHandler(config.application), applicationAccessHandler(unknown))
+        listOf(config), listOf(applicationAccessHandler(config.manifest), applicationAccessHandler(unknown))
       )
     }
     assertContains(failure.message.orEmpty(), "Application access handler registered for unknown application: unknown")
@@ -102,10 +118,10 @@ class SinglePageApplicationRouteRegistryTest {
 
   @Test
   fun `registration binds the application and route handler instances`() {
-    val config = TestSinglePageApplicationConfig(TestSinglePageApplicationDefinition(
-      routes = listOf(route("posts/{id}", "Post", generateAccessHandler = true))
+    val config = TestSinglePageApplicationConfig(TestSinglePageApplicationManifest(
+      routes = listOf(RouteManifest("/test/posts/{id}", "Post", hasAccessHandler = true))
     ))
-    val applicationHandler = applicationAccessHandler(config.application)
+    val applicationHandler = applicationAccessHandler(config.manifest)
     val routeHandler = object : RouteAccessHandler<RouteAccessContext>(Route("test", "Post")) {
       override fun createRequest(context: RouteAccessContext): RouteAccessContext = context
       override fun evaluate(request: RouteAccessContext): AccessDecision = AccessDecision.Allow

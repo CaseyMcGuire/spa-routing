@@ -14,22 +14,23 @@ open class SinglePageApplicationRouteRegistry @JvmOverloads constructor(
 
   init {
     SinglePageApplicationConfigValidator.validate(routeConfigs)
-    val applicationHandlersById = applicationHandlers.groupBy { it.application.id }
+    val applicationHandlersById = applicationHandlers.groupBy { it.manifest.id }
     val routeHandlersByKey = routeHandlers.groupBy { RouteKey(it.route.applicationId, it.route.routeId) }
     validateHandlerRegistrations(routeConfigs, applicationHandlersById, routeHandlersByKey)
 
     registrations = routeConfigs.flatMap { application ->
-      val applicationHandler = applicationHandlersById.getValue(application.applicationId).single()
-      application.routes.map { route ->
+      val manifest = application.manifest
+      val applicationHandler = applicationHandlersById.getValue(manifest.id).single()
+      manifest.routes.map { route ->
         SinglePageApplicationRouteRegistration(
           application = application,
           route = route,
           applicationAccessHandler = applicationHandler,
-          routeAccessHandler = routeHandlersByKey[RouteKey(application.applicationId, route.id)]?.single()
+          routeAccessHandler = routeHandlersByKey[RouteKey(manifest.id, route.id)]?.single()
         )
       }
     }
-    routesByKey = registrations.associateByUnique { RouteKey(it.application.applicationId, it.route.id) }
+    routesByKey = registrations.associateByUnique { RouteKey(it.application.manifest.id, it.route.id) }
   }
 
   open fun findByApplicationAndRouteId(
@@ -48,7 +49,7 @@ open class SinglePageApplicationRouteRegistry @JvmOverloads constructor(
     applicationHandlers: Map<String, List<ApplicationAccessHandler>>,
     routeHandlers: Map<RouteKey, List<RouteAccessHandler<*>>>
   ) {
-    val applications = routeConfigs.associateBy { it.applicationId }
+    val applications = routeConfigs.associateBy { it.manifest.id }
     applicationHandlers.forEach { (applicationId, implementations) ->
       require(applications.containsKey(applicationId)) {
         "Application access handler registered for unknown application: $applicationId"
@@ -58,23 +59,24 @@ open class SinglePageApplicationRouteRegistry @JvmOverloads constructor(
       }
     }
     routeConfigs.forEach { application ->
-      require(applicationHandlers.containsKey(application.applicationId)) {
-        "Missing application access handler for ${application.applicationId}. Register an ApplicationAccessHandler implementation."
+      require(applicationHandlers.containsKey(application.manifest.id)) {
+        "Missing application access handler for ${application.manifest.id}. Register an ApplicationAccessHandler implementation."
       }
     }
 
     routeHandlers.forEach { (key, implementations) ->
-      val route = applications[key.applicationId]?.routes?.find { it.id == key.routeId }
-      require(route != null && route.generateAccessHandler) {
-        "Access handler registered for ${key.applicationId}:${key.routeId}, but that route does not declare generateAccessHandler = true."
+      val route = applications[key.applicationId]?.manifest?.routes?.find { it.id == key.routeId }
+      require(route != null && route.hasAccessHandler) {
+        "Access handler registered for ${key.applicationId}:${key.routeId}, but that route does not declare hasAccessHandler = true."
       }
       require(implementations.size == 1) {
         "Expected exactly one access handler for ${key.applicationId}:${key.routeId}, found ${implementations.size}."
       }
     }
     routeConfigs.forEach { application ->
-      application.routes.filter { it.generateAccessHandler }.forEach { route ->
-        val key = RouteKey(application.applicationId, route.id)
+      val manifest = application.manifest
+      manifest.routes.filter { it.hasAccessHandler }.forEach { route ->
+        val key = RouteKey(manifest.id, route.id)
         require(routeHandlers.containsKey(key)) {
           "Missing access handler for ${key.applicationId}:${key.routeId}. Register an implementation of ${route.id}AccessHandler."
         }

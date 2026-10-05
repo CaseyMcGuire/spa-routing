@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.gradle.api.attributes.Usage
 
 plugins {
   id("org.jetbrains.kotlin.jvm")
@@ -25,9 +26,16 @@ application {
   mainClass.set("com.sparouting.examples.spring.SpringExampleApplicationKt")
 }
 
+val routeCodegen by configurations.creating {
+  isCanBeConsumed = false
+  attributes {
+    attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+  }
+}
+
 dependencies {
   implementation(platform("org.springframework.boot:spring-boot-dependencies:$springBootVersion"))
-  implementation(project(":examples:route-definitions"))
+  routeCodegen(project(":examples:route-definitions"))
   implementation(project(":spa-routing-spring-boot-starter"))
   implementation("tools.jackson.module:jackson-module-kotlin")
 }
@@ -41,8 +49,8 @@ val clientRoutesDirectory = layout.buildDirectory.dir("generated/client/routes")
 // project and cannot be resolved through this build's plugins block.
 val generateServerRoutes by tasks.registering(JavaExec::class) {
   group = "spa routing"
-  description = "Generates Kotlin routes from the shared blog definitions."
-  classpath = configurations.runtimeClasspath.get()
+  description = "Generates a Kotlin application manifest and routes from the shared blog definitions."
+  classpath = routeCodegen
   mainClass.set("com.sparouting.contract.codegen.GenerateServerRoutesKt")
   inputs.dir(routeDefinitionsDirectory)
   outputs.dir(serverRoutesDirectory)
@@ -54,7 +62,7 @@ val generateServerRoutes by tasks.registering(JavaExec::class) {
 val generateClientRoutes by tasks.registering(JavaExec::class) {
   group = "spa routing"
   description = "Generates TypeScript routes from the shared blog definitions."
-  classpath = configurations.runtimeClasspath.get()
+  classpath = routeCodegen
   mainClass.set("com.sparouting.contract.codegen.GenerateClientRoutesKt")
   inputs.dir(routeDefinitionsDirectory)
   outputs.dir(clientRoutesDirectory)

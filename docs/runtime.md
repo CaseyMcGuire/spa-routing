@@ -6,7 +6,7 @@ Its public types live under `io.github.caseymcguire.sparouting.runtime`.
 
 | Module | Responsibility |
 | --- | --- |
-| `spa-routing-core` | Route definitions, generated route contracts, access handler contracts, and generators |
+| `spa-routing-core` | Authoring definitions, runtime manifest and route contracts, access handler contracts, and generators |
 | `spa-routing-runtime` | Application configuration, route registry, handler registration validation, application and route access checks, redirect resolution, and HTML document generation |
 | `spa-routing-spring-boot-autoconfigure` | Bean discovery, properties, MVC route registration, request conversion, HTTP/JSON responses, and Spring rendering hooks |
 | `spa-routing-spring-boot-starter` | Dependencies for Spring Boot applications |
@@ -17,23 +17,32 @@ handlers are outside this extraction.
 
 ## Wire the runtime
 
-Keep the same application definition and generated access handlers across
-frameworks. Supply an application access handler explicitly. Public applications return
+Use the generated manifest and access handlers across frameworks. The runtime
+consumes `SinglePageApplicationManifest` and `RouteManifest` from core; it does
+not import authoring definitions. Generated `<ApplicationName>Manifest` classes
+contain application identity, display/bundle names, full route paths, parameter
+metadata, and handler requirements. Build-only fields such as `appRootPath` stay
+in the definitions project on the generator classpath.
+
+Supply an application access handler explicitly. Public applications return
 `AccessDecision.Allow`:
 
 ```kotlin
+import com.sparouting.examples.generated.routes.BlogManifest
 import com.sparouting.contract.AccessDecision
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 
-class CheckBlogAccess : ApplicationAccessHandler(BlogApplication) {
+class CheckBlogAccess(manifest: BlogManifest) : ApplicationAccessHandler(manifest) {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 
+val blogManifest = BlogManifest()
 val config = object : SinglePageApplicationConfig {
-  override val application = BlogApplication
+  override val manifest = blogManifest
 }
+val applicationHandler = CheckBlogAccess(blogManifest)
 ```
 
 An adapter or dependency injection container assembles the runtime once:
@@ -67,7 +76,7 @@ for applications with no routes, and rejects handlers for unknown applications.
 It also rejects missing, duplicate, unknown-route, and unflagged-route handlers.
 Spring collects both handler types and performs this wiring through its starter.
 
-Each `SinglePageApplicationRouteRegistration` contains the config, route definition,
+Each `SinglePageApplicationRouteRegistration` contains the config, route manifest,
 required `applicationAccessHandler`, and optional `routeAccessHandler`.
 The evaluator's `evaluate(request)` method retrieves this registration in one
 lookup. It owns no separate handler map and invokes the application handler first.
@@ -78,7 +87,7 @@ target. The evaluator returns that decision; `RouteResponseService` resolves
 redirects and constructs response data.
 
 `ApplicationAccessHandler` is an abstract class whose constructor takes the
-application definition it protects. Register implementations through your DI
+application manifest it protects. Register implementations through your DI
 container, separately from application configs. Application handlers receive
 the framework-neutral `RouteRequest`. Typed route handlers continue receiving
 their generated request models. Both return core's
@@ -97,6 +106,10 @@ Use `RouteResponseService` as the entry point for both kinds of request:
 - A client navigation check calls `evaluate(RouteResponseRequest)`. The runtime
   resolves the target route and builds its GET request. Pass headers from the
   actual client request.
+
+Route paths in the manifest already include the application prefix. Adapters
+register `route.path` directly; `route.resolvePath(parameters)` substitutes path
+values for navigation and redirects.
 
 Both look up the route, validate path and declared query values, then run the
 application and route access checks in order. Unknown routes return `404`.
@@ -132,7 +145,9 @@ val html = HtmlDocumentRenderer(
 ).render(config)
 ```
 
-`SinglePageApplicationConfig` contains the application definition; access handlers are registered separately.
+`SinglePageApplicationConfig` exposes only `manifest`. Read application metadata
+directly from it: `config.manifest.id`, `.name`, `.bundleName`, and `.routes`.
+Access handlers are registered separately.
 Spring applications with a per-application `ServerResponse` override use
 `SpringSinglePageApplicationConfig`; global HTTP rendering remains a Spring
 `HtmlRenderer` bean. See the [Spring guide](spring-boot-client-apps.md#render-html).

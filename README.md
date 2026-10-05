@@ -3,7 +3,7 @@
 `spa-routing` lets a Kotlin server and a TypeScript SPA share one route definition source. You define your SPA routes once in Kotlin, then generate:
 
 - typed TypeScript route builders for the client
-- typed Kotlin route objects for the server
+- typed Kotlin route objects and application manifests for the server
 - bundle entry metadata for webpack or Vite
 
 ## Modules
@@ -38,18 +38,16 @@ plugins {
 
 dependencies {
   implementation("io.github.caseymcguire:spa-routing-core:0.3.0")
-  implementation(project(":spa-route-definitions"))
 }
 ```
 
-The `:spa-route-definitions` project is your app-owned module containing concrete `SinglePageApplicationDefinition` objects. The plugin needs that project on the generator classpath because route discovery loads those objects at runtime.
+The `:spa-route-definitions` project contains your authored `SinglePageApplicationDefinition` objects. Configure it through `routeDefinitions.projectPath`; the plugin uses its compiled classes on the generator classpath. The server consumes generated manifests and does not need an implementation dependency on the definitions project.
 
 For Spring Boot route serving:
 
 ```kotlin
 dependencies {
   implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.3.0")
-  implementation(project(":spa-route-definitions"))
 }
 ```
 
@@ -265,6 +263,19 @@ If discovery fails to find or load route definitions, check that:
 
 Do not point generation only at `spa-routing-core`; the generators need the compiled app-specific route definition classes too.
 
+## Generated Server Manifests
+
+`generateServerRoutes` also emits a concrete `<ApplicationName>Manifest` class,
+for example `AccountManifest`, next to `AccountRoutes`. It implements
+`com.sparouting.contract.SinglePageApplicationManifest` and contains the application
+ID, display name, bundle name, and `List<RouteManifest>`. Each route includes its
+full path pattern, path/query parameter metadata, and `hasAccessHandler` flag.
+
+Manifests contain literal runtime metadata and depend only on core contracts.
+`SinglePageApplicationDefinition`, `RouteDefinition`, and build-only fields such
+as `appRootPath` stay in the generation step. Register the generated manifest
+with your DI container and inject it into runtime configs and application handlers.
+
 ## Spring Boot Runtime
 
 The Spring Boot starter serves configured SPA routes from app-provided
@@ -275,6 +286,7 @@ For complete setup, see [docs/spring-boot-client-apps.md](docs/spring-boot-clien
 A public application explicitly allows access:
 
 ```kotlin
+import com.example.generated.spa.routes.AccountManifest
 import com.sparouting.contract.AccessDecision
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
@@ -286,15 +298,18 @@ import org.springframework.stereotype.Component
 @Configuration
 class RoutesConfiguration {
   @Bean
-  fun accountConfig(): SinglePageApplicationConfig {
+  fun accountManifest(): AccountManifest = AccountManifest()
+
+  @Bean
+  fun accountConfig(accountManifest: AccountManifest): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
-      override val application = AccountApplication
+      override val manifest = accountManifest
     }
   }
 }
 
 @Component
-class CheckAccountAccess : ApplicationAccessHandler(AccountApplication) {
+class CheckAccountAccess(manifest: AccountManifest) : ApplicationAccessHandler(manifest) {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 ```
@@ -305,9 +320,10 @@ to redirect to a registered route. A route without a handler is served once
 the application allows access. Every configured application requires exactly
 one application handler; missing or duplicate handlers fail startup.
 
-For application-specific checks, extend `ApplicationAccessHandler(ApplicationDefinition)`
+For application-specific checks, extend `ApplicationAccessHandler(manifest)`
 as a Spring component. The blog demonstrates this with its public
-`CheckBlogAccess : ApplicationAccessHandler(BlogApplication)` component.
+`CheckBlogAccess` component, which receives the generated `BlogManifest` through
+constructor injection. The config and handler share that manifest bean.
 The config contains no handler wiring. Spring collects both kinds of handler
 and injects them into the registry, which binds them to applications and routes.
 The handler receives a `RouteRequest` containing the application and route IDs, request metadata, and
@@ -332,15 +348,16 @@ Override the default HTML page for one SPA, keeping its application handler
 registered separately:
 
 ```kotlin
+import com.example.generated.spa.routes.AccountManifest
 import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
 import org.springframework.web.servlet.function.ServerResponse
 
 @Bean
-fun accountConfig(): SpringSinglePageApplicationConfig {
+fun accountConfig(accountManifest: AccountManifest): SpringSinglePageApplicationConfig {
   return object : SpringSinglePageApplicationConfig {
-    override val application = AccountApplication
+    override val manifest = accountManifest
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()

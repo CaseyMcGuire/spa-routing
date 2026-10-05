@@ -1,30 +1,28 @@
 package io.github.caseymcguire.sparouting.spring.testsupport
 
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.RouteDefinition
-import com.sparouting.contract.SinglePageApplicationDefinition
+import com.sparouting.contract.RouteManifest
+import com.sparouting.contract.SinglePageApplicationManifest
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 
-internal data class TestSinglePageApplicationDefinition(
+internal data class TestSinglePageApplicationManifest(
   override val id: String = "test",
   override val name: String = "Test",
-  override val urlPrefix: String = id,
-  override val appRootPath: String = "src/main/web-frontend/apps/$id",
-  override val routes: List<RouteDefinition>,
+  override val routes: List<RouteManifest>,
   override val bundleName: String = id
-) : SinglePageApplicationDefinition
+) : SinglePageApplicationManifest
 
 internal data class TestSinglePageApplicationConfig(
-  override val application: SinglePageApplicationDefinition
+  override val manifest: SinglePageApplicationManifest
 ) : SinglePageApplicationConfig
 
 internal fun applicationAccessHandler(
-  application: SinglePageApplicationDefinition,
+  manifest: SinglePageApplicationManifest,
   evaluateAccess: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
 ): ApplicationAccessHandler {
-  return object : ApplicationAccessHandler(application) {
+  return object : ApplicationAccessHandler(manifest) {
     override fun evaluate(request: RouteRequest): AccessDecision = evaluateAccess(request)
   }
 }

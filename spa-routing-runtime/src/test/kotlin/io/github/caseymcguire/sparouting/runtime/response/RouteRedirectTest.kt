@@ -2,12 +2,12 @@ package io.github.caseymcguire.sparouting.runtime.response
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
-import com.sparouting.contract.route
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -48,11 +48,11 @@ class RouteRedirectTest {
 
   private fun redirect(target: RouteTarget): RouteHttpResponse {
     val config = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(
-        routes = listOf(route("users/{id}", "UserDetail"))
+      manifest = TestSinglePageApplicationManifest(
+        routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))
       )
     )
-    val handler = applicationAccessHandler(config.application) { AccessDecision.Redirect(target) }
+    val handler = applicationAccessHandler(config.manifest) { AccessDecision.Redirect(target) }
     val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
     return RouteResponseService(registry, RouteAccessEvaluator(registry)).evaluate(
       RouteResponseRequest("test", "UserDetail", mapOf("id" to "42"))

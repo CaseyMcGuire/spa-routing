@@ -6,13 +6,13 @@ import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
-import com.sparouting.contract.route
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -105,12 +105,12 @@ class RouteEvaluationTest {
     val applicationRequests = mutableListOf<RouteRequest>()
     val handlerRequests = mutableListOf<RouteAccessContext>()
     private val config = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(routes = listOf(
-        route("posts/{id}", "Post", queryString = listOf(parameter("view").optional()), generateAccessHandler = true),
-        route("missing", "Missing", queryString = listOf(parameter("from")))
+      manifest = TestSinglePageApplicationManifest(routes = listOf(
+        RouteManifest("/test/posts/{id}", "Post", queryString = listOf(parameter("view").optional()), hasAccessHandler = true),
+        RouteManifest("/test/missing", "Missing", queryString = listOf(parameter("from")))
       ))
     )
-    private val applicationHandler = applicationAccessHandler(config.application) { request ->
+    private val applicationHandler = applicationAccessHandler(config.manifest) { request ->
       applicationRequests.add(request)
       applicationDecision
     }

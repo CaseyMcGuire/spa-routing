@@ -2,23 +2,23 @@ package io.github.caseymcguire.sparouting.runtime.response
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
-import com.sparouting.contract.route
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class RouteResponseServiceTest {
   private val config = TestSinglePageApplicationConfig(
-    application = TestSinglePageApplicationDefinition(
-      routes = listOf(route("users/{id}", "UserDetail"), route("login", "Login"))
+    manifest = TestSinglePageApplicationManifest(
+      routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"), RouteManifest("/test/login", "Login"))
     )
   )
-  private val applicationHandler = applicationAccessHandler(config.application) { request ->
+  private val applicationHandler = applicationAccessHandler(config.manifest) { request ->
     if (request.routeId == "Login") {
       AccessDecision.Allow
     } else {
@@ -58,7 +58,7 @@ class RouteResponseServiceTest {
   @Test
   fun `query parameters are included in application access request`() {
     val requests = mutableListOf<RouteRequest>()
-    val handler = applicationAccessHandler(config.application) { request ->
+    val handler = applicationAccessHandler(config.manifest) { request ->
       requests.add(request)
       AccessDecision.Allow
     }
@@ -80,16 +80,16 @@ class RouteResponseServiceTest {
   fun `each application uses its own handler for both entry points`() {
     val applicationsChecked = mutableListOf<String>()
     val publicConfig = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(id = "public", routes = listOf(route("", "Index")))
+      manifest = TestSinglePageApplicationManifest(id = "public", routes = listOf(RouteManifest("/public", "Index")))
     )
     val privateConfig = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(id = "private", routes = listOf(route("", "Index")))
+      manifest = TestSinglePageApplicationManifest(id = "private", routes = listOf(RouteManifest("/private", "Index")))
     )
-    val publicHandler = applicationAccessHandler(publicConfig.application) { request ->
+    val publicHandler = applicationAccessHandler(publicConfig.manifest) { request ->
       applicationsChecked.add(request.applicationId)
       AccessDecision.Allow
     }
-    val privateHandler = applicationAccessHandler(privateConfig.application) { request ->
+    val privateHandler = applicationAccessHandler(privateConfig.manifest) { request ->
       applicationsChecked.add(request.applicationId)
       AccessDecision.Redirect(RouteTarget("public", "Index"))
     }

@@ -1,5 +1,6 @@
 package com.sparouting.contract.codegen
 
+import com.sparouting.contract.SinglePageApplicationManifest
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import java.io.ByteArrayOutputStream
@@ -14,8 +15,61 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class GeneratedQueryApiTest {
+  @Test
+  fun `generated manifests compile and run without authored definitions`() = withGeneratedRoutes { output ->
+    val sources = Files.list(output.resolve("server")).use { files ->
+      files.filter { it.fileName.toString().endsWith("Manifest.kt") }.toList()
+    }
+    val classes = output.resolve("manifest-classes")
+    val contractClasspath = listOf(SinglePageApplicationManifest::class.java, Unit::class.java)
+      .map { Path.of(it.protectionDomain.codeSource.location.toURI()).toString() }
+      .joinToString(java.io.File.pathSeparator)
+    val (result, diagnostics) = compileKotlin(sources, classes, baseClasspath = contractClasspath)
+    assertEquals(ExitCode.OK, result, diagnostics)
+
+    val parent = object : ClassLoader(javaClass.classLoader) {
+      override fun loadClass(name: String, resolve: Boolean): Class<*> {
+        if (name.startsWith("com.sparouting.contract.codegen.") ||
+          name == "com.sparouting.contract.SinglePageApplicationDefinition" ||
+          name == "com.sparouting.contract.RouteDefinition") {
+          throw ClassNotFoundException(name)
+        }
+        return super.loadClass(name, resolve)
+      }
+    }
+    URLClassLoader(arrayOf(classes.toUri().toURL()), parent).use { loader ->
+      fun manifest(name: String): SinglePageApplicationManifest =
+        loader.loadClass("generated.$name").getConstructor().newInstance() as SinglePageApplicationManifest
+
+      val root = manifest("ManifestTestManifest")
+      assertEquals("manifesttest", root.id)
+      assertEquals("Manifest Test", root.name)
+      assertEquals("custom-assets", root.bundleName)
+      assertEquals("/", root.routes.single { it.id == "Index" }.path)
+      val post = root.routes.single { it.id == "Post" }
+      assertEquals("/posts/{postId}", post.path)
+      assertTrue(post.hasAccessHandler)
+      assertFalse(post.hasValidParameterValues(emptyMap()))
+      assertTrue(post.hasValidParameterValues(mapOf("postId" to "42")))
+      assertFalse(post.hasValidQueryStringValues(emptyMap()))
+      assertEquals("tag=a+b&tag=%E9%9B%AA", post.resolveQueryString(mapOf("tag" to listOf("a b", "雪"))))
+      assertEquals("/posts/42", post.resolvePath(mapOf("postId" to "42")))
+
+      val access = manifest("AccessTestManifest")
+      assertEquals("/access/posts/{postId}", access.routes.single { it.id == "Post" }.path)
+      assertTrue(access.routes.single { it.id == "Optional" }.parameters.single().optional)
+      assertFalse(access.routes.single { it.id == "Public" }.hasAccessHandler)
+      assertTrue(access.routes.single { it.id == "Post" }.queryString.single { it.name == "filter" }.repeated)
+      val special = manifest("QueryTestManifest").routes.single { it.id == "Special" }
+      assertTrue(special.queryString.any { it.name == "a\"$\n" && it.optional })
+      assertEquals("/collision", manifest("RouteManifest").routes.single().path)
+      assertTrue(manifest("SinglePageApplicationManifest").routes.isEmpty())
+    }
+  }
+
   @Test
   fun `generated access handlers compile decode typed requests and reject wrong request types`() = withGeneratedRoutes { output ->
     assertFalse(Files.exists(output.resolve("server/accesstest/PublicAccessHandler.kt")))
@@ -106,10 +160,11 @@ class GeneratedQueryApiTest {
   private fun compileKotlin(
     sources: List<Path>,
     destination: Path,
-    additionalClasspath: Path? = null
+    additionalClasspath: Path? = null,
+    baseClasspath: String = System.getProperty("test.runtime.classpath")
   ): Pair<ExitCode, String> {
     val diagnostics = ByteArrayOutputStream()
-    val classpath = listOfNotNull(System.getProperty("test.runtime.classpath"), additionalClasspath?.toString())
+    val classpath = listOfNotNull(baseClasspath, additionalClasspath?.toString())
       .joinToString(java.io.File.pathSeparator)
     val arguments = listOf("-no-stdlib", "-no-reflect", "-jvm-target", "21", "-classpath", classpath, "-d", destination.toString()) +
       sources.map { it.toString() }

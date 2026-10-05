@@ -35,6 +35,10 @@ internal fun generateServerRoutes() {
         outputDirectory.resolve("${application.routesObjectName()}.kt"),
         application.toKotlinRoutesObjectFile()
       )
+      Files.writeString(
+        outputDirectory.resolve("${application.manifestClassName()}.kt"),
+        application.toKotlinManifestFile()
+      )
 
       val routeOutputDirectory = outputDirectory.resolve(application.routePackagePath())
       routeOutputDirectory.createDirectories()
@@ -90,6 +94,43 @@ private fun SinglePageApplicationDefinition.toKotlinRoutesObjectFile(): String {
       appendLine("  val ${route.id} = ${route.id}Route")
     }
     appendLine("}")
+  }
+}
+
+private fun SinglePageApplicationDefinition.manifestClassName(): String = "${name.withoutWhitespace()}Manifest"
+
+private fun SinglePageApplicationDefinition.toKotlinManifestFile(): String {
+  val className = manifestClassName()
+  fun typeName(name: String): String = if (name == className) "com.sparouting.contract.$name" else name
+  return buildString {
+    appendGeneratedFileHeader(
+      generatedPackage(),
+      listOf("SinglePageApplicationManifest", "RouteManifest", "RouteParameter")
+        .filter { it != className }
+        .map { "com.sparouting.contract.$it" }
+    )
+    appendLine("class $className : ${typeName("SinglePageApplicationManifest")} {")
+    appendLine("  override val id: String = ${id.toKotlinStringLiteral()}")
+    appendLine("  override val name: String = ${name.toKotlinStringLiteral()}")
+    appendLine("  override val bundleName: String = ${bundleName.toKotlinStringLiteral()}")
+    appendLine("  override val routes: List<${typeName("RouteManifest")}> = listOf(")
+    routes.forEach { route ->
+      appendLine("    ${typeName("RouteManifest")}(")
+      appendLine("      path = ${getFullPathPattern(route).toKotlinStringLiteral()},")
+      appendLine("      id = ${route.id.toKotlinStringLiteral()},")
+      appendLine("      parameters = ${route.parameters.toKotlinManifestParameters()},")
+      appendLine("      queryString = ${route.queryString.toKotlinManifestParameters()},")
+      appendLine("      hasAccessHandler = ${route.generateAccessHandler}")
+      appendLine("    ),")
+    }
+    appendLine("  )")
+    appendLine("}")
+  }
+}
+
+private fun List<RouteParameter>.toKotlinManifestParameters(): String {
+  return joinToString(prefix = "listOf(", postfix = ")") { parameter ->
+    "RouteParameter(${parameter.name.toKotlinStringLiteral()}, optional = ${parameter.optional}, repeated = ${parameter.repeated})"
   }
 }
 

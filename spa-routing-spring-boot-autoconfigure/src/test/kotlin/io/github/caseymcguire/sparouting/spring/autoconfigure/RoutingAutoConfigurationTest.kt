@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
-import com.sparouting.contract.route
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
@@ -12,7 +12,7 @@ import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.request.RouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationManifest
 import io.github.caseymcguire.sparouting.spring.testsupport.applicationAccessHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -116,13 +116,13 @@ class RoutingAutoConfigurationTest {
 
   @Configuration(proxyBeanMethods = false)
   class TestRouteConfiguration {
-    private val application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home")))
+    private val manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test/home", "Home")))
 
     @Bean
-    fun testApplicationAccessHandler(): ApplicationAccessHandler = applicationAccessHandler(application)
+    fun testApplicationAccessHandler(): ApplicationAccessHandler = applicationAccessHandler(manifest)
 
     @Bean
-    fun testApplicationConfig(): SinglePageApplicationConfig = TestSinglePageApplicationConfig(application)
+    fun testApplicationConfig(): SinglePageApplicationConfig = TestSinglePageApplicationConfig(manifest)
   }
 
   @Configuration(proxyBeanMethods = false)
@@ -151,9 +151,9 @@ class RoutingAutoConfigurationTest {
     override fun create(
       serverRequest: org.springframework.web.servlet.function.ServerRequest,
       application: SinglePageApplicationConfig,
-      route: com.sparouting.contract.RouteDefinition
+      route: com.sparouting.contract.RouteManifest
     ): RouteRequest {
-      return RouteRequest(application.applicationId, route.id, serverRequest.method().name(), serverRequest.path())
+      return RouteRequest(application.manifest.id, route.id, serverRequest.method().name(), serverRequest.path())
     }
   }
 }

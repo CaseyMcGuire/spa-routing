@@ -42,13 +42,14 @@ allows access to the public blog:
 
 ```kotlin
 @Component
-class CheckBlogAccess : ApplicationAccessHandler(BlogApplication) {
+class CheckBlogAccess(manifest: BlogManifest) : ApplicationAccessHandler(manifest) {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 ```
 
-The registry binds this component to the blog by application ID. The config
-contains only `override val application = BlogApplication`. Missing or duplicate
+`ExampleConfiguration` registers the generated `BlogManifest` as a bean.
+Spring injects that same bean into the config (`override val manifest = blogManifest`)
+and `CheckBlogAccess`. The registry binds the handler by manifest ID. Missing or duplicate
 application handlers fail startup. `CheckBlogAccess` runs before either post handler. Applications that restrict access
 can inject their permission service into this component and return a typed
 `AccessDecision.Redirect` when the user cannot view the application.
@@ -113,7 +114,14 @@ Use the tasks below to generate both server and client routes explicitly.
 ./gradlew :examples:spring:generateServerRoutes :examples:spring:generateClientRoutes
 ```
 
-Server output is in `spring/build/generated/source/spaRoutes/main`. Client
+Server output is in `spring/build/generated/source/spaRoutes/main`, including
+`BlogManifest.kt` next to `BlogRoutes.kt`. The manifest contains the application
+ID, display/bundle names, full route paths, parameter metadata, and handler flags.
+It depends only on runtime contracts, with no reference to `BlogApplication`.
+
+The `routeCodegen` Gradle configuration contains the definitions project and is
+used only by generator tasks. The server compiles and runs using generated
+classes; the definitions project is absent from its runtime classpath. Client
 output is in `spring/build/generated/client/routes/BlogRoutes.ts`.
 
 Generated Kotlin route objects extend `com.sparouting.contract.Route` and

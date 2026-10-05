@@ -4,10 +4,40 @@
 
 ### Breaking changes
 
+- **Server configuration now consumes generated manifests instead of authoring definitions.**
+  `generateServerRoutes` emits `<ApplicationName>Manifest` alongside the route
+  builders. These concrete, framework-neutral classes implement core's
+  `SinglePageApplicationManifest` and contain application identity, display and
+  bundle names, and `List<RouteManifest>` with full path patterns, parameter
+  metadata, and `hasAccessHandler` flags.
+
+  Replace `SinglePageApplicationConfig.application` with `manifest`, and register
+  the generated manifest with your DI container. Inject it into both the config
+  and `ApplicationAccessHandler(manifest)`. The handler's identity property is
+  now `manifest` as well. Configs expose only `manifest`; read `routes`, `name`,
+  `bundleName`, and `id` directly from it instead of the former config properties
+  (`applicationId` becomes `manifest.id`). Runtime configs no longer expose `urlPrefix`,
+  `appRootPath`, `getFullPathPattern`, or `getFullPathPatterns`; use `route.path`
+  and `route.resolvePath(parameters)`. Registration and request-factory route
+  arguments now use `RouteManifest`, not `RouteDefinition`.
+
+  Keep `SinglePageApplicationDefinition` and `RouteDefinition` in the generation
+  step. The definitions project is no longer an implementation dependency of
+  the server; configure it through the plugin's `routeDefinitions.projectPath`
+  or a dedicated generator classpath. Core still contains the authoring contracts
+  and generators, but neither generated manifests nor the runtime reference
+  definition types. Runtime validation checks manifest identities and paths;
+  authoring and generated-name validation remains in code generation.
+
+  Regenerate server sources and update custom runtime wiring and request
+  factories. Parameter validation, query encoding, redirects, and access-check
+  order are unchanged. The Spring blog now registers `BlogManifest` as a bean
+  and has no runtime dependency on `examples:route-definitions`.
+
 - **Access handlers are registered independently of application configs.**
   `ApplicationAccessHandler` is now an abstract class taking the protected
-  `SinglePageApplicationDefinition` in its constructor. Extend it with, for
-  example, `CheckBlogAccess : ApplicationAccessHandler(BlogApplication)`.
+  `SinglePageApplicationManifest` in its constructor. Extend it with, for
+  example, `CheckBlogAccess(manifest: BlogManifest) : ApplicationAccessHandler(manifest)`.
   `SinglePageApplicationConfig.accessHandler` is removed. Register application
   handlers as standalone beans, just like route handlers; the previous lambda
   interface and config wiring are no longer supported.
@@ -23,7 +53,7 @@
   and injects both handler lists into the registry automatically.
 
 - **Application rule lists are replaced by one required application access handler.**
-  Extend `runtime.access.ApplicationAccessHandler(ApplicationDefinition)` and
+  Extend `runtime.access.ApplicationAccessHandler(manifest)` and
   implement `evaluate(RouteRequest)`. Register one implementation per application.
   Public applications must explicitly return `AccessDecision.Allow`.
 
@@ -189,16 +219,16 @@
   are unchanged.
 
 - **`getFullUrl` was replaced by `getFullPathPattern`.**
-  `SinglePageApplicationDefinition` and `SinglePageApplicationConfig` now expose
+  `SinglePageApplicationDefinition` exposes
   `getFullPathPattern(route)`, taking a `RouteDefinition` and returning its
   prefixed path pattern with parameter placeholders intact. The string overload
   was removed. Parameter substitution is handled separately by `resolvePath`.
 
   Migration: replace `getFullUrl(route)` or `getFullUrl(route.path)` with
   `getFullPathPattern(route)`, and `getFullUrl(route.resolvePath(values))` with
-  `route.resolvePath(getFullPathPattern(route), values)`. On
-  `SinglePageApplicationConfig`, `getFullUrls()` was renamed to
-  `getFullPathPatterns()`. Query-string handling is unchanged.
+  `route.resolvePath(getFullPathPattern(route), values)`. Runtime configs now use
+  manifests instead, so replace their former URL helpers with `RouteManifest.path`
+  or `RouteManifest.resolvePath(values)`. Query-string handling is unchanged.
 
 - **Regenerate server routes after upgrading.** `Route` no longer
   supplies an inherited zero-argument `invoke()`. The generator now emits each

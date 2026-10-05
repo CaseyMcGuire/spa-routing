@@ -31,10 +31,10 @@ open class RouteResponseService @JvmOverloads constructor(
       routeId = request.routeId
     ) ?: return RouteHttpResponse.notFound()
     val routeRequest = RouteRequest(
-      applicationId = match.application.applicationId,
+      applicationId = match.application.manifest.id,
       routeId = match.route.id,
       method = "GET",
-      path = match.route.resolvePath(match.application.getFullPathPattern(match.route), request.parameters),
+      path = match.route.resolvePath(request.parameters),
       pathParameters = request.parameters,
       queryString = request.queryString,
       headers = request.headers
@@ -69,7 +69,7 @@ open class RouteResponseService @JvmOverloads constructor(
       "Invalid parameters for SPA route target ${target.applicationId}:${target.routeId}"
     }
 
-    val path = match.route.resolvePath(match.application.getFullPathPattern(match.route), target.parameters)
+    val path = match.route.resolvePath(target.parameters)
     val query = match.route.resolveQueryString(target.queryString)
     return RouteHttpResponse.found(if (query.isEmpty()) path else "$path?$query")
   }

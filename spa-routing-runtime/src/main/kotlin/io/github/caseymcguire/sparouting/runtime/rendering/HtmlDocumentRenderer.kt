@@ -8,9 +8,10 @@ class HtmlDocumentRenderer(
 ) {
   /** Build the HTML document; adapters choose how to write it to their response. */
   fun render(application: SinglePageApplicationConfig): String {
+    val manifest = application.manifest
     val bundleBasePath = options.bundleBasePath.trimEnd('/')
-    val routeStylesheet = "$bundleBasePath/${application.bundleName}.css"
-    val bundleScript = "$bundleBasePath/${application.bundleName}.bundle.js"
+    val routeStylesheet = "$bundleBasePath/${manifest.bundleName}.css"
+    val bundleScript = "$bundleBasePath/${manifest.bundleName}.bundle.js"
 
     return buildString {
       appendLine("<!doctype html>")
@@ -18,7 +19,7 @@ class HtmlDocumentRenderer(
       appendLine("<head>")
       appendLine("  <meta charset=\"utf-8\">")
       appendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
-      appendLine("  <title>${application.name.escapeHtml()}</title>")
+      appendLine("  <title>${manifest.name.escapeHtml()}</title>")
       options.globalStylesheet?.let { stylesheet ->
         appendLine("  <link rel=\"stylesheet\" href=\"${stylesheet.escapeHtmlAttribute()}\">")
       }

@@ -2,7 +2,7 @@ package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
-import com.sparouting.contract.route
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
@@ -14,7 +14,7 @@ import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.assertFalse
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.MockMvc
@@ -27,7 +27,7 @@ class RouterFunctionFactoryTest {
   fun `known route returns html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail")))
+        manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test/users/{id}", "UserDetail")))
       )
     )
 
@@ -44,7 +44,7 @@ class RouterFunctionFactoryTest {
   fun `missing path segment returns not found`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail")))
+        manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test/users/{id}", "UserDetail")))
       )
     )
 
@@ -58,7 +58,7 @@ class RouterFunctionFactoryTest {
   fun `application redirect returns response instead of html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"), route("login", "Login")))
+        manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test/admin", "Admin"), RouteManifest("/test/login", "Login")))
       ),
       evaluateApplication = { AccessDecision.Redirect(RouteTarget("test", "Login")) }
     )
@@ -74,7 +74,7 @@ class RouterFunctionFactoryTest {
   fun `unflagged route still checks application access`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("settings", "Settings"), route("login", "Login")))
+        manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test/settings", "Settings"), RouteManifest("/test/login", "Login")))
       ),
       evaluateApplication = { AccessDecision.Redirect(RouteTarget("test", "Login")) }
     )
@@ -89,7 +89,7 @@ class RouterFunctionFactoryTest {
   @Test
   fun `spring config can render an application-specific response after access is allowed`() {
     val config = object : SpringSinglePageApplicationConfig {
-      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
+      override val manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test", "Index")))
 
       override fun renderHtml(): ServerResponse = ServerResponse.ok().body("Custom HTML")
     }
@@ -104,7 +104,7 @@ class RouterFunctionFactoryTest {
   fun `application-specific rendering is skipped when the application redirects`() {
     var rendered = false
     val config = object : SpringSinglePageApplicationConfig {
-      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index"), route("login", "Login")))
+      override val manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test", "Index"), RouteManifest("/test/login", "Login")))
       override fun renderHtml(): ServerResponse {
         rendered = true
         return ServerResponse.ok().body("Custom HTML")
@@ -119,7 +119,7 @@ class RouterFunctionFactoryTest {
   @Test
   fun `spring config without a rendering override uses the default renderer`() {
     val config = object : SpringSinglePageApplicationConfig {
-      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
+      override val manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test", "Index")))
     }
 
     mockMvc(config).get("/test").andExpect {
@@ -134,7 +134,7 @@ class RouterFunctionFactoryTest {
     evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
   ): MockMvc {
     val registry = SinglePageApplicationRouteRegistry(
-      listOf(config), listOf(applicationAccessHandler(config.application, evaluateApplication))
+      listOf(config), listOf(applicationAccessHandler(config.manifest, evaluateApplication))
     )
     return MockMvcBuilders.routerFunctions(
       RouterFunctionFactory(

@@ -1,6 +1,6 @@
 package io.github.caseymcguire.sparouting.spring.web
 
-import com.sparouting.contract.RouteDefinition
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
 import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
@@ -21,8 +21,8 @@ class RouterFunctionFactory(
   fun routes(): RouterFunction<ServerResponse> {
     return router {
       routeConfigs.forEach { config ->
-        config.routes.forEach { route ->
-          GET(config.getFullPathPattern(route)) { request ->
+        config.manifest.routes.forEach { route ->
+          GET(route.path) { request ->
             handleSinglePageApplicationRoute(config, route, request)
           }
         }
@@ -32,7 +32,7 @@ class RouterFunctionFactory(
 
   private fun handleSinglePageApplicationRoute(
     config: SinglePageApplicationConfig,
-    route: RouteDefinition,
+    route: RouteManifest,
     request: ServerRequest
   ): ServerResponse {
     val response = routeResponseService.evaluate(requestFactory.create(request, config, route))

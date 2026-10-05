@@ -5,10 +5,10 @@ import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteTarget
-import com.sparouting.contract.route
+import com.sparouting.contract.RouteManifest
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.testsupport.testRequest
@@ -67,14 +67,14 @@ class RouteAccessEvaluatorTest {
   fun `unflagged routes use their own application handler even when route IDs match`() {
     val redirect = AccessDecision.Redirect(destination)
     val publicConfig = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(id = "public", routes = listOf(route("route", "Route")))
+      manifest = TestSinglePageApplicationManifest(id = "public", routes = listOf(RouteManifest("/public/route", "Route")))
     )
     val privateConfig = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(id = "private", routes = listOf(route("route", "Route")))
+      manifest = TestSinglePageApplicationManifest(id = "private", routes = listOf(RouteManifest("/private/route", "Route")))
     )
     val registry = SinglePageApplicationRouteRegistry(
       listOf(publicConfig, privateConfig),
-      listOf(applicationAccessHandler(privateConfig.application) { redirect }, applicationAccessHandler(publicConfig.application))
+      listOf(applicationAccessHandler(privateConfig.manifest) { redirect }, applicationAccessHandler(publicConfig.manifest))
     )
     val evaluator = RouteAccessEvaluator(registry)
 
@@ -102,8 +102,8 @@ class RouteAccessEvaluatorTest {
     evaluateRoute: (RouteAccessContext) -> AccessDecision
   ): RouteAccessEvaluator {
     val config = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(
-        routes = listOf(route("route", "Route", generateAccessHandler = true))
+      manifest = TestSinglePageApplicationManifest(
+        routes = listOf(RouteManifest("/test/route", "Route", hasAccessHandler = true))
       )
     )
     val handler = object : RouteAccessHandler<RouteAccessContext>(Route("test", "Route")) {
@@ -113,7 +113,7 @@ class RouteAccessEvaluatorTest {
     }
     return RouteAccessEvaluator(SinglePageApplicationRouteRegistry(
       routeConfigs = listOf(config),
-      applicationHandlers = listOf(applicationAccessHandler(config.application, evaluateApplication)),
+      applicationHandlers = listOf(applicationAccessHandler(config.manifest, evaluateApplication)),
       routeHandlers = listOf(handler)
     ))
   }

@@ -1,6 +1,6 @@
 package com.sparouting.contract
 
-/** Shared application metadata and route declarations used by code generation and server setup. */
+/** Authored application metadata and route declarations used as input to code generation. */
 interface SinglePageApplicationDefinition {
   /** Unique identifier for this single page application.  */
   val id: String
