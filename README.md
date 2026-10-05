@@ -11,21 +11,25 @@
 - `spa-routing-core`: route, application, and access contracts plus generators
 - `spa-routing-gradle-plugin`: Gradle integration for code generation
 - `spa-routing-runtime`: framework-neutral registration, validation, access evaluation, redirect resolution, and HTML generation
+- `spa-routing-ktor`: Ktor route registration, request conversion, and HTTP responses
 - `spa-routing-spring-boot-autoconfigure` / `-starter`: Spring MVC adapters, properties, and bean wiring
 
-The runtime depends on core and has no Spring dependency. See the
-[runtime guide](docs/runtime.md) for using it from another server framework.
+The runtime depends on core and has no framework dependency. See the
+[runtime guide](docs/runtime.md) and [Ktor setup](docs/ktor.md).
 
 ## Runnable Examples
 
-The [examples](examples/README.md) include a Spring Boot application using the
-local library projects and shared Kotlin route definitions:
+The [examples](examples/README.md) run the same blog on Spring Boot or Ktor,
+sharing service logic, access handlers, generated routes, and a React frontend:
 
 ```sh
 ./gradlew :examples:spring:run
+# Or run Ktor:
+./gradlew :examples:ktor:run
 ```
 
-Then open [http://localhost:8080/](http://localhost:8080/).
+Open [http://localhost:8080/](http://localhost:8080/) for Spring or
+[http://localhost:8082/](http://localhost:8082/) for Ktor.
 
 ## Install
 
@@ -394,13 +398,14 @@ spa-routing:
     global-stylesheet: /bundles/stylex.css
 ```
 
-Override these beans to customize runtime behavior:
+Override these beans to customize rendering and page request conversion:
 
 - `HtmlRenderer`
-- `RouteAccessEvaluator`
 - `RouteRequestFactory`
-- `SinglePageApplicationRouteRegistry`
-- `RouteResponseService`
+
+The adapters construct the runtime service internally from application configs.
+Configure access through application and route handlers; the registry and evaluator
+are internal implementation details.
 
 ## Development
 

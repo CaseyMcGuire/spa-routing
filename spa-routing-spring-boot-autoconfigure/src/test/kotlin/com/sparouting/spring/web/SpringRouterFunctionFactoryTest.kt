@@ -3,9 +3,7 @@ package com.sparouting.spring.web
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.config.SpringSinglePageApplicationConfig
@@ -129,15 +127,11 @@ class SpringRouterFunctionFactoryTest {
     config: SinglePageApplicationConfig,
     properties: RoutingProperties = RoutingProperties()
   ): MockMvc {
-    val registry = SinglePageApplicationRouteRegistry(
-      listOf(config)
-    )
     return MockMvcBuilders.routerFunctions(
       SpringRouterFunctionFactory(
         routeConfigs = listOf(config),
         routeResponseService = RouteResponseService(
-          routeRegistry = registry,
-          accessEvaluator = RouteAccessEvaluator(registry),
+          configs = listOf(config),
           invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
           invalidQueryStringStatus = properties.server.invalidQueryStringStatus
         ),

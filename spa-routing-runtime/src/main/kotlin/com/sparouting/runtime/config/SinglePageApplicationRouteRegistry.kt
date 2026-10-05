@@ -4,7 +4,7 @@ import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.SinglePageApplicationConfig
 
 /** Registers routes with their application and optional route access handlers. */
-open class SinglePageApplicationRouteRegistry(
+internal class SinglePageApplicationRouteRegistry(
   routeConfigs: List<SinglePageApplicationConfig>
 ) {
   private val registrations: List<SinglePageApplicationRouteRegistration>
@@ -29,14 +29,14 @@ open class SinglePageApplicationRouteRegistry(
     routesByKey = registrations.associateByUnique { RouteKey(it.application.id, it.route.id) }
   }
 
-  open fun findByApplicationAndRouteId(
+  fun findByApplicationAndRouteId(
     applicationId: String,
     routeId: String
   ): SinglePageApplicationRouteRegistration? {
     return routesByKey[RouteKey(applicationId, routeId)]
   }
 
-  open fun registrations(): List<SinglePageApplicationRouteRegistration> {
+  fun registrations(): List<SinglePageApplicationRouteRegistration> {
     return registrations
   }
 

@@ -1,20 +1,26 @@
 package com.sparouting.runtime.response
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.RouteTarget
+import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.contract.RouteRequest
 
-/** Validates requests and converts access decisions into response data for pages and client navigation. */
-open class RouteResponseService @JvmOverloads constructor(
-  private val routeRegistry: SinglePageApplicationRouteRegistry,
-  private val accessEvaluator: RouteAccessEvaluator,
+/**
+ * Validates requests and converts access decisions into response data for pages and client navigation.
+ * Builds and validates registrations from [configs] once during construction.
+ */
+class RouteResponseService @JvmOverloads constructor(
+  configs: List<SinglePageApplicationConfig>,
   private val invalidPathParameterStatus: Int = 400,
   private val invalidQueryStringStatus: Int = 400
 ) {
+  private val routeRegistry = SinglePageApplicationRouteRegistry(configs)
+  private val accessEvaluator = RouteAccessEvaluator(routeRegistry)
+
   /** Validate and evaluate a target route using headers from the page or navigation-check request. */
-  open fun evaluate(request: RouteRequest): RouteHttpResponse {
+  fun evaluate(request: RouteRequest): RouteHttpResponse {
     val match = routeRegistry.findByApplicationAndRouteId(
       applicationId = request.applicationId,
       routeId = request.routeId

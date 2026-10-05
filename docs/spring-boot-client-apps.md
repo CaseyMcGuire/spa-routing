@@ -213,9 +213,8 @@ application at compile time. Spring still resolves your component dependencies;
 missing or ambiguous dependencies fail during bean creation. Reusable permission
 services can be injected into multiple handlers.
 
-`RouteAccessEvaluator.evaluate(request)` looks up one registration containing
-both handlers. Callers supply only the request; the evaluator holds no separate
-handler map.
+The starter constructs one private runtime service from the config beans and
+shares it between page requests and navigation checks.
 
 There are two access checks, after parameter validation:
 
@@ -607,8 +606,7 @@ their actual incoming headers. Application handlers receive the fields above.
 Typed route handlers also receive a `RouteAccessContext` with method `GET` and
 the destination path resolved from route metadata for both entry points.
 
-Both endpoints call `RouteResponseService.evaluate(RouteRequest)`. A custom
-service can override this single method. For page loads,
+Both endpoints call the same `RouteResponseService.evaluate(RouteRequest)`. For page loads,
 `RouteRequestFactory` runs before shared validation; validation applies to the
 values it returns before either access handler executes.
 
@@ -658,15 +656,19 @@ Decision statuses match what the MVC route would use:
 - configured `spa-routing.server.invalid-query-string-status`: invalid declared query-string values
 - `404`: unknown route
 
-For custom GraphQL or REST APIs, call `RouteResponseService` directly:
+For custom GraphQL or REST APIs, construct a `RouteResponseService` from your
+configs. The starter's service is private and is not exposed as a Spring bean:
 
 ```kotlin
 import com.sparouting.contract.RouteRequest
+import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.response.RouteResponseService
 
 class RouteDecisionHandler(
-  private val routeResponseService: RouteResponseService
+  configs: List<SinglePageApplicationConfig>
 ) {
+  private val routeResponseService = RouteResponseService(configs)
+
   fun evaluateAccountRoute(
     routeId: String,
     parameters: Map<String, String>,
@@ -698,11 +700,11 @@ fun routeRequestFactory(): RouteRequestFactory = MyRouteRequestFactory()
 
 Replaceable beans:
 
-- `SinglePageApplicationRouteRegistry`
-- `RouteAccessEvaluator`
 - `RouteRequestFactory`
 - `HtmlRenderer`
-- `RouteResponseService`
+
+Runtime registration and evaluation are owned by the starter. Configure access
+through application and route handlers, and validation statuses through properties.
 
 ## Migration Checklist
 

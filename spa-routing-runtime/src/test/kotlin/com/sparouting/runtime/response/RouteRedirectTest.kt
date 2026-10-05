@@ -4,8 +4,6 @@ import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.runtime.testsupport.applicationAccessHandler
-import com.sparouting.runtime.access.RouteAccessEvaluator
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import kotlin.test.Test
@@ -51,8 +49,7 @@ class RouteRedirectTest {
       routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))
     )
     val handler = applicationAccessHandler { AccessDecision.Redirect(target) }
-    val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
-    return RouteResponseService(registry, RouteAccessEvaluator(registry)).evaluate(
+    return RouteResponseService(listOf(config.copy(applicationAccessHandler = handler))).evaluate(
       RouteRequest("test", "UserDetail", mapOf("id" to "42"))
     )
   }

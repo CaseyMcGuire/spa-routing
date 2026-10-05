@@ -1,8 +1,6 @@
 package com.sparouting.spring.autoconfigure
 
-import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.rendering.DefaultHtmlRenderer
 import com.sparouting.spring.rendering.HtmlRenderer
@@ -25,22 +23,15 @@ import org.springframework.web.servlet.function.ServerResponse
 @ConditionalOnClass(RouterFunction::class, ServerRequest::class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableConfigurationProperties(RoutingProperties::class)
-class RoutingAutoConfiguration {
-  @Bean
-  @ConditionalOnMissingBean
-  fun singlePageApplicationRouteRegistry(
-    configs: List<SinglePageApplicationConfig>
-  ): SinglePageApplicationRouteRegistry {
-    return SinglePageApplicationRouteRegistry(configs)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun routeAccessEvaluator(
-    routeRegistry: SinglePageApplicationRouteRegistry
-  ): RouteAccessEvaluator {
-    return RouteAccessEvaluator(routeRegistry)
-  }
+class RoutingAutoConfiguration(
+  private val configs: List<SinglePageApplicationConfig>,
+  private val properties: RoutingProperties
+) {
+  private val responseService = RouteResponseService(
+    configs = configs,
+    invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
+    invalidQueryStringStatus = properties.server.invalidQueryStringStatus
+  )
 
   @Bean
   @ConditionalOnMissingBean
@@ -50,25 +41,8 @@ class RoutingAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  fun htmlRenderer(
-    properties: RoutingProperties
-  ): HtmlRenderer {
+  fun htmlRenderer(): HtmlRenderer {
     return DefaultHtmlRenderer(properties)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun routeResponseService(
-    routeRegistry: SinglePageApplicationRouteRegistry,
-    accessEvaluator: RouteAccessEvaluator,
-    properties: RoutingProperties
-  ): RouteResponseService {
-    return RouteResponseService(
-      routeRegistry = routeRegistry,
-      accessEvaluator = accessEvaluator,
-      invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
-      invalidQueryStringStatus = properties.server.invalidQueryStringStatus
-    )
   }
 
   @Bean
@@ -78,10 +52,7 @@ class RoutingAutoConfiguration {
     name = ["enabled"],
     matchIfMissing = true
   )
-  fun routeDecisionRouterFunction(
-    responseService: RouteResponseService,
-    properties: RoutingProperties
-  ): RouterFunction<ServerResponse> {
+  fun routeDecisionRouterFunction(): RouterFunction<ServerResponse> {
     return RouteDecisionRouterFunctionFactory(
       responseService = responseService,
       properties = properties
@@ -95,8 +66,6 @@ class RoutingAutoConfiguration {
     matchIfMissing = true
   )
   fun routerFunction(
-    configs: List<SinglePageApplicationConfig>,
-    responseService: RouteResponseService,
     requestFactory: RouteRequestFactory,
     htmlRenderer: HtmlRenderer
   ): RouterFunction<ServerResponse> {

@@ -15,6 +15,7 @@ dependencyResolutionManagement {
 rootProject.name = "spa-routing"
 include("spa-routing-core")
 include("spa-routing-runtime")
+include("spa-routing-ktor")
 include("spa-routing-gradle-plugin")
 include("spa-routing-spring-boot-autoconfigure")
 include("spa-routing-spring-boot-starter")
@@ -22,3 +23,4 @@ include("examples:route-definitions")
 include("examples:blog")
 include("examples:frontend")
 include("examples:spring")
+include("examples:ktor")

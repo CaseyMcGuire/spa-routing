@@ -9,8 +9,6 @@ import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
 import com.sparouting.runtime.testsupport.routeAccessHandlers
 import com.sparouting.runtime.testsupport.applicationAccessHandler
-import com.sparouting.runtime.access.RouteAccessEvaluator
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import kotlin.test.Test
@@ -109,13 +107,11 @@ class RouteEvaluationTest {
         ))
       }
     }
-    private val routeRegistry = SinglePageApplicationRouteRegistry(listOf(config.copy(
-      applicationAccessHandler = applicationHandler,
-      routeAccessHandlers = routeAccessHandlers(handler)
-    )))
     val service = RouteResponseService(
-      routeRegistry = routeRegistry,
-      accessEvaluator = RouteAccessEvaluator(routeRegistry),
+      configs = listOf(config.copy(
+        applicationAccessHandler = applicationHandler,
+        routeAccessHandlers = routeAccessHandlers(handler)
+      )),
       invalidPathParameterStatus = 422
     )
   }

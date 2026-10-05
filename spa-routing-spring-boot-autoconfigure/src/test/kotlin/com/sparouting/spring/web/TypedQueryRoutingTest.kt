@@ -5,8 +5,6 @@ import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
 import com.sparouting.spring.testsupport.applicationAccessHandler
-import com.sparouting.runtime.access.RouteAccessEvaluator
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.response.RouteHttpResponse
 import com.sparouting.runtime.response.RouteResponseService
@@ -32,8 +30,7 @@ class TypedQueryRoutingTest {
     requests.add(request)
     AccessDecision.Allow
   }
-  private val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
-  private val evaluator = RouteAccessEvaluator(registry)
+  private val configs = listOf(config.copy(applicationAccessHandler = handler))
   private val valid = linkedMapOf("foo" to listOf("a b+&=雪"), "tag" to listOf("x/y", "é"))
 
   @Test
@@ -79,7 +76,7 @@ class TypedQueryRoutingTest {
 
   @Test
   fun `service rejects empty required lists and permits empty optional lists`() {
-    val service = RouteResponseService(registry, evaluator)
+    val service = RouteResponseService(configs)
     assertEquals(400, service.evaluate(RouteRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
     )).statusCode)
@@ -111,8 +108,7 @@ class TypedQueryRoutingTest {
 
   private fun redirect(target: RouteTarget): RouteHttpResponse {
     val handler = applicationAccessHandler { AccessDecision.Redirect(target) }
-    val routes = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
-    return RouteResponseService(routes, RouteAccessEvaluator(routes)).evaluate(RouteRequest(
+    return RouteResponseService(listOf(config.copy(applicationAccessHandler = handler))).evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
       pathParameters = mapOf("id" to "123"),
@@ -126,14 +122,13 @@ class TypedQueryRoutingTest {
     properties: RoutingProperties = RoutingProperties()
   ) {
     val service = RouteResponseService(
-      routeRegistry = registry,
-      accessEvaluator = evaluator,
+      configs = configs,
       invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
       invalidQueryStringStatus = properties.server.invalidQueryStringStatus
     )
     val mockMvc = MockMvcBuilders.routerFunctions(
       SpringRouterFunctionFactory(
-        routeConfigs = listOf(config),
+        routeConfigs = configs,
         routeResponseService = service,
         requestFactory = DefaultRouteRequestFactory(),
         htmlRenderer = DefaultHtmlRenderer(properties)

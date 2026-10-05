@@ -10,11 +10,11 @@ import com.sparouting.contract.RouteRequest
  * Requests must refer to a registered route and be validated before evaluation;
  * adapters should use [com.sparouting.runtime.response.RouteResponseService].
  */
-open class RouteAccessEvaluator(
+internal class RouteAccessEvaluator(
   private val routeRegistry: SinglePageApplicationRouteRegistry
 ) {
   /** Route access is checked only after the application allows access. Redirect targets remain unresolved. */
-  open fun evaluate(request: RouteRequest): AccessDecision {
+  fun evaluate(request: RouteRequest): AccessDecision {
     val registration = requireNotNull(
       routeRegistry.findByApplicationAndRouteId(request.applicationId, request.routeId)
     ) {

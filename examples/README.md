@@ -1,283 +1,43 @@
 # Examples
 
-The blog example exercises the library projects in this checkout. It shares
-route definitions in `route-definitions`, so another server example can reuse
-the same routes. The current server is Spring Boot.
+A simple blog running on Spring Boot or Ktor, with shared business logic,
+generated routes, access handlers, and a React UI using spa-kit.
+Each server keeps its own in-memory data, which resets on restart.
 
-The blog uses shared generated routes, an in-memory store, a REST API, and a
-basic React UI with spa-kit navigation. It supports searching, reading,
-creating, editing, and deleting posts.
+## Layout
 
-```text
-examples/
-├── route-definitions/  Shared blog route definitions
-├── blog/               Models, in-memory service, validation, access handlers,
-│                       and generated Kotlin config/routes
-├── frontend/           Shared React UI, spa-kit router, and Vite build
-└── spring/             Spring Boot HTTP endpoints and bean wiring
-```
+- [route-definitions](route-definitions/) — authored blog routes.
+- [blog](blog/) — shared models, service, access handlers, and generated Kotlin routes.
+- [frontend](frontend/) — shared React UI and generated TypeScript routes.
+- [spring](spring/) — Spring Boot HTTP endpoints and wiring.
+- [ktor](ktor/) — Ktor HTTP endpoints and wiring.
 
-The `blog` module depends only on core contracts and Kotlin. Its shared service,
-models, and access handlers have no Spring annotations. `BlogPostService` owns
-CRUD operations, validation, and synchronized in-memory storage; the Spring
-controller maps service results to HTTP responses.
+## Run
 
-## Run the Spring example
-
-Use JDK 21 and Node 22.12 or newer, with npm on `PATH`. From the repository root:
+Use JDK 21 and Node 22.12 or newer, with npm on `PATH`.
+Run either command from the repository root:
 
 ```sh
 ./gradlew :examples:spring:run
 ```
 
-Open [http://localhost:8080/](http://localhost:8080/) or
-[http://localhost:8080/posts/1](http://localhost:8080/posts/1).
-Gradle generates the routes, installs the locked frontend dependencies,
-builds the Vite bundle, and packages it in the shared frontend resource JAR. Both
-URLs serve the default SPA HTML shell. Stop the server with Ctrl+C.
-
-To use another port:
+Spring: [http://localhost:8080/](http://localhost:8080/).
 
 ```sh
-./gradlew :examples:spring:run --args='--server.port=8081'
+./gradlew :examples:ktor:run
 ```
 
-The Spring application uses the local `spa-routing-spring-boot-starter` project
-and constructs a generated `BlogApplicationConfig` bean. Its required application
-handler explicitly allows access to the public blog:
+Ktor: [http://localhost:8082/](http://localhost:8082/).
 
-```kotlin
-class CheckBlogAccess : BlogApplicationAccessHandler() {
-  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
-}
-```
+Gradle generates the routes and builds the frontend automatically.
+Restart the server after frontend changes to rebuild the assets.
 
-`ExampleConfiguration` registers the shared service and handlers as beans,
-then wires the generated collection and config:
-
-```kotlin
-@Bean
-fun blogPostService(): BlogPostService = BlogPostService()
-
-@Bean
-fun checkBlogAccess(): CheckBlogAccess = CheckBlogAccess()
-
-@Bean
-fun checkPostAccess(posts: BlogPostService): CheckPostAccess = CheckPostAccess(posts)
-
-@Bean
-fun checkEditPostAccess(posts: BlogPostService): CheckEditPostAccess = CheckEditPostAccess(posts)
-
-@Bean
-fun blogRouteAccessHandlers(
-  post: PostAccessHandler,
-  editPost: EditPostAccessHandler
-): BlogRouteAccessHandlers = BlogRouteAccessHandlers(post = post, editPost = editPost)
-
-@Bean
-fun blogConfig(
-  applicationAccessHandler: CheckBlogAccess,
-  routeAccessHandlers: BlogRouteAccessHandlers
-): BlogApplicationConfig = BlogApplicationConfig(
-  applicationAccessHandler = applicationAccessHandler,
-  routeAccessHandlers = routeAccessHandlers
-)
-```
-
-`BlogApplicationConfig` is concrete and contains the generated application metadata.
-`BlogApplicationAccessHandler` extends `ApplicationAccessHandler<BlogApplicationConfig>`;
-`BlogRouteAccessHandlers` requires both gated route handlers. Generated code stays
-independent of Spring. The registry reads handlers from the config.
-`CheckBlogAccess` runs before either post handler. Applications that restrict
-access can inject a permission service into this handler and return a typed
-`AccessDecision.Redirect` when the user cannot view the application.
-
-The post reader and editor opt into typed access handlers in the shared route
-definitions:
-
-```kotlin
-route("posts/{postId}", "Post", generateAccessHandler = true)
-route("posts/{postId}/edit", "EditPost", generateAccessHandler = true)
-```
-
-Generation adds `PostAccessHandler` / `PostRequest` and `EditPostAccessHandler` /
-`EditPostRequest` alongside the route builders. The shared `CheckPostAccess`
-and `CheckEditPostAccess` handlers are registered by `ExampleConfiguration`.
-Each receives the same `BlogPostService` used by the API through constructor injection:
-
-```kotlin
-class CheckPostAccess(private val posts: BlogPostService) : PostAccessHandler() {
-  override fun evaluate(request: PostRequest): AccessDecision {
-    if (posts.find(request.postId) == null) {
-      return AccessDecision.Redirect(BlogRoutes.NotFound())
-    }
-    return AccessDecision.Allow
-  }
-}
-```
-
-Spring injects the handler beans into the explicitly wired collection.
-Missing posts redirect to `/not-found` on both direct page requests and
-client-side navigation. Other routes need no route handler. Omitting either
-required handler from `BlogRouteAccessHandlers` fails compilation; unresolved or
-ambiguous Spring dependencies fail startup. The generated request's `context`
-also exposes raw query-string values, actual request headers, method `GET`, and
-the destination path resolved from route metadata. Page loads and client navigation
-checks use the same runtime `RouteRequest` and access handlers.
-
-Boot's servlet error endpoint is configured at `/internal/error` so it does
-not collide with the SPA's `/error` page. Otherwise an API error dispatch can
-serve the SPA shell with status `200`.
-
-## Route contracts and generated builders
-
-| Route | URL | Values |
-| --- | --- | --- |
-| `Index` | `/` | Optional scalar search query `q` |
-| `Post` | `/posts/{postId}` | Required string `postId` |
-| `NewPost` | `/new` | None |
-| `EditPost` | `/posts/{postId}/edit` | Required string `postId` |
-| `NotFound` | `/not-found` | None |
-| `Error` | `/error` | None |
-
-The required path parameters are inferred from their placeholders. Repeating
-`q` is invalid and returns `400`. Post reader and editor routes return a `302`
-redirect to `/not-found` when the post does not exist. The navigation decision
-endpoint reports the same redirect in its JSON body.
-
-The example invokes this checkout's generator entry points through Gradle
-`JavaExec` tasks. Generated server files stay under `blog/build/generated`;
-client files stay under `frontend/build/generated`. Generated files are not
-checked in. Kotlin compilation automatically generates the server routes.
-Use the tasks below to generate both server and client routes explicitly.
+To choose another port:
 
 ```sh
-./gradlew :examples:blog:generateServerRoutes :examples:frontend:generateClientRoutes
+./gradlew :examples:spring:run --args='--server.port=8083'
+PORT=8084 ./gradlew :examples:ktor:run
 ```
-
-Server output is in `blog/build/generated/source/spaRoutes/main`, including
-`BlogApplicationConfig.kt`, `BlogApplicationAccessHandler.kt`, and
-`BlogRouteAccessHandlers.kt` next to `BlogRoutes.kt`. The config contains the
-application ID, display/bundle names, full route paths, parameter metadata, and
-handler flags. It depends only on core contracts, with no
-reference to the authored `BlogApplication`.
-
-The `routeCodegen` Gradle configuration contains the definitions project and is
-used only by generator tasks. The server compiles and runs using generated
-classes; the definitions project is absent from its runtime classpath. Client
-output is in `frontend/build/generated/client/routes/BlogRoutes.ts`.
-
-Generated Kotlin route objects extend `com.sparouting.contract.Route` and
-return `RouteTarget` values when invoked. Access-handler requests expose raw
-metadata through `RouteAccessContext`.
-
-```kotlin
-import com.sparouting.examples.generated.routes.BlogRoutes
-import com.sparouting.examples.generated.routes.blog.Index
-
-val post = BlogRoutes.Post(postId = "123")
-val search = BlogRoutes.Index(queryString = Index.QueryString(q = "kotlin"))
-```
-
-```typescript
-BlogRoutes.Post({ postId: "123" }); // /posts/123
-BlogRoutes.Index({ q: "hello world" }); // /?q=hello+world
-BlogRoutes.Index.parse({}, new URLSearchParams("q=kotlin"));
-// { params: {}, queryString: { q: "kotlin" } }
-```
-
-## REST API
-
-`BlogPost` contains string fields `id`, `title`, and `body`. `WritePostRequest`
-contains `title` and `body`, both required and nonblank. These Kotlin models
-are defined in the shared `blog` module. `BlogPostService` validates writes;
-the controller maps `InvalidPostException` to HTTP `400`.
-
-The Spring example includes Jackson's Kotlin module for JSON request bodies,
-with its version managed by Spring Boot. This dependency belongs only to
-`examples:spring`; the library modules do not depend on it.
-
-| Method | URL | Successful response |
-| --- | --- | --- |
-| `GET` | `/api/posts?q=...` | `200`, array of posts; optional title/body search |
-| `GET` | `/api/posts/{postId}` | `200`, post |
-| `POST` | `/api/posts` | `201`, created post and API `Location` header |
-| `PUT` | `/api/posts/{postId}` | `200`, replaced post |
-| `DELETE` | `/api/posts/{postId}` | `204`, no body |
-
-Missing posts return `404`; malformed or blank write inputs return `400`.
-The server assigns IDs. The synchronized in-memory store starts with sample
-posts `1` and `2` and resets on restart. Lists show newest posts first and search
-matches title or body, ignoring case. The UI uses plain text for post bodies
-and basic list/read/edit forms, keeping attention on route generation, access checks,
-and client navigation.
-
-With the server running, create a post using:
-
-```sh
-curl --include 'http://localhost:8080/api/posts' \
-  --header 'Content-Type: application/json' \
-  --data '{"title":"A new post","body":"Hello from the blog API."}'
-```
-
-## Check a route decision
-
-With the server running:
-
-```sh
-curl --get 'http://localhost:8080/__spa/route-decision' \
-  --data-urlencode 'applicationId=blog' \
-  --data-urlencode 'routeId=Post' \
-  --data-urlencode 'parameters.postId=1'
-```
-
-The response body contains `"statusCode": 200`. Omitting `parameters.postId` produces
-`"statusCode": 400`. The route-decision endpoint itself returns HTTP `200` in both
-cases; its response body describes whether navigation is allowed. Using
-`parameters.postId=missing` produces `"statusCode": 302` and
-`"location": "/not-found"`.
-
-For the search route, use `routeId=Index` and `queryString.q=kotlin`.
-
-## Frontend
-
-`frontend/src/components` contains the layout, searchable post list,
-post reader, shared create/edit form, and message page. Loading, empty, error,
-and saving states are supplied through props; form editing state stays local.
-Links use the generated `BlogRoutes` builders. React Router loaders read posts;
-actions create, update, and delete them through the REST API. Successful writes
-navigate to generated route targets, while failed writes keep the form visible.
-
-`main.tsx` registers the generated routes with spa-kit's `createSpaRouter` and
-shared authorization middleware. The wrapper finds the generated route using
-the matched IDs from `spaRouteContext` and checks its `hasAccessHandler` flag.
-Only `Post` and `EditPost` call Spring's decision endpoint before running their
-loader or action. `CheckBlogAccess` always allows access, so the other
-routes can skip that request. The unflagged error page remains reachable when
-the decision endpoint is unavailable. `NavigationProgress` shows pending navigation.
-
-The installed spa-kit version exposes only IDs in its middleware context, so
-the wrapper reads the flag from `BlogRoutes`. Missing route metadata falls back
-to the authorization middleware. If the application handler needs to run on
-every navigation, the client should authorize every route.
-
-Vite emits `blog.bundle.js` and `blog.css` under
-`frontend/build/generated/frontend/static/bundles`. The `examples:frontend`
-resource JAR supplies these assets through Spring's runtime classpath. Rebuild
-and restart Spring after frontend changes; the example uses one server and has no separate development proxy.
-
-To type-check the frontend separately, generate the client routes first.
-All frontend dependencies belong to the example.
-
-```sh
-./gradlew :examples:frontend:generateClientRoutes
-npm --prefix examples/frontend ci
-npm --prefix examples/frontend run typecheck
-```
-
-The example pins `@spa-kit/react-router` 0.2.0, which matches the generated
-`{ params, queryString }` parser results and the server's `queryString.*`
-decision parameters. No compatibility adapter is needed.
 
 ## Build
 
@@ -285,5 +45,5 @@ decision parameters. No compatibility adapter is needed.
 ./gradlew :examples:build
 ```
 
-The repository-wide `./gradlew build` also builds these projects.
-The example projects have no publishing configuration.
+For library integration details, see [Spring Boot setup](../docs/spring-boot-client-apps.md),
+[Ktor setup](../docs/ktor.md), and [runtime behavior](../docs/runtime.md).

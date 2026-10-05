@@ -4,6 +4,24 @@
 
 ### Breaking changes
 
+- **`RouteResponseService` now owns runtime assembly.** Construct it with
+  `configs: List<SinglePageApplicationConfig>` and optional validation status
+  codes. It builds and validates one registry and access evaluator at construction.
+  The service and its `evaluate` method are final; the registry, registration,
+  and evaluator types are internal. Customize access through application and
+  route handlers instead of replacing runtime components.
+
+  Spring creates one private service for both page routes and navigation checks.
+  The `singlePageApplicationRouteRegistry`, `routeAccessEvaluator`, and
+  `routeResponseService` beans are removed. Existing rendering, request conversion,
+  endpoint, and validation-status settings remain available. Custom endpoints
+  can construct their own service from configs.
+
+  Ktor's `singlePageApplicationRoutes` now accepts configs and an HTML renderer
+  and constructs the service internally. Remove its `responseService` argument;
+  use `invalidPathParameterStatus` and `invalidQueryStringStatus` to customize
+  validation responses (both default to `400`).
+
 - **Shared application contracts now live in core.** Move imports for
   `SinglePageApplicationConfig` from `com.sparouting.runtime.config`,
   `ApplicationAccessHandler` and `RouteAccessHandlers` from
@@ -157,8 +175,8 @@
   before validation, which checks its returned values.
 
   The runtime also supplies `HtmlDocumentRenderer` and `HtmlRenderingOptions`
-  without HTTP framework types. Evaluation remains synchronous; a Ktor adapter
-  is not included. See [the runtime guide](docs/runtime.md).
+  without HTTP framework types. Evaluation remains synchronous. Ktor integration
+  is supplied separately by `spa-routing-ktor`. See [the runtime guide](docs/runtime.md).
 
 - **The remaining API types and helpers drop the `Spa` prefix.** Update imports
   and usages, then regenerate routes and recompile consumers. Apply the runtime
@@ -294,6 +312,23 @@
   `UserDetail({ id: "123" })` in TypeScript).
 
 ### Added
+
+- `spa-routing-ktor` provides `com.sparouting.ktor.singlePageApplicationRoutes`
+  for reusable Ktor integration. Register a list of application configs with an
+  HTML renderer to serve generated page paths and
+  one shared decision endpoint. Its `routeDecisionPath` argument defaults to
+  `/__spa/route-decision`; clients must use the same configured URL.
+  The adapter converts real headers and
+  decoded path/query values, returns statuses or redirects for pages, and returns
+  navigation results as HTTP `200` JSON with `Cache-Control: no-store`.
+  Applications choose their engine, configure JSON content negotiation, and
+  serve their own assets. The Ktor blog now consumes this library module.
+
+- A Ktor blog example reuses the Spring example's service logic, validation,
+  access handlers, generated Kotlin config, and React frontend. Shared code lives
+  in `examples:blog` and assets in `examples:frontend`; the servers implement
+  their own HTTP endpoints and wiring. Run `:examples:ktor:run` on port 8082 or
+  `:examples:spring:run` on port 8080. Both remain unpublished example projects.
 
 - Generated client route builders expose `hasAccessHandler: boolean`, derived
   from `generateAccessHandler`. The flag is present on routes with and without

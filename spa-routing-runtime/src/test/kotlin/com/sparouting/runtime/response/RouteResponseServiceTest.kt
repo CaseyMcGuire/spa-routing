@@ -4,12 +4,12 @@ import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.runtime.testsupport.applicationAccessHandler
-import com.sparouting.runtime.access.RouteAccessEvaluator
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class RouteResponseServiceTest {
   private val config = TestSinglePageApplicationConfig(
@@ -22,9 +22,23 @@ class RouteResponseServiceTest {
       AccessDecision.Redirect(RouteTarget("test", "Login"))
     }
   }
-  private val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = applicationHandler)))
-  private val evaluator = RouteAccessEvaluator(registry)
-  private val service = RouteResponseService(registry, evaluator)
+  private val configs = listOf(config.copy(applicationAccessHandler = applicationHandler))
+  private val service = RouteResponseService(configs)
+
+  @Test
+  fun `invalid configs fail during service construction`() {
+    val duplicate = assertFailsWith<IllegalArgumentException> {
+      RouteResponseService(configs + configs)
+    }
+    assertContains(duplicate.message.orEmpty(), "Duplicate single page application IDs")
+
+    val missingHandler = assertFailsWith<IllegalArgumentException> {
+      RouteResponseService(listOf(config.copy(
+        routes = listOf(RouteManifest("/test/private", "Private", hasAccessHandler = true))
+      )))
+    }
+    assertContains(missingHandler.message.orEmpty(), "Missing access handler for test:Private")
+  }
 
   @Test
   fun `unknown app or route returns not found`() {
@@ -40,8 +54,7 @@ class RouteResponseServiceTest {
   @Test
   fun `unknown params returns configured status`() {
     val service = RouteResponseService(
-      routeRegistry = registry,
-      accessEvaluator = evaluator,
+      configs = configs,
       invalidPathParameterStatus = 422
     )
 
@@ -59,8 +72,7 @@ class RouteResponseServiceTest {
       requests.add(request)
       AccessDecision.Allow
     }
-    val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
-    val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
+    val service = RouteResponseService(listOf(config.copy(applicationAccessHandler = handler)))
 
     val response = service.evaluate(RouteRequest(
       applicationId = "test",
@@ -86,11 +98,10 @@ class RouteResponseServiceTest {
       applicationsChecked.add(request.applicationId)
       AccessDecision.Redirect(RouteTarget("public", "Index"))
     }
-    val registry = SinglePageApplicationRouteRegistry(listOf(
+    val service = RouteResponseService(listOf(
       publicConfig.copy(applicationAccessHandler = publicHandler),
       privateConfig.copy(applicationAccessHandler = privateHandler)
     ))
-    val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
 
     for (applicationId in listOf("public", "private")) {
       val expected = if (applicationId == "public") RouteHttpResponse.ok() else RouteHttpResponse.found("/public")

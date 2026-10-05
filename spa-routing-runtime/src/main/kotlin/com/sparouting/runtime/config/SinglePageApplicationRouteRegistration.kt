@@ -5,7 +5,7 @@ import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.SinglePageApplicationConfig
 
-data class SinglePageApplicationRouteRegistration(
+internal data class SinglePageApplicationRouteRegistration(
   val application: SinglePageApplicationConfig,
   val route: RouteManifest,
   val applicationAccessHandler: ApplicationAccessHandler<*>,

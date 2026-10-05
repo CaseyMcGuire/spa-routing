@@ -8,12 +8,14 @@ Its public types live under `com.sparouting.runtime`.
 | --- | --- |
 | `spa-routing-core` | Authoring definitions, route and application contracts, request models, access handler contracts, and generators |
 | `spa-routing-runtime` | Route registry, handler registration validation, application and route access checks, redirect resolution, and HTML document generation |
+| `spa-routing-ktor` | Ktor route registration, request conversion, and HTTP/JSON responses |
 | `spa-routing-spring-boot-autoconfigure` | Bean discovery, properties, MVC route registration, request conversion, HTTP/JSON responses, and Spring rendering hooks |
 | `spa-routing-spring-boot-starter` | Dependencies for Spring Boot applications |
 
-Spring is currently the only supplied adapter. A future Ktor adapter can call
-the same runtime service. Evaluation is synchronous; suspendable access
-handlers are outside this extraction.
+Spring and Ktor adapters call the same runtime service. See the
+[Ktor setup](ktor.md) and [blog examples](../examples/README.md), which share
+their blog service, access handlers, generated config, and frontend.
+Evaluation is synchronous; suspendable access handlers are not supported.
 
 ## Wire the runtime
 
@@ -65,51 +67,36 @@ val config = BlogApplicationConfig(
 
 This wiring is plain Kotlin and works with manual construction or any DI container.
 
-An adapter or dependency injection container assembles the runtime once:
+Spring and Ktor construct the runtime service internally from the supplied configs.
+When writing another adapter, construct one service for all applications and reuse
+it for page requests and navigation checks:
 
 ```kotlin
-import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.runtime.response.RouteResponseService
 
 fun createRouteService(
   configs: List<SinglePageApplicationConfig>
 ): RouteResponseService {
-  val routes = SinglePageApplicationRouteRegistry(configs)
   return RouteResponseService(
-    routeRegistry = routes,
-    accessEvaluator = RouteAccessEvaluator(routes),
+    configs = configs,
     invalidPathParameterStatus = 400,
     invalidQueryStringStatus = 400
   )
 }
 ```
 
-`SinglePageApplicationRouteRegistry` validates registrations during construction.
+`RouteResponseService` builds and validates its registrations during construction.
 It reads handlers from each config instead of discovering them globally.
 Generated constructors enforce application-handler and route-handler types.
 For custom config or collection implementations, runtime validation still rejects
 missing, duplicate, unknown-route, unflagged-route, and wrong-application route
-handlers. Spring discovers config beans and supplies those to the registry.
-
-Each `SinglePageApplicationRouteRegistration` contains the config, route manifest,
-required `applicationAccessHandler`, and optional `routeAccessHandler`.
-The evaluator's `evaluate(request)` method retrieves this registration in one
-lookup. It owns no separate handler map and invokes the application handler first.
-Only `AccessDecision.Allow` proceeds to the matching `RouteAccessHandler`.
-If there is no route handler, the application's allowance is sufficient.
-Either handler can return `AccessDecision.Redirect` with an unresolved typed
-target. The evaluator returns that decision; `RouteResponseService` resolves
-redirects and constructs response data.
+handlers. The registry and access evaluator are internal implementation details.
+Customize access through the handlers supplied in each application config.
 
 Application handlers receive the framework-neutral `RouteRequest`. Typed route
 handlers receive their generated request models. Both return core's
 `AccessDecision`; neither has a skip result or an ordered rule chain.
-
-Direct evaluator calls require a registered route and validated parameters.
-An unknown application or route throws `IllegalArgumentException`; adapters
-should use `RouteResponseService`, which returns `404` before access evaluation.
 
 ## Adapt requests and responses
 

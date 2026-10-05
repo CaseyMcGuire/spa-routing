@@ -1,0 +1,125 @@
+# Ktor integration
+
+`spa-routing-ktor` adapts the shared runtime to Ktor. It registers generated page
+paths and a single navigation decision endpoint for all supplied applications.
+The module depends on `spa-routing-runtime` and Ktor server core. Applications
+choose the server engine, JSON converter, and asset serving.
+
+## Dependencies
+
+The adapter targets Ktor 3.6.0 and JDK 21. For example, using Netty and Jackson:
+
+```kotlin
+dependencies {
+  implementation("com.sparouting:spa-routing-ktor:0.3.0")
+  implementation(platform("io.ktor:ktor-bom:3.6.0"))
+  implementation("io.ktor:ktor-server-netty")
+  implementation("io.ktor:ktor-server-content-negotiation")
+  implementation("io.ktor:ktor-serialization-jackson")
+}
+```
+
+The repository's [Ktor blog example](../examples/README.md) uses the local
+`:spa-routing-ktor` project dependency.
+
+## Register applications
+
+Construct your generated configs with their application and route access
+handlers, as described in the [runtime guide](runtime.md), then pass the configs
+and HTML renderer to the adapter:
+
+```kotlin
+import com.sparouting.contract.SinglePageApplicationConfig
+import com.sparouting.ktor.singlePageApplicationRoutes
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
+import com.sparouting.runtime.rendering.HtmlRenderingOptions
+import io.ktor.serialization.jackson.jackson
+import io.ktor.server.application.Application
+import io.ktor.server.application.install
+import io.ktor.server.http.content.staticResources
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.routing.routing
+
+fun Application.registerApplications(configs: List<SinglePageApplicationConfig>) {
+  val htmlRenderer = HtmlDocumentRenderer(
+    HtmlRenderingOptions(globalStylesheet = null)
+  )
+
+  install(ContentNegotiation) {
+    jackson()
+  }
+  routing {
+    singlePageApplicationRoutes(
+      configs = configs,
+      htmlRenderer = htmlRenderer
+    )
+    staticResources("/bundles", "static/bundles")
+  }
+}
+```
+
+Call `singlePageApplicationRoutes` once at the routing root. It constructs one
+shared service for all supplied configs. Route metadata already contains full paths,
+including application prefixes. The extension passes these patterns to Ktor's
+`get` function and reads decoded values from `call.pathParameters`. Keep patterns
+compatible with Ktor's path syntax; mounting the extension beneath another path
+would change URLs without updating generated client URLs or redirect targets.
+
+The service validates access-handler registration at startup. The response
+service handles validation, application access, route access, and redirect
+resolution. Access handlers remain synchronous. The optional
+`invalidPathParameterStatus` and `invalidQueryStringStatus` arguments both default
+to `400` and apply to page requests and navigation decisions.
+
+Install content negotiation with a converter capable of serializing the plain
+Kotlin `RouteHttpResponse` model, such as Jackson. The adapter does not install
+a converter or add serialization annotations to core/runtime models.
+
+## Configure the decision endpoint
+
+The shared navigation endpoint defaults to `/__spa/route-decision`. Set
+`routeDecisionPath` when registering the routes to use another URL:
+
+```kotlin
+singlePageApplicationRoutes(
+  configs = configs,
+  htmlRenderer = htmlRenderer,
+  routeDecisionPath = "/internal/navigation"
+)
+```
+
+Configure the client authorization middleware to call the same URL. The chosen
+path applies to every supplied application and replaces the default endpoint.
+Page route paths are unaffected.
+
+## Page and navigation responses
+
+For generated page paths, an allowed request receives the HTML shell from
+`HtmlDocumentRenderer`. Other results become HTTP statuses and, for redirects,
+a `Location` header. Unregistered URLs retain Ktor's normal routing behavior.
+
+Client navigation uses `GET` at the configured decision path, defaulting to
+`/__spa/route-decision`, with the same wire format as Spring:
+
+```text
+applicationId=blog
+routeId=Post
+parameters.postId=1
+queryString.tab=details
+```
+
+The endpoint returns HTTP `200` with `Cache-Control: no-store`. Its JSON body
+describes the target page outcome:
+
+```json
+{"statusCode":302,"location":"/not-found"}
+```
+
+Page loads and navigation decisions both pass actual request headers to
+`RouteResponseService.evaluate`. Repeated query values retain their cardinality,
+and path values are kept separate from query values. Navigation results share
+the same validation and access checks as page requests.
+
+The adapter does not register application REST APIs or static files. Register
+those alongside it, as shown by `blogApiRoutes` and `staticResources` in the
+example. Renderer configuration remains a separate argument to the extension.

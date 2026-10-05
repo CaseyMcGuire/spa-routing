@@ -6,6 +6,7 @@ plugins {
 
 extra["springBootVersion"] = "4.0.6"
 extra["springFrameworkVersion"] = "7.0.7"
+extra["ktorVersion"] = "3.6.0"
 
 allprojects {
   group = "com.sparouting"
