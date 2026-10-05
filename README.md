@@ -326,8 +326,9 @@ as a Spring component. The blog demonstrates this with its public
 constructor injection. The config and handler share that manifest bean.
 The config contains no handler wiring. Spring collects both kinds of handler
 and injects them into the registry, which binds them to applications and routes.
-The handler receives a `RouteRequest` containing the application and route IDs, request metadata, and
-headers; application code supplies the authenticated user and reusable checks.
+Both page loads and client navigation checks use `RouteRequest`, containing the
+application and route IDs, path parameters, query values, and actual request
+headers. Application code supplies the authenticated user and reusable checks.
 
 For route-specific checks, declare `generateAccessHandler = true` and extend
 the generated `<Route>AccessHandler` class in a Spring `@Component`. Its

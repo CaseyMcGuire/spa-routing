@@ -14,9 +14,7 @@ class DefaultRouteRequestFactory : RouteRequestFactory {
     return RouteRequest(
       applicationId = application.manifest.id,
       routeId = route.id,
-      method = serverRequest.method().name(),
-      path = serverRequest.path(),
-      pathParameters = serverRequest.pathVariables(),
+      pathParameters = serverRequest.pathVariables().toMap(),
       queryString = serverRequest.params().mapValues { (_, values) -> values.toList() },
       headers = serverRequest.toRouteHeaders()
     )

@@ -18,29 +18,26 @@ import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
 class RouteEvaluationTest {
-  private val page = RouteRequest(
+  private val routeRequest = RouteRequest(
     applicationId = "test",
     routeId = "Post",
-    method = "HEAD",
-    path = "/proxy/test/posts/42",
     pathParameters = mapOf("id" to "42"),
     queryString = mapOf("view" to listOf("reader"), "tracking" to listOf("campaign")),
     headers = mapOf("X-User" to listOf("casey"))
   )
 
   @Test
-  fun `both entry points validate before invoking either access handler`() {
+  fun `requests are validated before invoking either access handler`() {
     val runtime = Runtime()
     val invalidRequests = listOf(
-      page.copy(pathParameters = emptyMap()) to 422,
-      page.copy(pathParameters = mapOf("id" to "42", "extra" to "value")) to 422,
-      page.copy(queryString = mapOf("view" to listOf("one", "two"))) to 400,
-      page.copy(routeId = "Unknown") to 404
+      routeRequest.copy(pathParameters = emptyMap()) to 422,
+      routeRequest.copy(pathParameters = mapOf("id" to "42", "extra" to "value")) to 422,
+      routeRequest.copy(queryString = mapOf("view" to listOf("one", "two"))) to 400,
+      routeRequest.copy(routeId = "Unknown") to 404
     )
 
     for ((request, expectedStatus) in invalidRequests) {
       assertEquals(expectedStatus, runtime.service.evaluate(request).statusCode)
-      assertEquals(expectedStatus, runtime.service.evaluate(request.toDecisionRequest()).statusCode)
     }
 
     assertEquals(emptyList(), runtime.applicationRequests)
@@ -48,7 +45,7 @@ class RouteEvaluationTest {
   }
 
   @Test
-  fun `both entry points stop at application redirect`() {
+  fun `application redirect stops route access evaluation`() {
     val runtime = Runtime(AccessDecision.Redirect(RouteTarget(
       applicationId = "test",
       routeId = "Missing",
@@ -56,49 +53,34 @@ class RouteEvaluationTest {
     )))
     val expected = RouteHttpResponse(statusCode = 302, location = "/test/missing?from=application")
 
-    assertEquals(expected, runtime.service.evaluate(page))
-    assertEquals(expected, runtime.service.evaluate(page.toDecisionRequest()))
-    assertEquals(2, runtime.applicationRequests.size)
+    assertEquals(expected, runtime.service.evaluate(routeRequest))
+    assertEquals(1, runtime.applicationRequests.size)
     assertEquals(emptyList(), runtime.handlerRequests)
   }
 
   @Test
-  fun `page metadata is preserved and navigation metadata uses the target route`() {
+  fun `handlers receive caller data with context resolved from the target route`() {
     val runtime = Runtime()
 
-    assertEquals(200, runtime.service.evaluate(page).statusCode)
-    assertEquals(200, runtime.service.evaluate(page.toDecisionRequest()).statusCode)
+    assertEquals(200, runtime.service.evaluate(routeRequest).statusCode)
 
-    assertSame(page, runtime.applicationRequests[0])
-    assertEquals("HEAD", runtime.handlerRequests[0].method)
-    assertEquals("/proxy/test/posts/42", runtime.handlerRequests[0].path)
-    assertEquals("GET", runtime.handlerRequests[1].method)
-    assertEquals("/test/posts/42", runtime.handlerRequests[1].path)
-    runtime.handlerRequests.forEach { context ->
-      assertEquals(page.pathParameters, context.pathParameters)
-      assertEquals(page.queryString, context.queryString)
-      assertEquals(listOf("casey"), context.header("x-user"))
-    }
+    assertSame(routeRequest, runtime.applicationRequests.single())
+    val context = runtime.handlerRequests.single()
+    assertEquals("GET", context.method)
+    assertEquals("/test/posts/42", context.path)
+    assertEquals(routeRequest.pathParameters, context.pathParameters)
+    assertEquals(routeRequest.queryString, context.queryString)
+    assertEquals(routeRequest.headers, context.headers)
+    assertEquals(listOf("casey"), context.header("x-user"))
   }
 
   @Test
-  fun `both entry points resolve typed redirects from handlers`() {
+  fun `typed redirects from handlers are resolved`() {
     val runtime = Runtime()
-    val request = page.copy(pathParameters = mapOf("id" to "missing"))
+    val request = routeRequest.copy(pathParameters = mapOf("id" to "missing"))
     val expected = RouteHttpResponse(statusCode = 302, location = "/test/missing?from=post+access")
 
     assertEquals(expected, runtime.service.evaluate(request))
-    assertEquals(expected, runtime.service.evaluate(request.toDecisionRequest()))
-  }
-
-  private fun RouteRequest.toDecisionRequest(): RouteResponseRequest {
-    return RouteResponseRequest(
-      applicationId = applicationId,
-      routeId = routeId,
-      parameters = pathParameters,
-      queryString = queryString,
-      headers = headers
-    )
   }
 
   private class Runtime(applicationDecision: AccessDecision = AccessDecision.Allow) {

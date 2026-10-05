@@ -4,6 +4,21 @@
 
 ### Breaking changes
 
+- **Page requests and navigation checks now share `RouteRequest`.**
+  `RouteResponseRequest` and its `RouteResponseService.evaluate` overload are
+  removed. Use `com.sparouting.runtime.request.RouteRequest` with application
+  and route IDs, `pathParameters`, `queryString`, and actual request headers.
+  Rename `parameters` to `pathParameters` when migrating navigation checks.
+  Custom response services now override just `evaluate(RouteRequest)`.
+
+  `RouteRequest.method` and `.path` are removed. Typed handlers still receive
+  `RouteAccessContext`, with `GET` and the destination path resolved from the
+  route manifest for both entry points, rather than the raw page-request path.
+  Update request factories and application handlers that used the removed fields.
+  Header forwarding, validation, access-check order, and redirect handling are
+  unchanged. The decision endpoint still accepts `parameters.*` query keys and
+  returns the same JSON response.
+
 - **Publishing IDs now use `com.sparouting`.** Maven artifacts move from
   `io.github.caseymcguire:<artifact>` to `com.sparouting:<artifact>`, with the
   artifact names unchanged. The Gradle plugin ID changes from
@@ -129,8 +144,7 @@
   `SpringRouterFunctionFactory` now takes a `RouteResponseService` instead of a
   `RouteResponseEvaluator` and `RoutingProperties`. Both page serving and
   navigation decisions use the service's shared validation and evaluation
-  pipeline. Custom services should account for both `evaluate(RouteRequest)`
-  and `evaluate(RouteResponseRequest)`. A custom `RouteRequestFactory` now runs
+  pipeline through `evaluate(RouteRequest)`. A custom `RouteRequestFactory` now runs
   before validation, which checks its returned values.
 
   The runtime also supplies `HtmlDocumentRenderer` and `HtmlRenderingOptions`
@@ -146,7 +160,7 @@
   | `SpaRouteParameter` | `RouteParameter` |
   | `SpaRouteResponseEvaluator` | `RouteAccessEvaluator` |
   | `SpaRouteHttpResponse` | `RouteHttpResponse` |
-  | `SpaRouteResponseRequest` | `RouteResponseRequest` |
+  | `SpaRouteResponseRequest` | `RouteRequest` |
   | `SpaRouteResponseService` | `RouteResponseService` |
   | `SpaRouteRequestFactory` | `RouteRequestFactory` |
   | `DefaultSpaRouteRequestFactory` | `DefaultRouteRequestFactory` |

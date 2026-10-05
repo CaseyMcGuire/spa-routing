@@ -83,7 +83,9 @@ Spring registers the handler components automatically. Missing posts redirect
 to `/not-found` on both direct page requests and client-side navigation.
 Other routes need no handler. Spring fails startup if either required handler
 is missing or has multiple implementations. The generated request's `context`
-also exposes raw query-string values, headers, method, and path.
+also exposes raw query-string values, actual request headers, method `GET`, and
+the destination path resolved from the manifest. Page loads and client navigation
+checks use the same runtime `RouteRequest` and access handlers.
 
 Boot's servlet error endpoint is configured at `/internal/error` so it does
 not collide with the SPA's `/error` page. Otherwise an API error dispatch can

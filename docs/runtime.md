@@ -99,13 +99,15 @@ should use `RouteResponseService`, which returns `404` before access evaluation.
 
 ## Adapt requests and responses
 
-Use `RouteResponseService` as the entry point for both kinds of request:
+Use `RouteResponseService.evaluate(RouteRequest)` for both page requests and
+client navigation checks. Adapters supply application and route IDs, decoded
+`pathParameters` and `queryString` values, and headers from the actual incoming
+request. Both entry points use the same request type and validation/access pipeline.
 
-- A page request calls `evaluate(RouteRequest)`. The adapter supplies application
-  and route IDs, actual method and path, decoded path/query values, and headers.
-- A client navigation check calls `evaluate(RouteResponseRequest)`. The runtime
-  resolves the target route and builds its GET request. Pass headers from the
-  actual client request.
+`RouteRequest` contains no HTTP method or raw request path. Typed route handlers
+receive `RouteAccessContext` with method `GET` and the destination path resolved
+from the manifest. This gives handlers the same target context for page loads
+and navigation checks, alongside the caller's headers and query values.
 
 Route paths in the manifest already include the application prefix. Adapters
 register `route.path` directly; `route.resolvePath(parameters)` substitutes path

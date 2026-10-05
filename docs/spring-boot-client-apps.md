@@ -302,7 +302,8 @@ Request models expose path values directly, with optional values nullable.
 For routes with declared query fields, `request.queryString` uses the route's
 existing `QueryString` model, including nullable and repeated values.
 `request.context` exposes headers (including a case-insensitive `header(name)`
-helper), method, path, raw path values, and all raw query-string values.
+helper), target method (`GET`), manifest-resolved destination path, raw path
+values, and all raw query-string values.
 If a path parameter uses `queryString` or `context`, the generated metadata
 property appends underscores until its name is unique. Generated access/request
 type names must not collide with another route ID in the application.
@@ -545,24 +546,22 @@ Pass repeated query values as repeated prefixed keys. For the declared
 GET /__spa/route-decision?applicationId=account&routeId=UserSearch&parameters.id=123&queryString.q=hello&queryString.tag=a&queryString.tag=b
 ```
 
-The decision endpoint builds a synthetic `RouteRequest` for the target route:
+The decision endpoint builds the same `RouteRequest` type used for page loads:
 
 - `applicationId`: from the `applicationId` query parameter
 - `routeId`: from the `routeId` query parameter
-- `method`: always `GET`
-- `path`: the resolved target route path
 - `pathParameters`: values from `parameters.*`
 - `queryString`: values from `queryString.*`
 - `headers`: real request headers from the decision request
 
-The endpoint does not call `RouteRequestFactory`; that factory adapts real
-page-load `ServerRequest` instances. Application handlers should rely on the fields
-above, or the application should replace `RouteResponseService` for a custom
-decision context.
+The endpoint does not call `RouteRequestFactory`; that factory adapts page-load
+`ServerRequest` instances into the shared request type. Both endpoints forward
+their actual incoming headers. Application handlers receive the fields above.
+Typed route handlers also receive a `RouteAccessContext` with method `GET` and
+the destination path resolved from the manifest for both entry points.
 
-Both endpoints now use `RouteResponseService`: page loads call
-`evaluate(RouteRequest)` and navigation checks call `evaluate(RouteResponseRequest)`.
-A custom service should account for both overloads. For page loads,
+Both endpoints call `RouteResponseService.evaluate(RouteRequest)`. A custom
+service can override this single method. For page loads,
 `RouteRequestFactory` runs before shared validation; validation applies to the
 values it returns before either access handler executes.
 
@@ -615,7 +614,7 @@ Decision statuses match what the MVC route would use:
 For custom GraphQL or REST APIs, call `RouteResponseService` directly:
 
 ```kotlin
-import com.sparouting.runtime.response.RouteResponseRequest
+import com.sparouting.runtime.request.RouteRequest
 import com.sparouting.runtime.response.RouteResponseService
 
 class RouteDecisionHandler(
@@ -627,10 +626,10 @@ class RouteDecisionHandler(
     queryString: Map<String, List<String>>,
     headers: Map<String, List<String>>
   ) = routeResponseService.evaluate(
-    RouteResponseRequest(
+    RouteRequest(
       applicationId = "account",
       routeId = routeId,
-      parameters = parameters,
+      pathParameters = parameters,
       queryString = queryString,
       headers = headers
     )

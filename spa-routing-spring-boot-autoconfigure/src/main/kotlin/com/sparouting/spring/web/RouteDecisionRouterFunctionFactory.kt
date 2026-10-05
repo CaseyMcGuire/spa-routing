@@ -1,6 +1,6 @@
 package com.sparouting.spring.web
 
-import com.sparouting.runtime.response.RouteResponseRequest
+import com.sparouting.runtime.request.RouteRequest
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.toRouteHeaders
@@ -24,10 +24,10 @@ class RouteDecisionRouterFunctionFactory(
 
   private fun handleRouteDecision(request: ServerRequest): ServerResponse {
     return responseService.evaluate(
-      RouteResponseRequest(
+      RouteRequest(
         applicationId = request.queryStringValue("applicationId"),
         routeId = request.queryStringValue("routeId"),
-        parameters = request.routeParameters(),
+        pathParameters = request.routeParameters(),
         queryString = request.routeQueryString(),
         headers = request.toRouteHeaders()
       )

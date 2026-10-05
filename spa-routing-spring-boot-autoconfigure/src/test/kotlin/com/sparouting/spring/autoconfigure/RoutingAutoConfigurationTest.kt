@@ -153,7 +153,7 @@ class RoutingAutoConfigurationTest {
       application: SinglePageApplicationConfig,
       route: com.sparouting.contract.RouteManifest
     ): RouteRequest {
-      return RouteRequest(application.manifest.id, route.id, serverRequest.method().name(), serverRequest.path())
+      return RouteRequest(application.manifest.id, route.id)
     }
   }
 }

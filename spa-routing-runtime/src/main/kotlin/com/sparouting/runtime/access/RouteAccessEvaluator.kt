@@ -28,8 +28,8 @@ open class RouteAccessEvaluator(
     val handler = registration.routeAccessHandler ?: return AccessDecision.Allow
     return handler.evaluateRequest(
       RouteAccessContext(
-        method = request.method,
-        path = request.path,
+        method = "GET",
+        path = registration.route.resolvePath(request.pathParameters),
         pathParameters = request.pathParameters,
         queryString = request.queryString,
         headers = request.headers

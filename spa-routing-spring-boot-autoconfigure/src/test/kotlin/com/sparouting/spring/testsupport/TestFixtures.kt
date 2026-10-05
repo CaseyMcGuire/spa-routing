@@ -30,8 +30,6 @@ internal fun applicationAccessHandler(
 internal fun testRequest(): RouteRequest {
   return RouteRequest(
     applicationId = "test",
-    routeId = "Route",
-    method = "GET",
-    path = "/test/route"
+    routeId = "Route"
   )
 }

@@ -9,7 +9,6 @@ import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.runtime.request.RouteRequest
 import com.sparouting.runtime.response.RouteHttpResponse
-import com.sparouting.runtime.response.RouteResponseRequest
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.rendering.DefaultHtmlRenderer
@@ -45,9 +44,11 @@ class TypedQueryRoutingTest {
     val queries = valid + mapOf("baz" to listOf(""), "filter" to listOf("a", "b"), "utm_source" to listOf("extra", "extra2"))
     assertPageAndDecision(queries, 200)
     assertEquals(2, requests.size)
+    assertEquals(requests[0], requests[1])
     requests.forEach {
+      assertEquals("test", it.applicationId)
+      assertEquals("UserDetail", it.routeId)
       assertEquals(queries, it.queryString)
-      assertEquals("/test/users/123", it.path)
       assertEquals(mapOf("id" to "123"), it.pathParameters)
     }
   }
@@ -82,10 +83,10 @@ class TypedQueryRoutingTest {
   @Test
   fun `service rejects empty required lists and permits empty optional lists`() {
     val service = RouteResponseService(registry, evaluator)
-    assertEquals(400, service.evaluate(RouteResponseRequest(
+    assertEquals(400, service.evaluate(RouteRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
     )).statusCode)
-    assertEquals(200, service.evaluate(RouteResponseRequest(
+    assertEquals(200, service.evaluate(RouteRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("filter" to emptyList())
     )).statusCode)
   }
@@ -114,10 +115,10 @@ class TypedQueryRoutingTest {
   private fun redirect(target: RouteTarget): RouteHttpResponse {
     val handler = applicationAccessHandler(config.manifest) { AccessDecision.Redirect(target) }
     val routes = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
-    return RouteResponseService(routes, RouteAccessEvaluator(routes)).evaluate(RouteResponseRequest(
+    return RouteResponseService(routes, RouteAccessEvaluator(routes)).evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
-      parameters = mapOf("id" to "123"),
+      pathParameters = mapOf("id" to "123"),
       queryString = valid
     ))
   }

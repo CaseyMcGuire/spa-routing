@@ -183,7 +183,7 @@ private fun RouteDefinition.toKotlinRequestFile(packageName: String): String {
   val (queryProperty, contextProperty) = requestPropertyNames()
   return buildString {
     appendGeneratedFileHeader(packageName, listOf("com.sparouting.contract.RouteAccessContext"))
-    appendLine("/** Typed input for $id access, with raw request metadata in [$contextProperty]. */")
+    appendLine("/** Typed input for $id access, with target route context and caller headers in [$contextProperty]. */")
     appendLine("data class ${id}Request(")
     parameters.forEach { parameter ->
       appendLine("  val ${parameter.toKotlinParameter()},")

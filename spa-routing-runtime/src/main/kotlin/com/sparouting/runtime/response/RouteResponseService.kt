@@ -3,7 +3,6 @@ package com.sparouting.runtime.response
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.runtime.access.RouteAccessEvaluator
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistration
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.runtime.request.RouteRequest
 
@@ -14,39 +13,13 @@ open class RouteResponseService @JvmOverloads constructor(
   private val invalidPathParameterStatus: Int = 400,
   private val invalidQueryStringStatus: Int = 400
 ) {
-  /** Evaluate an adapter's page request, preserving its method, path, and request metadata. */
+  /** Validate and evaluate a target route using headers from the page or navigation-check request. */
   open fun evaluate(request: RouteRequest): RouteHttpResponse {
     val match = routeRegistry.findByApplicationAndRouteId(
       applicationId = request.applicationId,
       routeId = request.routeId
     ) ?: return RouteHttpResponse.notFound()
 
-    return evaluate(match, request)
-  }
-
-  /** Evaluate a client navigation as a GET request to the target route. */
-  open fun evaluate(request: RouteResponseRequest): RouteHttpResponse {
-    val match = routeRegistry.findByApplicationAndRouteId(
-      applicationId = request.applicationId,
-      routeId = request.routeId
-    ) ?: return RouteHttpResponse.notFound()
-    val routeRequest = RouteRequest(
-      applicationId = match.application.manifest.id,
-      routeId = match.route.id,
-      method = "GET",
-      path = match.route.resolvePath(request.parameters),
-      pathParameters = request.parameters,
-      queryString = request.queryString,
-      headers = request.headers
-    )
-
-    return evaluate(match, routeRequest)
-  }
-
-  private fun evaluate(
-    match: SinglePageApplicationRouteRegistration,
-    request: RouteRequest
-  ): RouteHttpResponse {
     if (!match.route.hasValidParameterValues(request.pathParameters)) {
       return RouteHttpResponse(invalidPathParameterStatus)
     }

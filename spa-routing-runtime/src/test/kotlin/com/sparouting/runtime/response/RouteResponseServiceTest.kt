@@ -31,13 +31,13 @@ class RouteResponseServiceTest {
 
   @Test
   fun `unknown app or route returns not found`() {
-    assertEquals(404, service.evaluate(RouteResponseRequest("missing", "UserDetail")).statusCode)
-    assertEquals(404, service.evaluate(RouteResponseRequest("test", "Unknown")).statusCode)
+    assertEquals(404, service.evaluate(RouteRequest("missing", "UserDetail")).statusCode)
+    assertEquals(404, service.evaluate(RouteRequest("test", "Unknown")).statusCode)
   }
 
   @Test
   fun `missing required params returns bad request`() {
-    assertEquals(400, service.evaluate(RouteResponseRequest("test", "UserDetail")).statusCode)
+    assertEquals(400, service.evaluate(RouteRequest("test", "UserDetail")).statusCode)
   }
 
   @Test
@@ -49,7 +49,7 @@ class RouteResponseServiceTest {
     )
 
     val response = service.evaluate(
-      RouteResponseRequest("test", "UserDetail", mapOf("id" to "user-42", "unknown" to "value"))
+      RouteRequest("test", "UserDetail", mapOf("id" to "user-42", "unknown" to "value"))
     )
 
     assertEquals(422, response.statusCode)
@@ -65,10 +65,10 @@ class RouteResponseServiceTest {
     val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
     val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
 
-    val response = service.evaluate(RouteResponseRequest(
+    val response = service.evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
-      parameters = mapOf("id" to "42"),
+      pathParameters = mapOf("id" to "42"),
       queryString = mapOf("tab" to listOf("billing"))
     ))
 
@@ -77,7 +77,7 @@ class RouteResponseServiceTest {
   }
 
   @Test
-  fun `each application uses its own handler for both entry points`() {
+  fun `each application uses its own handler`() {
     val applicationsChecked = mutableListOf<String>()
     val publicConfig = TestSinglePageApplicationConfig(
       manifest = TestSinglePageApplicationManifest(id = "public", routes = listOf(RouteManifest("/public", "Index")))
@@ -98,25 +98,21 @@ class RouteResponseServiceTest {
 
     for (applicationId in listOf("public", "private")) {
       val expected = if (applicationId == "public") RouteHttpResponse.ok() else RouteHttpResponse.found("/public")
-      assertEquals(expected, service.evaluate(RouteResponseRequest(applicationId, "Index")))
-      assertEquals(expected, service.evaluate(RouteRequest(applicationId, "Index", "GET", "/$applicationId")))
+      assertEquals(expected, service.evaluate(RouteRequest(applicationId, "Index")))
     }
-    assertEquals(listOf("public", "public", "private", "private"), applicationsChecked)
+    assertEquals(listOf("public", "private"), applicationsChecked)
   }
 
   @Test
-  fun `service resolves application redirects for both entry points`() {
+  fun `service resolves application redirects`() {
     val expected = RouteHttpResponse(statusCode = 302, location = "/test/login")
     val parameters = mapOf("id" to "42")
 
-    assertEquals(expected, service.evaluate(RouteResponseRequest("test", "UserDetail", parameters)))
     assertEquals(expected, service.evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
-      method = "GET",
-      path = "/test/users/42",
       pathParameters = parameters
     )))
-    assertEquals(200, service.evaluate(RouteResponseRequest("test", "Login")).statusCode)
+    assertEquals(200, service.evaluate(RouteRequest("test", "Login")).statusCode)
   }
 }

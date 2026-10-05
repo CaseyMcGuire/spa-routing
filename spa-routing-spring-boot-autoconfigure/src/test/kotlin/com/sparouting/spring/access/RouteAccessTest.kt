@@ -9,6 +9,7 @@ import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
 import com.sparouting.runtime.access.ApplicationAccessHandler
 import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.runtime.request.RouteRequest
 import com.sparouting.spring.autoconfigure.RoutingAutoConfiguration
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -97,9 +98,15 @@ class RouteAccessTest {
   }
 
   @Test
-  fun `page and navigation decisions invoke the same injected handler after validation`() {
+  fun `page and navigation decisions pass the same request data to both handlers after validation`() {
     val handler = PostAccessHandler()
-    runner().withBean(PostAccessHandler::class.java, Supplier { handler }).run { context ->
+    val config = config()
+    val applicationRequests = mutableListOf<RouteRequest>()
+    val applicationHandler = applicationAccessHandler(config.manifest) { request ->
+      applicationRequests.add(request)
+      AccessDecision.Allow
+    }
+    runner(config, listOf(applicationHandler)).withBean(PostAccessHandler::class.java, Supplier { handler }).run { context ->
       assertThat(context).hasNotFailed()
       val mockMvc = MockMvcBuilders.routerFunctions(
         *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
@@ -108,6 +115,7 @@ class RouteAccessTest {
       mockMvc.get("/test/posts/42") {
         param("view", "reader")
         header("X-User", "casey")
+        header("X-Permission", "read", "edit")
       }.andExpect { status { isOk() } }
       mockMvc.get("/__spa/route-decision") {
         param("applicationId", "test")
@@ -115,15 +123,27 @@ class RouteAccessTest {
         param("parameters.id", "42")
         param("queryString.view", "reader")
         header("X-User", "casey")
+        header("X-Permission", "read", "edit")
       }.andExpect {
         status { isOk() }
         jsonPath("$.statusCode") { value(200) }
       }
+      assertThat(applicationRequests).hasSize(2)
+      assertThat(applicationRequests[0]).isEqualTo(applicationRequests[1])
+      assertThat(applicationRequests[0].applicationId).isEqualTo("test")
+      assertThat(applicationRequests[0].routeId).isEqualTo("Post")
+      assertThat(applicationRequests[0].pathParameters).isEqualTo(mapOf("id" to "42"))
+      assertThat(applicationRequests[0].queryString).isEqualTo(mapOf("view" to listOf("reader")))
+      assertThat(applicationRequests[0].header("x-user")).containsExactly("casey")
+      assertThat(applicationRequests[0].header("x-permission")).containsExactly("read", "edit")
       assertThat(handler.requests).hasSize(2)
+      assertThat(handler.requests[0]).isEqualTo(handler.requests[1])
       handler.requests.forEach { request ->
         assertThat(request.id).isEqualTo("42")
         assertThat(request.context.queryString["view"]).containsExactly("reader")
         assertThat(request.context.header("x-user")).containsExactly("casey")
+        assertThat(request.context.header("x-permission")).containsExactly("read", "edit")
+        assertThat(request.context.method).isEqualTo("GET")
         assertThat(request.context.path).isEqualTo("/test/posts/42")
       }
 
@@ -141,6 +161,7 @@ class RouteAccessTest {
         jsonPath("$.location") { value("/test/missing?from=post+access") }
       }
       assertThat(handler.requests).hasSize(4)
+      assertThat(applicationRequests).hasSize(4)
 
       mockMvc.get("/test/posts/42") {
         param("view", "one", "two")
@@ -156,6 +177,7 @@ class RouteAccessTest {
         param("routeId", "Post")
       }.andExpect { jsonPath("$.statusCode") { value(400) } }
       assertThat(handler.requests).hasSize(4)
+      assertThat(applicationRequests).hasSize(4)
 
       // Unflagged routes still work without an access handler.
       mockMvc.get("/test/missing").andExpect { status { isOk() } }

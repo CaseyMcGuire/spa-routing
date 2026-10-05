@@ -29,7 +29,8 @@ class RouteAccessEvaluatorTest {
       AccessDecision.Allow
     }
     val evaluator = evaluator(applicationHandler) { context ->
-      assertEquals(testRequest().path, context.path)
+      assertEquals("/test/route", context.path)
+      assertEquals("GET", context.method)
       calls.add("route")
       AccessDecision.Allow
     }
@@ -79,9 +80,9 @@ class RouteAccessEvaluatorTest {
     val evaluator = RouteAccessEvaluator(registry)
 
     assertEquals(AccessDecision.Allow, evaluator.evaluate(
-      testRequest().copy(applicationId = "public", path = "/public/route")
+      testRequest().copy(applicationId = "public")
     ))
-    assertEquals(redirect, evaluator.evaluate(testRequest().copy(applicationId = "private", path = "/private/route")))
+    assertEquals(redirect, evaluator.evaluate(testRequest().copy(applicationId = "private")))
   }
 
   @Test
