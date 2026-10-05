@@ -4,12 +4,28 @@
 
 ### Breaking changes
 
+- **Access handlers are registered independently of application configs.**
+  `ApplicationAccessHandler` is now an abstract class taking the protected
+  `SinglePageApplicationDefinition` in its constructor. Extend it with, for
+  example, `CheckBlogAccess : ApplicationAccessHandler(BlogApplication)`.
+  `SinglePageApplicationConfig.accessHandler` is removed. Register application
+  handlers as standalone beans, just like route handlers; the previous lambda
+  interface and config wiring are no longer supported.
+
+  `SinglePageApplicationRouteRegistry` now takes configs, application handlers,
+  and optional route handlers. It validates exactly one application handler per
+  configured application, rejects unknown application handlers, and owns the
+  existing route handler validation. Registrations now include a required
+  `applicationAccessHandler` and optional `routeAccessHandler`.
+  `RouteAccessEvaluator` takes only the registry, retrieves both handlers in one
+  lookup, and exposes `evaluate(request)`. Update custom wiring and evaluator
+  overrides; callers no longer pass handlers to the evaluator. Spring collects
+  and injects both handler lists into the registry automatically.
+
 - **Application rule lists are replaced by one required application access handler.**
-  Implement `runtime.access.ApplicationAccessHandler.evaluate(RouteRequest)` and
-  bind it through `SinglePageApplicationConfig.accessHandler`. The property is
-  non-null and has no default. A public application can explicitly use
-  `ApplicationAccessHandler { AccessDecision.Allow }`; Spring applications can
-  inject a component into their config.
+  Extend `runtime.access.ApplicationAccessHandler(ApplicationDefinition)` and
+  implement `evaluate(RouteRequest)`. Register one implementation per application.
+  Public applications must explicitly return `AccessDecision.Allow`.
 
   Access has two levels: the application handler runs first, then the matching
   typed route handler if the application returns `Allow`. An application
@@ -27,16 +43,17 @@
   configured HTTP status responses are unchanged.
 
   Update imports and handler return types, then recompile consumers.
-  `RouteAccessEvaluator.evaluate(applicationAccessHandler, request)` now returns
-  `AccessDecision`. `RouteResponseService` resolves typed redirects itself and
+  `RouteAccessEvaluator.evaluate(request)` selects the application handler from
+  its injected registry and returns `AccessDecision`. Callers no longer supply
+  a handler. `RouteResponseService` resolves typed redirects itself and
   no longer takes an action resolver; the `routeRuleActionResolver` Spring bean
   is removed. Update custom runtime wiring accordingly.
 
 - **Access evaluation is consolidated in `runtime.access.RouteAccessEvaluator`.**
-  It replaces `RouteResponseEvaluator` and `RouteHandlerRegistry`, taking the
-  route registry and access handlers. It validates handler registrations at
-  construction and evaluates the application gate before the matching handler.
-  Its `evaluate(applicationAccessHandler, request)` method returns
+  It replaces `RouteResponseEvaluator` and `RouteHandlerRegistry`, taking only
+  the route registry. The registry validates handler registrations at construction;
+  the evaluator executes the application handler before the matching route handler.
+  Its `evaluate(request)` method returns
   `AccessDecision` instead of `RouteHttpResponse`. Redirect decisions retain
   their unresolved targets.
 

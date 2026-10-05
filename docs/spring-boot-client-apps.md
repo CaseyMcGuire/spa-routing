@@ -124,14 +124,13 @@ your Vite config must append the entry filename when building the input map.
 ## Define Config Beans
 
 For each SPA that should be served, expose a `SinglePageApplicationConfig` bean.
-The starter reads these beans during auto-configuration.
+The starter reads these beans during auto-configuration. Register the required
+application access handler separately, as shown below.
 
 ```kotlin
 package com.example.web
 
 import com.example.routes.AccountApplication
-import com.sparouting.contract.AccessDecision
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -142,7 +141,6 @@ class RoutesConfiguration {
   fun accountConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
       override val application = AccountApplication
-      override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
     }
   }
 }
@@ -160,24 +158,27 @@ The route only matches `GET`. Invalid path parameter values return
 
 ## Application Access
 
-Every application config must supply one `ApplicationAccessHandler`. It checks
-whether the current user can view that application. The handler can use your
-existing authentication service and compose reusable checks through constructor
+Every configured application requires exactly one `ApplicationAccessHandler`.
+Extend the abstract class and pass the application definition to its constructor.
+Spring discovers these beans and injects them into the route registry alongside
+route handlers. The config itself contains no handler wiring.
+
+The handler checks whether the current user can view the application. It can
+use your authentication service and compose reusable checks through constructor
 injection. For example, `AccountPermissions` below is an app-owned service;
 `PublicRoutes.Login()` is a generated route in a separately configured public
 application:
 
 ```kotlin
+import com.example.routes.AccountApplication
 import com.example.generated.spa.routes.PublicRoutes
 import com.sparouting.contract.AccessDecision
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 @Component
-class CheckAccountAccess(private val permissions: AccountPermissions) : ApplicationAccessHandler {
+class CheckAccountAccess(private val permissions: AccountPermissions) : ApplicationAccessHandler(AccountApplication) {
   override fun evaluate(request: RouteRequest): AccessDecision {
     if (!permissions.canViewApplication(request)) {
       return AccessDecision.Redirect(PublicRoutes.Login())
@@ -185,20 +186,16 @@ class CheckAccountAccess(private val permissions: AccountPermissions) : Applicat
     return AccessDecision.Allow
   }
 }
-
-@Bean
-fun accountConfig(checkAccountAccess: CheckAccountAccess): SinglePageApplicationConfig {
-  return object : SinglePageApplicationConfig {
-    override val application = AccountApplication
-    override val accessHandler = checkAccountAccess
-  }
-}
 ```
 
-The config binds a specific application to its handler. Spring injects that
-component normally; the library does not select an application handler from
-an unqualified list of beans. Multiple applications can supply different
-handlers, or explicitly share one.
+The registry matches application handlers by `handler.application.id` and route
+handlers by their application and route IDs. Missing or duplicate application
+handlers, or a handler for an unknown application, fail startup. Reusable
+permission services can be injected into multiple handlers.
+
+`RouteAccessEvaluator.evaluate(request)` looks up one registration containing
+both handlers. Callers supply only the request; the evaluator holds no separate
+handler map.
 
 There are two access checks, after parameter validation:
 
@@ -209,9 +206,16 @@ There are two access checks, after parameter validation:
    no route handler and are allowed after the application check.
 
 Both handlers return `AccessDecision.Allow` or `AccessDecision.Redirect`.
+For a public application, register a handler that explicitly allows access:
+
+```kotlin
+@Component
+class CheckBlogAccess : ApplicationAccessHandler(BlogApplication) {
+  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
+}
+```
+
 There are no ordered rule lists, skip results, or implicit application allowance.
-For a public application, use `ApplicationAccessHandler { AccessDecision.Allow }`.
-An omitted `accessHandler` is a compile error when implementing the config.
 If the sign-in page belongs to the gated application itself, its application
 handler must allow that route so a redirect does not loop.
 
@@ -256,7 +260,7 @@ handlers fail startup, as do handlers for unknown routes or routes without
 
 The flag defaults to `false`. Unflagged routes require no handler and are served
 once the application handler allows access. Every app, including a public
-app, must provide that application handler.
+app, must register that application handler.
 Generated client routes expose this setting as `hasAccessHandler: boolean`:
 
 ```ts
@@ -415,8 +419,6 @@ It can also include route CSS and a global stylesheet through properties.
 Override rendering for one SPA by implementing `SpringSinglePageApplicationConfig`:
 
 ```kotlin
-import com.sparouting.contract.AccessDecision
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.http.MediaType
 import org.springframework.context.annotation.Bean
@@ -426,7 +428,6 @@ import org.springframework.web.servlet.function.ServerResponse
 fun accountConfig(): SpringSinglePageApplicationConfig {
   return object : SpringSinglePageApplicationConfig {
     override val application = AccountApplication
-    override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()
@@ -645,8 +646,8 @@ For an existing Spring app that copied SPA routing code locally:
 
 1. Add `spa-routing-spring-boot-starter`.
 2. Keep app-owned `SinglePageApplicationDefinition` objects in the route definitions project.
-3. Replace application rule lists with one `ApplicationAccessHandler` per config. Move reusable checks into its dependencies; use `AccessDecision` at both access levels.
+3. Replace application rule lists with one `ApplicationAccessHandler(ApplicationDefinition)` bean per application. Move reusable checks into its dependencies; use `AccessDecision` at both access levels.
 4. Replace copied registry, evaluator, request adapter, and response classes with the starter.
-5. Expose one `SinglePageApplicationConfig` bean per SPA, with its required `accessHandler`.
+5. Expose one `SinglePageApplicationConfig` bean per SPA. The starter binds handler beans through the registry.
 6. Move any app-specific HTML page rendering into `SpringSinglePageApplicationConfig.renderHtml()` or a `HtmlRenderer` bean.
 7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteResponseService` from a custom GraphQL or REST endpoint.

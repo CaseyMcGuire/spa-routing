@@ -2,44 +2,30 @@ package io.github.caseymcguire.sparouting.runtime.access
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteAccessContext
-import com.sparouting.contract.RouteAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 
 /**
- * Evaluates the application access handler and then the matching route access handler.
- * Handler registrations are validated at construction. Requests must be validated before evaluation;
+ * Evaluates the registered application handler before the matching route handler.
+ * Requests must refer to a registered route and be validated before evaluation;
  * adapters should use [io.github.caseymcguire.sparouting.runtime.response.RouteResponseService].
  */
-open class RouteAccessEvaluator @JvmOverloads constructor(
-  routeRegistry: SinglePageApplicationRouteRegistry,
-  handlers: List<RouteAccessHandler<*>> = emptyList()
+open class RouteAccessEvaluator(
+  private val routeRegistry: SinglePageApplicationRouteRegistry
 ) {
-  private val routeToHandler = handlers.groupBy { handler ->
-    RouteKey(applicationId = handler.route.applicationId, routeId = handler.route.routeId)
-  }
-
-  init {
-    validateHandlerRegistrations(routeRegistry)
-  }
-
-  /** Route access is checked only after the application handler allows access. Redirect targets remain unresolved. */
-  open fun evaluate(
-    applicationAccessHandler: ApplicationAccessHandler,
-    request: RouteRequest
-  ): AccessDecision {
-    val applicationDecision = applicationAccessHandler.evaluate(request)
+  /** Route access is checked only after the application allows access. Redirect targets remain unresolved. */
+  open fun evaluate(request: RouteRequest): AccessDecision {
+    val registration = requireNotNull(
+      routeRegistry.findByApplicationAndRouteId(request.applicationId, request.routeId)
+    ) {
+      "Unknown SPA route: ${request.applicationId}:${request.routeId}"
+    }
+    val applicationDecision = registration.applicationAccessHandler.evaluate(request)
     if (applicationDecision != AccessDecision.Allow) {
       return applicationDecision
     }
 
-    return evaluateRouteAccess(request)
-  }
-
-  private fun evaluateRouteAccess(request: RouteRequest): AccessDecision {
-    val key = RouteKey(applicationId = request.applicationId, routeId = request.routeId)
-    val handler = routeToHandler[key]?.single()
-      ?: return AccessDecision.Allow
+    val handler = registration.routeAccessHandler ?: return AccessDecision.Allow
     return handler.evaluateRequest(
       RouteAccessContext(
         method = request.method,
@@ -50,30 +36,4 @@ open class RouteAccessEvaluator @JvmOverloads constructor(
       )
     )
   }
-
-  private fun validateHandlerRegistrations(routeRegistry: SinglePageApplicationRouteRegistry) {
-    routeToHandler.forEach { (key, implementations) ->
-      val registration = routeRegistry.findByApplicationAndRouteId(key.applicationId, key.routeId)
-      require(registration != null && registration.route.generateAccessHandler) {
-        "Access handler registered for ${key.applicationId}:${key.routeId}, but that route does not declare generateAccessHandler = true."
-      }
-      require(implementations.size == 1) {
-        "Expected exactly one access handler for ${key.applicationId}:${key.routeId}, found ${implementations.size}."
-      }
-    }
-    routeRegistry.registrations().filter { it.route.generateAccessHandler }.forEach { registration ->
-      val key = RouteKey(
-        applicationId = registration.application.applicationId,
-        routeId = registration.route.id
-      )
-      require(routeToHandler.containsKey(key)) {
-        "Missing access handler for ${key.applicationId}:${key.routeId}. Register an implementation of ${registration.route.id}AccessHandler."
-      }
-    }
-  }
-
-  private data class RouteKey(
-    val applicationId: String,
-    val routeId: String
-  )
 }

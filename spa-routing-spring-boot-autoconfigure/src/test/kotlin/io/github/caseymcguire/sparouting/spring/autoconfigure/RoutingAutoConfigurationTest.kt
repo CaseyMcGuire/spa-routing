@@ -1,6 +1,5 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
-import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
@@ -14,6 +13,7 @@ import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFacto
 import io.github.caseymcguire.sparouting.spring.request.RouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.spring.testsupport.applicationAccessHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
@@ -34,7 +34,7 @@ class RoutingAutoConfigurationTest {
       assertThat(context).hasSingleBean(SinglePageApplicationRouteRegistry::class.java)
       assertThat(context).hasSingleBean(RouteAccessEvaluator::class.java)
       assertThat(context).hasSingleBean(ApplicationAccessHandler::class.java)
-      assertThat(context.getBean(SinglePageApplicationConfig::class.java).accessHandler)
+      assertThat(context.getBean(SinglePageApplicationRouteRegistry::class.java).registrations().single().applicationAccessHandler)
         .isSameAs(context.getBean(ApplicationAccessHandler::class.java))
       assertThat(context).doesNotHaveBean("routeRuleActionResolver")
       assertThat(context).hasBean("routeAccessEvaluator")
@@ -116,16 +116,13 @@ class RoutingAutoConfigurationTest {
 
   @Configuration(proxyBeanMethods = false)
   class TestRouteConfiguration {
-    @Bean
-    fun applicationAccessHandler(): ApplicationAccessHandler = ApplicationAccessHandler { AccessDecision.Allow }
+    private val application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home")))
 
     @Bean
-    fun testApplicationConfig(applicationAccessHandler: ApplicationAccessHandler): SinglePageApplicationConfig {
-      return TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home"))),
-        accessHandler = applicationAccessHandler
-      )
-    }
+    fun testApplicationAccessHandler(): ApplicationAccessHandler = applicationAccessHandler(application)
+
+    @Bean
+    fun testApplicationConfig(): SinglePageApplicationConfig = TestSinglePageApplicationConfig(application)
   }
 
   @Configuration(proxyBeanMethods = false)

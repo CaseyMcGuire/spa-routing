@@ -3,7 +3,7 @@ package io.github.caseymcguire.sparouting.runtime.response
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
+import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
@@ -50,10 +50,10 @@ class RouteRedirectTest {
     val config = TestSinglePageApplicationConfig(
       application = TestSinglePageApplicationDefinition(
         routes = listOf(route("users/{id}", "UserDetail"))
-      ),
-      accessHandler = ApplicationAccessHandler { AccessDecision.Redirect(target) }
+      )
     )
-    val registry = SinglePageApplicationRouteRegistry(listOf(config))
+    val handler = applicationAccessHandler(config.application) { AccessDecision.Redirect(target) }
+    val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
     return RouteResponseService(registry, RouteAccessEvaluator(registry)).evaluate(
       RouteResponseRequest("test", "UserDetail", mapOf("id" to "42"))
     )

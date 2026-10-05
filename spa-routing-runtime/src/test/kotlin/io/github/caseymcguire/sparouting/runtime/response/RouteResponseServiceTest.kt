@@ -3,7 +3,7 @@ package io.github.caseymcguire.sparouting.runtime.response
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
+import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
@@ -16,16 +16,16 @@ class RouteResponseServiceTest {
   private val config = TestSinglePageApplicationConfig(
     application = TestSinglePageApplicationDefinition(
       routes = listOf(route("users/{id}", "UserDetail"), route("login", "Login"))
-    ),
-    accessHandler = ApplicationAccessHandler { request ->
-      if (request.routeId == "Login") {
-        AccessDecision.Allow
-      } else {
-        AccessDecision.Redirect(RouteTarget("test", "Login"))
-      }
-    }
+    )
   )
-  private val registry = SinglePageApplicationRouteRegistry(listOf(config))
+  private val applicationHandler = applicationAccessHandler(config.application) { request ->
+    if (request.routeId == "Login") {
+      AccessDecision.Allow
+    } else {
+      AccessDecision.Redirect(RouteTarget("test", "Login"))
+    }
+  }
+  private val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(applicationHandler))
   private val evaluator = RouteAccessEvaluator(registry)
   private val service = RouteResponseService(registry, evaluator)
 
@@ -58,11 +58,11 @@ class RouteResponseServiceTest {
   @Test
   fun `query parameters are included in application access request`() {
     val requests = mutableListOf<RouteRequest>()
-    val config = config.copy(accessHandler = ApplicationAccessHandler { request ->
+    val handler = applicationAccessHandler(config.application) { request ->
       requests.add(request)
       AccessDecision.Allow
-    })
-    val registry = SinglePageApplicationRouteRegistry(listOf(config))
+    }
+    val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
     val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
 
     val response = service.evaluate(RouteResponseRequest(
@@ -80,20 +80,20 @@ class RouteResponseServiceTest {
   fun `each application uses its own handler for both entry points`() {
     val applicationsChecked = mutableListOf<String>()
     val publicConfig = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(id = "public", routes = listOf(route("", "Index"))),
-      accessHandler = ApplicationAccessHandler { request ->
-        applicationsChecked.add(request.applicationId)
-        AccessDecision.Allow
-      }
+      application = TestSinglePageApplicationDefinition(id = "public", routes = listOf(route("", "Index")))
     )
     val privateConfig = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(id = "private", routes = listOf(route("", "Index"))),
-      accessHandler = ApplicationAccessHandler { request ->
-        applicationsChecked.add(request.applicationId)
-        AccessDecision.Redirect(RouteTarget("public", "Index"))
-      }
+      application = TestSinglePageApplicationDefinition(id = "private", routes = listOf(route("", "Index")))
     )
-    val registry = SinglePageApplicationRouteRegistry(listOf(publicConfig, privateConfig))
+    val publicHandler = applicationAccessHandler(publicConfig.application) { request ->
+      applicationsChecked.add(request.applicationId)
+      AccessDecision.Allow
+    }
+    val privateHandler = applicationAccessHandler(privateConfig.application) { request ->
+      applicationsChecked.add(request.applicationId)
+      AccessDecision.Redirect(RouteTarget("public", "Index"))
+    }
+    val registry = SinglePageApplicationRouteRegistry(listOf(publicConfig, privateConfig), listOf(privateHandler, publicHandler))
     val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
 
     for (applicationId in listOf("public", "private")) {

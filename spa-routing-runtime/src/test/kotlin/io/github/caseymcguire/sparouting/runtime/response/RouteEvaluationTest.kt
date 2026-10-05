@@ -7,7 +7,7 @@ import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
+import io.github.caseymcguire.sparouting.runtime.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
@@ -108,13 +108,12 @@ class RouteEvaluationTest {
       application = TestSinglePageApplicationDefinition(routes = listOf(
         route("posts/{id}", "Post", queryString = listOf(parameter("view").optional()), generateAccessHandler = true),
         route("missing", "Missing", queryString = listOf(parameter("from")))
-      )),
-      accessHandler = ApplicationAccessHandler { request ->
-        applicationRequests.add(request)
-        applicationDecision
-      }
+      ))
     )
-    private val routeRegistry = SinglePageApplicationRouteRegistry(listOf(config))
+    private val applicationHandler = applicationAccessHandler(config.application) { request ->
+      applicationRequests.add(request)
+      applicationDecision
+    }
     private val handler = object : RouteAccessHandler<RouteAccessContext>(Route("test", "Post")) {
       override fun createRequest(context: RouteAccessContext): RouteAccessContext = context
 
@@ -130,9 +129,10 @@ class RouteEvaluationTest {
         ))
       }
     }
+    private val routeRegistry = SinglePageApplicationRouteRegistry(listOf(config), listOf(applicationHandler), listOf(handler))
     val service = RouteResponseService(
       routeRegistry = routeRegistry,
-      accessEvaluator = RouteAccessEvaluator(routeRegistry, listOf(handler)),
+      accessEvaluator = RouteAccessEvaluator(routeRegistry),
       invalidPathParameterStatus = 422
     )
   }

@@ -278,8 +278,10 @@ A public application explicitly allows access:
 import com.sparouting.contract.AccessDecision
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.stereotype.Component
 
 @Configuration
 class RoutesConfiguration {
@@ -287,22 +289,28 @@ class RoutesConfiguration {
   fun accountConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
       override val application = AccountApplication
-      override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
     }
   }
+}
+
+@Component
+class CheckAccountAccess : ApplicationAccessHandler(AccountApplication) {
+  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 ```
 
 The application handler must return `AccessDecision.Allow` before a route
 handler can run. Either handler can return `AccessDecision.Redirect(target)`
 to redirect to a registered route. A route without a handler is served once
-the application allows access. There are no rule lists or skip results, and
-`SinglePageApplicationConfig.accessHandler` has no default.
+the application allows access. Every configured application requires exactly
+one application handler; missing or duplicate handlers fail startup.
 
-For application-specific checks, implement `ApplicationAccessHandler` as a
-Spring component and inject it into the config bean. The blog demonstrates
-this with its public `CheckBlogAccess` component. The handler receives a
-`RouteRequest` containing the application and route IDs, request metadata, and
+For application-specific checks, extend `ApplicationAccessHandler(ApplicationDefinition)`
+as a Spring component. The blog demonstrates this with its public
+`CheckBlogAccess : ApplicationAccessHandler(BlogApplication)` component.
+The config contains no handler wiring. Spring collects both kinds of handler
+and injects them into the registry, which binds them to applications and routes.
+The handler receives a `RouteRequest` containing the application and route IDs, request metadata, and
 headers; application code supplies the authenticated user and reusable checks.
 
 For route-specific checks, declare `generateAccessHandler = true` and extend
@@ -320,11 +328,10 @@ import com.sparouting.contract.AccessDecision
 AccessDecision.Redirect(AccountRoutes.UserDetail(id = "123"))
 ```
 
-Override the default HTML page for one SPA:
+Override the default HTML page for one SPA, keeping its application handler
+registered separately:
 
 ```kotlin
-import com.sparouting.contract.AccessDecision
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
@@ -334,7 +341,6 @@ import org.springframework.web.servlet.function.ServerResponse
 fun accountConfig(): SpringSinglePageApplicationConfig {
   return object : SpringSinglePageApplicationConfig {
     override val application = AccountApplication
-    override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()

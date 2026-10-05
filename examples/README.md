@@ -36,19 +36,20 @@ To use another port:
 ```
 
 The Spring application uses the local `spa-routing-spring-boot-starter` project
-and exposes a `SinglePageApplicationConfig` bean. Its required `accessHandler`
-is the injected `CheckBlogAccess` component, which explicitly allows access to
-the public blog:
+and exposes a `SinglePageApplicationConfig` bean. Spring separately discovers
+`CheckBlogAccess`, which declares the application it protects and explicitly
+allows access to the public blog:
 
 ```kotlin
 @Component
-class CheckBlogAccess : ApplicationAccessHandler {
+class CheckBlogAccess : ApplicationAccessHandler(BlogApplication) {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 ```
 
-The config binds this component with `override val accessHandler = checkBlogAccess`.
-It runs before any route-specific handler. Applications that restrict access
+The registry binds this component to the blog by application ID. The config
+contains only `override val application = BlogApplication`. Missing or duplicate
+application handlers fail startup. `CheckBlogAccess` runs before either post handler. Applications that restrict access
 can inject their permission service into this component and return a typed
 `AccessDecision.Redirect` when the user cannot view the application.
 

@@ -17,17 +17,15 @@ internal data class TestSinglePageApplicationDefinition(
 ) : SinglePageApplicationDefinition
 
 internal data class TestSinglePageApplicationConfig(
-  override val application: SinglePageApplicationDefinition,
-  override val accessHandler: ApplicationAccessHandler = ApplicationAccessHandler { AccessDecision.Allow }
+  override val application: SinglePageApplicationDefinition
 ) : SinglePageApplicationConfig
 
-internal class RecordingApplicationAccessHandler(
-  private val result: AccessDecision,
-  private val onEvaluate: () -> Unit = {}
-) : ApplicationAccessHandler {
-  override fun evaluate(request: RouteRequest): AccessDecision {
-    onEvaluate()
-    return result
+internal fun applicationAccessHandler(
+  application: SinglePageApplicationDefinition,
+  evaluateAccess: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
+): ApplicationAccessHandler {
+  return object : ApplicationAccessHandler(application) {
+    override fun evaluate(request: RouteRequest): AccessDecision = evaluateAccess(request)
   }
 }
 

@@ -2,17 +2,17 @@ package io.github.caseymcguire.sparouting.spring.web
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
-import io.github.caseymcguire.sparouting.spring.testsupport.RecordingApplicationAccessHandler
+import io.github.caseymcguire.sparouting.spring.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import org.junit.jupiter.api.Test
+import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
@@ -21,8 +21,7 @@ class RouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns allowed response`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail")))
       )
     )
 
@@ -44,9 +43,9 @@ class RouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns denied response without redirecting`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"), route("login", "Login"))),
-        accessHandler = RequireHeaderAccess("X-User")
-      )
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"), route("login", "Login")))
+      ),
+      evaluateApplication = ::requireUserHeader
     )
 
     mockMvc.get("/__spa/route-decision") {
@@ -64,9 +63,9 @@ class RouteDecisionRouterFunctionFactoryTest {
   fun `route decision uses real request headers`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"))),
-        accessHandler = RequireHeaderAccess("X-User")
-      )
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin")))
+      ),
+      evaluateApplication = ::requireUserHeader
     )
 
     mockMvc.get("/__spa/route-decision") {
@@ -86,8 +85,7 @@ class RouteDecisionRouterFunctionFactoryTest {
     properties.server.invalidPathParameterStatus = 422
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail")))
       ),
       properties = properties
     )
@@ -105,12 +103,12 @@ class RouteDecisionRouterFunctionFactoryTest {
   fun `route decision includes target route query parameters`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        accessHandler = ApplicationAccessHandler { request ->
-          kotlin.test.assertEquals("billing", request.queryStringValue("tab"))
-          AccessDecision.Allow
-        }
-      )
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail")))
+      ),
+      evaluateApplication = { request ->
+        kotlin.test.assertEquals("billing", request.queryStringValue("tab"))
+        AccessDecision.Allow
+      }
     )
 
     mockMvc.get("/__spa/route-decision") {
@@ -130,8 +128,7 @@ class RouteDecisionRouterFunctionFactoryTest {
     properties.routeDecision.path = "/internal/spa-route-decision"
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home"))),
-        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home")))
       ),
       properties = properties
     )
@@ -145,29 +142,31 @@ class RouteDecisionRouterFunctionFactoryTest {
     }
   }
 
-  private class RequireHeaderAccess(
-    private val headerName: String
-  ) : ApplicationAccessHandler {
-    override fun evaluate(request: RouteRequest): AccessDecision {
-      return if (request.header(headerName).isEmpty()) {
-        AccessDecision.Redirect(RouteTarget("test", "Login"))
-      } else {
-        AccessDecision.Allow
-      }
+  private fun requireUserHeader(request: RouteRequest): AccessDecision {
+    return if (request.header("X-User").isEmpty()) {
+      AccessDecision.Redirect(RouteTarget("test", "Login"))
+    } else {
+      AccessDecision.Allow
     }
   }
 
   private fun mockMvc(
     config: TestSinglePageApplicationConfig,
-    properties: RoutingProperties = RoutingProperties()
-  ) = MockMvcBuilders.routerFunctions(
-    RouteDecisionRouterFunctionFactory(
-      responseService = RouteResponseService(
-        routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
-        accessEvaluator = RouteAccessEvaluator(SinglePageApplicationRouteRegistry(listOf(config))),
-        invalidPathParameterStatus = properties.server.invalidPathParameterStatus
-      ),
-      properties = properties
-    ).routes()
-  ).build()
+    properties: RoutingProperties = RoutingProperties(),
+    evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
+  ): MockMvc {
+    val registry = SinglePageApplicationRouteRegistry(
+      listOf(config), listOf(applicationAccessHandler(config.application, evaluateApplication))
+    )
+    return MockMvcBuilders.routerFunctions(
+      RouteDecisionRouterFunctionFactory(
+        responseService = RouteResponseService(
+          routeRegistry = registry,
+          accessEvaluator = RouteAccessEvaluator(registry),
+          invalidPathParameterStatus = properties.server.invalidPathParameterStatus
+        ),
+        properties = properties
+      ).routes()
+    ).build()
+  }
 }

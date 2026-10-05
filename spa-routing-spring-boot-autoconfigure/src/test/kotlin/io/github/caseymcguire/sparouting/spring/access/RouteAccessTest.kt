@@ -7,9 +7,10 @@ import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingAutoConfiguration
-import io.github.caseymcguire.sparouting.spring.testsupport.RecordingApplicationAccessHandler
+import io.github.caseymcguire.sparouting.spring.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import java.util.function.Supplier
@@ -22,6 +23,37 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.servlet.function.RouterFunction
 
 class RouteAccessTest {
+  @Test
+  fun `missing application handler fails startup even with both endpoints disabled`() {
+    runner(config(enabled = false), emptyList())
+      .withPropertyValues("spa-routing.server.enabled=false", "spa-routing.route-decision.enabled=false")
+      .run { context ->
+        assertThat(context).hasFailed()
+        assertThat(context.startupFailure).hasStackTraceContaining("Missing application access handler for test")
+      }
+  }
+
+  @Test
+  fun `duplicate application handler beans fail startup`() {
+    val config = config(enabled = false)
+    runner(config, listOf(applicationAccessHandler(config.application), applicationAccessHandler(config.application)))
+      .run { context ->
+        assertThat(context).hasFailed()
+        assertThat(context.startupFailure).hasStackTraceContaining("Expected exactly one application access handler for test, found 2")
+      }
+  }
+
+  @Test
+  fun `application handler bean for an unknown application fails startup`() {
+    val config = config(enabled = false)
+    val unknown = TestSinglePageApplicationDefinition(id = "unknown", routes = emptyList())
+    runner(config, listOf(applicationAccessHandler(config.application), applicationAccessHandler(unknown)))
+      .run { context ->
+        assertThat(context).hasFailed()
+        assertThat(context.startupFailure).hasStackTraceContaining("Application access handler registered for unknown application: unknown")
+      }
+  }
+
   @Test
   fun `missing handler fails startup even when page serving is disabled`() {
     runner().withPropertyValues("spa-routing.server.enabled=false").run { context ->
@@ -134,8 +166,9 @@ class RouteAccessTest {
   @Test
   fun `application redirect prevents route checks for page and navigation requests`() {
     val handler = PostAccessHandler()
-    val applicationHandler = RecordingApplicationAccessHandler(AccessDecision.Redirect(RouteTarget("test", "Missing")))
-    runner(config().copy(accessHandler = applicationHandler))
+    val config = config()
+    val applicationHandler = applicationAccessHandler(config.application) { AccessDecision.Redirect(RouteTarget("test", "Missing")) }
+    runner(config, listOf(applicationHandler))
       .withBean(PostAccessHandler::class.java, Supplier { handler })
       .run { context ->
         val mockMvc = MockMvcBuilders.routerFunctions(
@@ -158,10 +191,17 @@ class RouteAccessTest {
       }
   }
 
-  private fun runner(config: SinglePageApplicationConfig = config()): WebApplicationContextRunner {
-    return WebApplicationContextRunner()
+  private fun runner(
+    config: SinglePageApplicationConfig = config(),
+    applicationHandlers: List<ApplicationAccessHandler> = listOf(applicationAccessHandler(config.application))
+  ): WebApplicationContextRunner {
+    var runner = WebApplicationContextRunner()
       .withConfiguration(AutoConfigurations.of(RoutingAutoConfiguration::class.java))
       .withBean(SinglePageApplicationConfig::class.java, Supplier { config })
+    applicationHandlers.forEachIndexed { index, handler ->
+      runner = runner.withBean("applicationAccess$index", ApplicationAccessHandler::class.java, Supplier { handler })
+    }
+    return runner
   }
 
   private fun config(enabled: Boolean = true): TestSinglePageApplicationConfig {
@@ -169,8 +209,7 @@ class RouteAccessTest {
       application = TestSinglePageApplicationDefinition(routes = listOf(
         route("posts/{id}", "Post", queryString = listOf(parameter("view").optional()), generateAccessHandler = enabled),
         route("missing", "Missing", queryString = listOf(parameter("from").optional()))
-      )),
-      accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
+      ))
     )
   }
 

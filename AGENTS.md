@@ -15,13 +15,16 @@ data or an older checkout suggests — read the breaking-changes entries in
 [CHANGELOG.md](CHANGELOG.md). Behavior listed there has changed between
 versions; the newest entry is the current semantics.
 
-Each config requires an `ApplicationAccessHandler`. It must return
+Each configured application requires exactly one separately registered
+`ApplicationAccessHandler(ApplicationDefinition)`. It must return
 `AccessDecision.Allow` before an optional typed route access handler runs.
 Both handlers return `AccessDecision.Allow` or a typed `AccessDecision.Redirect`.
 Routes with `generateAccessHandler = true` also require a registered route
 handler. Unflagged routes are allowed after the application handler allows
 access. Application and route rule lists, their result/action types, and
-builtin rules have been removed.
+builtin rules have been removed. The route registry validates and binds both
+handler types; the evaluator reads both from one registration. Configs do not
+contain handlers.
 
 User-facing runtime docs live in [docs/runtime.md](docs/runtime.md) and
 [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).

@@ -4,7 +4,7 @@ import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
+import io.github.caseymcguire.sparouting.spring.testsupport.applicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
@@ -30,13 +30,13 @@ class TypedQueryRoutingTest {
       route("users/{id}", "UserDetail", queryString = listOf(
         parameter("foo"), parameter("tag").repeated(), parameter("baz").optional(), parameter("filter").repeated().optional()
       ))
-    )),
-    accessHandler = ApplicationAccessHandler { request ->
-      requests.add(request)
-      AccessDecision.Allow
-    }
+    ))
   )
-  private val registry = SinglePageApplicationRouteRegistry(listOf(config))
+  private val handler = applicationAccessHandler(config.application) { request ->
+    requests.add(request)
+    AccessDecision.Allow
+  }
+  private val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
   private val evaluator = RouteAccessEvaluator(registry)
   private val valid = linkedMapOf("foo" to listOf("a b+&=雪"), "tag" to listOf("x/y", "é"))
 
@@ -112,8 +112,8 @@ class TypedQueryRoutingTest {
   }
 
   private fun redirect(target: RouteTarget): RouteHttpResponse {
-    val redirectConfig = config.copy(accessHandler = ApplicationAccessHandler { AccessDecision.Redirect(target) })
-    val routes = SinglePageApplicationRouteRegistry(listOf(redirectConfig))
+    val handler = applicationAccessHandler(config.application) { AccessDecision.Redirect(target) }
+    val routes = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
     return RouteResponseService(routes, RouteAccessEvaluator(routes)).evaluate(RouteResponseRequest(
       applicationId = "test",
       routeId = "UserDetail",

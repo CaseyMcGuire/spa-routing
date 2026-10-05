@@ -55,12 +55,7 @@ open class RouteResponseService @JvmOverloads constructor(
       return RouteHttpResponse(invalidQueryStringStatus)
     }
 
-    val decision = accessEvaluator.evaluate(
-      applicationAccessHandler = match.application.accessHandler,
-      request = request
-    )
-
-    return when (decision) {
+    return when (val decision = accessEvaluator.evaluate(request)) {
       AccessDecision.Allow -> RouteHttpResponse.ok()
       is AccessDecision.Redirect -> resolveRedirect(decision.destination)
     }

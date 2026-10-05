@@ -25,10 +25,14 @@ frameworks. Supply an application access handler explicitly. Public applications
 import com.sparouting.contract.AccessDecision
 import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+
+class CheckBlogAccess : ApplicationAccessHandler(BlogApplication) {
+  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
+}
 
 val config = object : SinglePageApplicationConfig {
   override val application = BlogApplication
-  override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
 }
 ```
 
@@ -36,6 +40,7 @@ An adapter or dependency injection container assembles the runtime once:
 
 ```kotlin
 import com.sparouting.contract.RouteAccessHandler
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
@@ -43,35 +48,45 @@ import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
 
 fun createRouteService(
   configs: List<SinglePageApplicationConfig>,
-  handlers: List<RouteAccessHandler<*>>
+  applicationHandlers: List<ApplicationAccessHandler>,
+  routeHandlers: List<RouteAccessHandler<*>>
 ): RouteResponseService {
-  val routes = SinglePageApplicationRouteRegistry(configs)
+  val routes = SinglePageApplicationRouteRegistry(configs, applicationHandlers, routeHandlers)
   return RouteResponseService(
     routeRegistry = routes,
-    accessEvaluator = RouteAccessEvaluator(routes, handlers),
+    accessEvaluator = RouteAccessEvaluator(routes),
     invalidPathParameterStatus = 400,
     invalidQueryStringStatus = 400
   )
 }
 ```
 
-`RouteAccessEvaluator` validates registrations during construction, even when
-the handler list is empty. It rejects missing, duplicate, and stale handlers
-for routes with `generateAccessHandler`. Spring performs this wiring
-automatically through its starter.
+`SinglePageApplicationRouteRegistry` validates registrations during construction.
+It requires exactly one application handler per configured application, even
+for applications with no routes, and rejects handlers for unknown applications.
+It also rejects missing, duplicate, unknown-route, and unflagged-route handlers.
+Spring collects both handler types and performs this wiring through its starter.
 
-The evaluator invokes the application's `ApplicationAccessHandler` first.
+Each `SinglePageApplicationRouteRegistration` contains the config, route definition,
+required `applicationAccessHandler`, and optional `routeAccessHandler`.
+The evaluator's `evaluate(request)` method retrieves this registration in one
+lookup. It owns no separate handler map and invokes the application handler first.
 Only `AccessDecision.Allow` proceeds to the matching `RouteAccessHandler`.
 If there is no route handler, the application's allowance is sufficient.
 Either handler can return `AccessDecision.Redirect` with an unresolved typed
 target. The evaluator returns that decision; `RouteResponseService` resolves
 redirects and constructs response data.
 
-`SinglePageApplicationConfig.accessHandler` is required and non-null. It can
-hold a handler supplied by any DI container, or a lambda for a public app.
-Application handlers receive the framework-neutral `RouteRequest`. Typed route
-handlers continue receiving their generated request models. Both return core's
+`ApplicationAccessHandler` is an abstract class whose constructor takes the
+application definition it protects. Register implementations through your DI
+container, separately from application configs. Application handlers receive
+the framework-neutral `RouteRequest`. Typed route handlers continue receiving
+their generated request models. Both return core's
 `AccessDecision`; neither has a skip result or an ordered rule chain.
+
+Direct evaluator calls require a registered route and validated parameters.
+An unknown application or route throws `IllegalArgumentException`; adapters
+should use `RouteResponseService`, which returns `404` before access evaluation.
 
 ## Adapt requests and responses
 
@@ -117,7 +132,7 @@ val html = HtmlDocumentRenderer(
 ).render(config)
 ```
 
-`SinglePageApplicationConfig` contains the definition and required application access handler.
+`SinglePageApplicationConfig` contains the application definition; access handlers are registered separately.
 Spring applications with a per-application `ServerResponse` override use
 `SpringSinglePageApplicationConfig`; global HTTP rendering remains a Spring
 `HtmlRenderer` bean. See the [Spring guide](spring-boot-client-apps.md#render-html).

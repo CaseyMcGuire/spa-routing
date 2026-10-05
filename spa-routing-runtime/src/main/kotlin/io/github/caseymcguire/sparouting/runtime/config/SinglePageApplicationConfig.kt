@@ -2,9 +2,8 @@ package io.github.caseymcguire.sparouting.runtime.config
 
 import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.SinglePageApplicationDefinition
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 
-/** Application definition and required application-level access check shared by server adapters. */
+/** Application configuration shared by server adapters. Access handlers are registered separately. */
 interface SinglePageApplicationConfig {
   val application: SinglePageApplicationDefinition
 
@@ -25,8 +24,6 @@ interface SinglePageApplicationConfig {
 
   val applicationId: String
     get() = application.id
-
-  val accessHandler: ApplicationAccessHandler
 
   fun getFullPathPatterns(): List<String> {
     return routes.map { getFullPathPattern(it) }

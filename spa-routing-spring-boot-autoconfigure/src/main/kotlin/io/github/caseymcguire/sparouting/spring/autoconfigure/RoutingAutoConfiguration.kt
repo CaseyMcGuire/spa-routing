@@ -1,6 +1,7 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.RouteAccessHandler
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
@@ -30,18 +31,19 @@ class RoutingAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   fun singlePageApplicationRouteRegistry(
-    configs: List<SinglePageApplicationConfig>
+    configs: List<SinglePageApplicationConfig>,
+    applicationHandlers: List<ApplicationAccessHandler>,
+    routeHandlers: List<RouteAccessHandler<*>>
   ): SinglePageApplicationRouteRegistry {
-    return SinglePageApplicationRouteRegistry(configs)
+    return SinglePageApplicationRouteRegistry(configs, applicationHandlers, routeHandlers)
   }
 
   @Bean
   @ConditionalOnMissingBean
   fun routeAccessEvaluator(
-    routeRegistry: SinglePageApplicationRouteRegistry,
-    handlers: List<RouteAccessHandler<*>>
+    routeRegistry: SinglePageApplicationRouteRegistry
   ): RouteAccessEvaluator {
-    return RouteAccessEvaluator(routeRegistry, handlers)
+    return RouteAccessEvaluator(routeRegistry)
   }
 
   @Bean
