@@ -1,8 +1,13 @@
 package com.sparouting.examples.spring.blog
 
+import com.sparouting.examples.blog.BlogPost
+import com.sparouting.examples.blog.BlogPostService
+import com.sparouting.examples.blog.InvalidPostException
+import com.sparouting.examples.blog.WritePostRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -16,7 +21,7 @@ import java.net.URI
 
 @RestController
 @RequestMapping("/api/posts")
-class BlogPostController(private val posts: BlogPostStore) {
+class BlogPostController(private val posts: BlogPostService) {
   @GetMapping
   fun list(@RequestParam(name = "q", required = false) query: String?): List<BlogPost> {
     return posts.list(query)
@@ -29,7 +34,6 @@ class BlogPostController(private val posts: BlogPostStore) {
 
   @PostMapping
   fun create(@RequestBody input: WritePostRequest): ResponseEntity<BlogPost> {
-    validate(input)
     val post = posts.create(input)
     return ResponseEntity.created(URI.create("/api/posts/${post.id}")).body(post)
   }
@@ -39,7 +43,6 @@ class BlogPostController(private val posts: BlogPostStore) {
     @PathVariable("postId") postId: String,
     @RequestBody input: WritePostRequest
   ): BlogPost {
-    validate(input)
     return posts.update(postId, input) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found")
   }
 
@@ -51,9 +54,8 @@ class BlogPostController(private val posts: BlogPostStore) {
     return ResponseEntity.noContent().build()
   }
 
-  private fun validate(input: WritePostRequest) {
-    if (input.title.isBlank() || input.body.isBlank()) {
-      throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Title and body must not be blank")
-    }
+  @ExceptionHandler(InvalidPostException::class)
+  fun invalidPost(exception: InvalidPostException): ResponseEntity<Map<String, String>> {
+    return ResponseEntity.badRequest().body(mapOf("message" to exception.message.orEmpty()))
   }
 }

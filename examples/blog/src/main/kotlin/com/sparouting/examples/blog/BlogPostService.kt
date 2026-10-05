@@ -1,14 +1,12 @@
-package com.sparouting.examples.spring.blog
+package com.sparouting.examples.blog
 
-import org.springframework.stereotype.Component
-
-@Component
-class BlogPostStore {
+/** Framework-neutral blog operations, validation, and in-memory storage. */
+class BlogPostService {
   private val posts = linkedMapOf(
     "1" to BlogPost(
       id = "1",
       title = "Welcome to the blog",
-      body = "This example shares its routes between Spring Boot and the browser. Try creating or editing a post."
+      body = "This example shares its routes between the Kotlin server and the browser. Try creating or editing a post."
     ),
     "2" to BlogPost(
       id = "2",
@@ -33,6 +31,7 @@ class BlogPostStore {
 
   @Synchronized
   fun create(input: WritePostRequest): BlogPost {
+    validate(input)
     val post = BlogPost(
       id = (nextId++).toString(),
       title = input.title,
@@ -44,6 +43,7 @@ class BlogPostStore {
 
   @Synchronized
   fun update(postId: String, input: WritePostRequest): BlogPost? {
+    validate(input)
     if (!posts.containsKey(postId)) {
       return null
     }
@@ -56,5 +56,11 @@ class BlogPostStore {
   @Synchronized
   fun delete(postId: String): Boolean {
     return posts.remove(postId) != null
+  }
+
+  private fun validate(input: WritePostRequest) {
+    if (input.title.isBlank() || input.body.isBlank()) {
+      throw InvalidPostException("Title and body must not be blank")
+    }
   }
 }

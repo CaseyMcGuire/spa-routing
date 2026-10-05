@@ -1,4 +1,4 @@
-package com.sparouting.examples.spring.blog
+package com.sparouting.examples.blog
 
 /** JSON representation returned by the blog's list, read, create, and update endpoints. */
 data class BlogPost(

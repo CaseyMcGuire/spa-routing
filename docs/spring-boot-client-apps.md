@@ -253,17 +253,17 @@ String`; `PostAccessHandler` is a separate abstract class extending
 `RouteAccessHandler<PostRequest>`. Its generated implementation supplies the route
 identity and converts validated input into `PostRequest`.
 
-Implement the handler as a Spring bean. For example, the blog example uses:
+Implement the handler and register it as a Spring bean. The blog example keeps
+the handler in a framework-neutral module:
 
 ```kotlin
 import com.sparouting.contract.AccessDecision
+import com.sparouting.examples.blog.BlogPostService
 import com.sparouting.examples.generated.routes.BlogRoutes
 import com.sparouting.examples.generated.routes.blog.PostAccessHandler
 import com.sparouting.examples.generated.routes.blog.PostRequest
-import org.springframework.stereotype.Component
 
-@Component
-class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
+class CheckPostAccess(private val posts: BlogPostService) : PostAccessHandler() {
   override fun evaluate(request: PostRequest): AccessDecision {
     if (posts.find(request.postId) == null) {
       return AccessDecision.Redirect(BlogRoutes.NotFound())
@@ -273,9 +273,22 @@ class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
 }
 ```
 
-Wire these beans into the generated collection, then into the config:
+Register the service and handlers in a Spring `@Configuration` class, then
+wire the handlers into the generated collection and config:
 
 ```kotlin
+@Bean
+fun blogPostService(): BlogPostService = BlogPostService()
+
+@Bean
+fun checkBlogAccess(): CheckBlogAccess = CheckBlogAccess()
+
+@Bean
+fun checkPostAccess(posts: BlogPostService): CheckPostAccess = CheckPostAccess(posts)
+
+@Bean
+fun checkEditPostAccess(posts: BlogPostService): CheckEditPostAccess = CheckEditPostAccess(posts)
+
 @Bean
 fun blogRouteAccessHandlers(
   post: PostAccessHandler,

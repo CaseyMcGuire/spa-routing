@@ -11,9 +11,16 @@ creating, editing, and deleting posts.
 ```text
 examples/
 ├── route-definitions/  Shared blog route definitions
+├── blog/               Models, in-memory service, validation, access handlers,
+│                       and generated Kotlin config/routes
 ├── frontend/           Shared React UI, spa-kit router, and Vite build
-└── spring/             Spring Boot application, in-memory store, and REST API
+└── spring/             Spring Boot HTTP endpoints and bean wiring
 ```
+
+The `blog` module depends only on core contracts and Kotlin. Its shared service,
+models, and access handlers have no Spring annotations. `BlogPostService` owns
+CRUD operations, validation, and synchronized in-memory storage; the Spring
+controller maps service results to HTTP responses.
 
 ## Run the Spring example
 
@@ -40,15 +47,27 @@ and constructs a generated `BlogApplicationConfig` bean. Its required applicatio
 handler explicitly allows access to the public blog:
 
 ```kotlin
-@Component
 class CheckBlogAccess : BlogApplicationAccessHandler() {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 ```
 
-`ExampleConfiguration` wires the generated collection and config directly:
+`ExampleConfiguration` registers the shared service and handlers as beans,
+then wires the generated collection and config:
 
 ```kotlin
+@Bean
+fun blogPostService(): BlogPostService = BlogPostService()
+
+@Bean
+fun checkBlogAccess(): CheckBlogAccess = CheckBlogAccess()
+
+@Bean
+fun checkPostAccess(posts: BlogPostService): CheckPostAccess = CheckPostAccess(posts)
+
+@Bean
+fun checkEditPostAccess(posts: BlogPostService): CheckEditPostAccess = CheckEditPostAccess(posts)
+
 @Bean
 fun blogRouteAccessHandlers(
   post: PostAccessHandler,
@@ -70,7 +89,7 @@ fun blogConfig(
 `BlogRouteAccessHandlers` requires both gated route handlers. Generated code stays
 independent of Spring. The registry reads handlers from the config.
 `CheckBlogAccess` runs before either post handler. Applications that restrict
-access can inject a permission service into this component and return a typed
+access can inject a permission service into this handler and return a typed
 `AccessDecision.Redirect` when the user cannot view the application.
 
 The post reader and editor opt into typed access handlers in the shared route
@@ -82,13 +101,12 @@ route("posts/{postId}/edit", "EditPost", generateAccessHandler = true)
 ```
 
 Generation adds `PostAccessHandler` / `PostRequest` and `EditPostAccessHandler` /
-`EditPostRequest` alongside the route builders. Spring discovers the example's
-`CheckPostAccess` and `CheckEditPostAccess` components automatically. Each
-receives the same `BlogPostStore` used by the API through constructor injection:
+`EditPostRequest` alongside the route builders. The shared `CheckPostAccess`
+and `CheckEditPostAccess` handlers are registered by `ExampleConfiguration`.
+Each receives the same `BlogPostService` used by the API through constructor injection:
 
 ```kotlin
-@Component
-class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
+class CheckPostAccess(private val posts: BlogPostService) : PostAccessHandler() {
   override fun evaluate(request: PostRequest): AccessDecision {
     if (posts.find(request.postId) == null) {
       return AccessDecision.Redirect(BlogRoutes.NotFound())
@@ -98,7 +116,7 @@ class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
 }
 ```
 
-Spring injects the handler components into the explicitly wired collection.
+Spring injects the handler beans into the explicitly wired collection.
 Missing posts redirect to `/not-found` on both direct page requests and
 client-side navigation. Other routes need no route handler. Omitting either
 required handler from `BlogRouteAccessHandlers` fails compilation; unresolved or
@@ -128,16 +146,16 @@ redirect to `/not-found` when the post does not exist. The navigation decision
 endpoint reports the same redirect in its JSON body.
 
 The example invokes this checkout's generator entry points through Gradle
-`JavaExec` tasks. Generated server files stay under `spring/build/generated`;
+`JavaExec` tasks. Generated server files stay under `blog/build/generated`;
 client files stay under `frontend/build/generated`. Generated files are not
 checked in. Kotlin compilation automatically generates the server routes.
 Use the tasks below to generate both server and client routes explicitly.
 
 ```sh
-./gradlew :examples:spring:generateServerRoutes :examples:frontend:generateClientRoutes
+./gradlew :examples:blog:generateServerRoutes :examples:frontend:generateClientRoutes
 ```
 
-Server output is in `spring/build/generated/source/spaRoutes/main`, including
+Server output is in `blog/build/generated/source/spaRoutes/main`, including
 `BlogApplicationConfig.kt`, `BlogApplicationAccessHandler.kt`, and
 `BlogRouteAccessHandlers.kt` next to `BlogRoutes.kt`. The config contains the
 application ID, display/bundle names, full route paths, parameter metadata, and
@@ -172,7 +190,8 @@ BlogRoutes.Index.parse({}, new URLSearchParams("q=kotlin"));
 
 `BlogPost` contains string fields `id`, `title`, and `body`. `WritePostRequest`
 contains `title` and `body`, both required and nonblank. These Kotlin models
-are defined in the Spring example.
+are defined in the shared `blog` module. `BlogPostService` validates writes;
+the controller maps `InvalidPostException` to HTTP `400`.
 
 The Spring example includes Jackson's Kotlin module for JSON request bodies,
 with its version managed by Spring Boot. This dependency belongs only to
