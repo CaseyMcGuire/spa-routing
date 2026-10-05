@@ -55,7 +55,7 @@ mavenPublishing {
   }
 
   coordinates(
-    groupId = "io.github.caseymcguire",
+    groupId = "com.sparouting",
     artifactId = "spa-routing-core",
     version = project.version.toString()
   )

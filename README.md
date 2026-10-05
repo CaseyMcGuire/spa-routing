@@ -33,11 +33,11 @@ For Gradle route generation:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.3.0"
+  id("com.sparouting.spa-routing") version "0.3.0"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.3.0")
+  implementation("com.sparouting:spa-routing-core:0.3.0")
 }
 ```
 
@@ -47,7 +47,7 @@ For Spring Boot route serving:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.3.0")
+  implementation("com.sparouting:spa-routing-spring-boot-starter:0.3.0")
 }
 ```
 
@@ -288,9 +288,9 @@ A public application explicitly allows access:
 ```kotlin
 import com.example.generated.spa.routes.AccountManifest
 import com.sparouting.contract.AccessDecision
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import com.sparouting.runtime.access.ApplicationAccessHandler
+import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.runtime.request.RouteRequest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
@@ -349,7 +349,7 @@ registered separately:
 
 ```kotlin
 import com.example.generated.spa.routes.AccountManifest
-import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
+import com.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
 import org.springframework.web.servlet.function.ServerResponse

@@ -28,7 +28,7 @@ routes:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.3.0")
+  implementation("com.sparouting:spa-routing-spring-boot-starter:0.3.0")
 }
 ```
 
@@ -51,7 +51,7 @@ as `ServerResponse`. Shared runtime types come from the transitive
 
 Client apps usually import from these packages:
 
-Packages below share the prefix `io.github.caseymcguire.sparouting`:
+Packages below share the prefix `com.sparouting`:
 
 - `runtime.config`: manifest-based application configuration, validation, and route/handler registry
 - `runtime.access`: application access handler contract and two-level access evaluation
@@ -71,7 +71,7 @@ route builders, and access handlers (or depend on a module containing that outpu
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.3.0"
+  id("com.sparouting.spa-routing") version "0.3.0"
 }
 
 spaRouting {
@@ -135,7 +135,7 @@ application access handler separately, using the same manifest bean.
 package com.example.web
 
 import com.example.generated.spa.routes.AccountManifest
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.runtime.config.SinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -187,8 +187,8 @@ application:
 import com.example.generated.spa.routes.AccountManifest
 import com.example.generated.spa.routes.PublicRoutes
 import com.sparouting.contract.AccessDecision
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
-import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import com.sparouting.runtime.access.ApplicationAccessHandler
+import com.sparouting.runtime.request.RouteRequest
 import org.springframework.stereotype.Component
 
 @Component
@@ -437,7 +437,7 @@ Override rendering for one SPA by implementing `SpringSinglePageApplicationConfi
 
 ```kotlin
 import com.example.generated.spa.routes.AccountManifest
-import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
+import com.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.http.MediaType
 import org.springframework.context.annotation.Bean
 import org.springframework.web.servlet.function.ServerResponse
@@ -464,8 +464,8 @@ The shared configuration interface has no HTTP rendering methods.
 Override rendering for all SPAs by replacing the `HtmlRenderer` bean:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
+import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.spring.rendering.HtmlRenderer
 import org.springframework.context.annotation.Bean
 import org.springframework.web.servlet.function.ServerResponse
 
@@ -615,8 +615,8 @@ Decision statuses match what the MVC route would use:
 For custom GraphQL or REST APIs, call `RouteResponseService` directly:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.runtime.response.RouteResponseRequest
-import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.response.RouteResponseRequest
+import com.sparouting.runtime.response.RouteResponseService
 
 class RouteDecisionHandler(
   private val routeResponseService: RouteResponseService
@@ -643,7 +643,7 @@ class RouteDecisionHandler(
 Define your own bean when the defaults are not enough:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.spring.request.RouteRequestFactory
+import com.sparouting.spring.request.RouteRequestFactory
 import org.springframework.context.annotation.Bean
 
 @Bean

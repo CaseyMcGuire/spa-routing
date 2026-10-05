@@ -8,6 +8,6 @@ extra["springBootVersion"] = "4.0.6"
 extra["springFrameworkVersion"] = "7.0.7"
 
 allprojects {
-  group = "io.github.caseymcguire"
+  group = "com.sparouting"
   version = "0.3.0"
 }

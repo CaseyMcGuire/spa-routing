@@ -49,7 +49,7 @@ mavenPublishing {
   }
 
   coordinates(
-    groupId = "io.github.caseymcguire",
+    groupId = "com.sparouting",
     artifactId = "spa-routing-spring-boot-autoconfigure",
     version = project.version.toString()
   )

@@ -1,7 +1,7 @@
 package com.sparouting.examples.spring
 
 import com.sparouting.examples.generated.routes.BlogManifest
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.runtime.config.SinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 

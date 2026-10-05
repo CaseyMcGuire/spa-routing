@@ -32,8 +32,8 @@ gradlePlugin {
 
   plugins {
     create("spaRouting") {
-      id = "io.github.caseymcguire.spa-routing"
-      implementationClass = "io.github.caseymcguire.sparouting.gradle.RoutingPlugin"
+      id = "com.sparouting.spa-routing"
+      implementationClass = "com.sparouting.gradle.RoutingPlugin"
       displayName = "SPA Routing"
       description = "Adds configurable SPA route generation tasks."
       tags.set(listOf("kotlin", "spa", "routing", "codegen"))

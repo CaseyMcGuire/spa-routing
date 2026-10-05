@@ -4,8 +4,21 @@
 
 ### Breaking changes
 
+- **Publishing IDs now use `com.sparouting`.** Maven artifacts move from
+  `io.github.caseymcguire:<artifact>` to `com.sparouting:<artifact>`, with the
+  artifact names unchanged. The Gradle plugin ID changes from
+  `io.github.caseymcguire.spa-routing` to `com.sparouting.spa-routing`.
+  Update dependency coordinates and plugin declarations when upgrading.
+
+- **All Kotlin packages now use `com.sparouting`.** Update imports from
+  `io.github.caseymcguire.sparouting.runtime`, `.spring`, and `.gradle` to
+  `com.sparouting.runtime`, `.spring`, and `.gradle`. Core contracts remain in
+  `com.sparouting.contract`. Spring auto-configuration metadata and the Gradle
+  plugin implementation class use the new packages. Recompile consumers;
+  the former packages have no compatibility aliases.
+
 - **`RouterFunctionFactory` is renamed to `SpringRouterFunctionFactory`.**
-  Update imports and constructor calls in `io.github.caseymcguire.sparouting.spring.web`.
+  Update imports and constructor calls in `com.sparouting.spring.web`.
   Routing behavior is unchanged.
 
 - **Server configuration now consumes generated manifests instead of authoring definitions.**
@@ -99,8 +112,8 @@
   No aliases are provided. Handler registration validation is unchanged.
 
 - **Shared server logic now lives in `spa-routing-runtime`.** Update imports
-  from `io.github.caseymcguire.sparouting.spring` to
-  `io.github.caseymcguire.sparouting.runtime` for `config.*` (including
+  from `com.sparouting.spring` to
+  `com.sparouting.runtime` for `config.*` (including
   `SinglePageApplicationConfig`), access evaluation,
   `request.RouteRequest`, and the response models and `RouteResponseService`.
   The Spring starter includes the new module transitively. No aliases for the
@@ -195,7 +208,7 @@
   | `SpaTypedRoute` | `Route` |
 
   With the runtime extraction above, `RouteRequest` is now in
-  `io.github.caseymcguire.sparouting.runtime.request`; the other types are in
+  `com.sparouting.runtime.request`; the other types are in
   `com.sparouting.contract`. Regenerate server routes with
   `./gradlew generateServerRoutes`, then recompile consumers. Custom route
   subclasses now extend `Route`. This is a source and binary API rename;

@@ -2,7 +2,7 @@
 
 `spa-routing-runtime` contains server behavior shared by framework adapters. It
 depends on `spa-routing-core` and has no Spring, Servlet, or Ktor dependency.
-Its public types live under `io.github.caseymcguire.sparouting.runtime`.
+Its public types live under `com.sparouting.runtime`.
 
 | Module | Responsibility |
 | --- | --- |
@@ -30,9 +30,9 @@ Supply an application access handler explicitly. Public applications return
 ```kotlin
 import com.sparouting.examples.generated.routes.BlogManifest
 import com.sparouting.contract.AccessDecision
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
+import com.sparouting.runtime.access.ApplicationAccessHandler
+import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.runtime.request.RouteRequest
 
 class CheckBlogAccess(manifest: BlogManifest) : ApplicationAccessHandler(manifest) {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
@@ -49,11 +49,11 @@ An adapter or dependency injection container assembles the runtime once:
 
 ```kotlin
 import com.sparouting.contract.RouteAccessHandler
-import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
-import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.access.ApplicationAccessHandler
+import com.sparouting.runtime.access.RouteAccessEvaluator
+import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
+import com.sparouting.runtime.response.RouteResponseService
 
 fun createRouteService(
   configs: List<SinglePageApplicationConfig>,
@@ -133,8 +133,8 @@ context will need an equivalent implementation when moving frameworks.
 and asset URLs. Adapters set the response status and content type:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.runtime.rendering.HtmlDocumentRenderer
-import io.github.caseymcguire.sparouting.runtime.rendering.HtmlRenderingOptions
+import com.sparouting.runtime.rendering.HtmlDocumentRenderer
+import com.sparouting.runtime.rendering.HtmlRenderingOptions
 
 val html = HtmlDocumentRenderer(
   HtmlRenderingOptions(
