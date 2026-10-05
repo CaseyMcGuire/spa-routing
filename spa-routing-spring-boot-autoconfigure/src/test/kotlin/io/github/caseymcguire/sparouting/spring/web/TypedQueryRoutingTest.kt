@@ -134,7 +134,7 @@ class TypedQueryRoutingTest {
       invalidQueryStringStatus = properties.server.invalidQueryStringStatus
     )
     val mockMvc = MockMvcBuilders.routerFunctions(
-      RouterFunctionFactory(
+      SpringRouterFunctionFactory(
         routeConfigs = listOf(config),
         routeResponseService = service,
         requestFactory = DefaultRouteRequestFactory(),

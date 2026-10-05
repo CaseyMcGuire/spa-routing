@@ -4,6 +4,10 @@
 
 ### Breaking changes
 
+- **`RouterFunctionFactory` is renamed to `SpringRouterFunctionFactory`.**
+  Update imports and constructor calls in `io.github.caseymcguire.sparouting.spring.web`.
+  Routing behavior is unchanged.
+
 - **Server configuration now consumes generated manifests instead of authoring definitions.**
   `generateServerRoutes` emits `<ApplicationName>Manifest` alongside the route
   builders. These concrete, framework-neutral classes implement core's
@@ -109,7 +113,7 @@
   auto-configuration remain in their Spring packages. Java callers of response
   extensions now use `RouteResponsesKt` instead of `RouteHttpResponseKt`.
 
-  `RouterFunctionFactory` now takes a `RouteResponseService` instead of a
+  `SpringRouterFunctionFactory` now takes a `RouteResponseService` instead of a
   `RouteResponseEvaluator` and `RoutingProperties`. Both page serving and
   navigation decisions use the service's shared validation and evaluation
   pipeline. Custom services should account for both `evaluate(RouteRequest)`
@@ -135,7 +139,7 @@
   | `DefaultSpaRouteRequestFactory` | `DefaultRouteRequestFactory` |
   | `SpaHtmlRenderer` | `HtmlRenderer` |
   | `DefaultSpaHtmlRenderer` | `DefaultHtmlRenderer` |
-  | `SpaRouterFunctionFactory` | `RouterFunctionFactory` |
+  | `SpaRouterFunctionFactory` | `SpringRouterFunctionFactory` |
   | `SpaRouteDecisionRouterFunctionFactory` | `RouteDecisionRouterFunctionFactory` |
   | `SpaRoutingAutoConfiguration` | `RoutingAutoConfiguration` |
   | `SpaRoutingProperties` | `RoutingProperties` |

@@ -11,7 +11,7 @@ import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.request.RouteRequestFactory
 import io.github.caseymcguire.sparouting.spring.web.RouteDecisionRouterFunctionFactory
-import io.github.caseymcguire.sparouting.spring.web.RouterFunctionFactory
+import io.github.caseymcguire.sparouting.spring.web.SpringRouterFunctionFactory
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -104,7 +104,7 @@ class RoutingAutoConfiguration {
     requestFactory: RouteRequestFactory,
     htmlRenderer: HtmlRenderer
   ): RouterFunction<ServerResponse> {
-    return RouterFunctionFactory(
+    return SpringRouterFunctionFactory(
       routeConfigs = configs,
       routeResponseService = responseService,
       requestFactory = requestFactory,

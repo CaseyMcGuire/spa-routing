@@ -12,7 +12,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
-class RouterFunctionFactory(
+class SpringRouterFunctionFactory(
   private val routeConfigs: List<SinglePageApplicationConfig>,
   private val routeResponseService: RouteResponseService,
   private val requestFactory: RouteRequestFactory,

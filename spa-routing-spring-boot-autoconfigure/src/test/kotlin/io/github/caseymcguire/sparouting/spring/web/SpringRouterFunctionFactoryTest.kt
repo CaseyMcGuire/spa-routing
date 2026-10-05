@@ -22,7 +22,7 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.servlet.function.ServerResponse
 
-class RouterFunctionFactoryTest {
+class SpringRouterFunctionFactoryTest {
   @Test
   fun `known route returns html`() {
     val mockMvc = mockMvc(
@@ -137,7 +137,7 @@ class RouterFunctionFactoryTest {
       listOf(config), listOf(applicationAccessHandler(config.manifest, evaluateApplication))
     )
     return MockMvcBuilders.routerFunctions(
-      RouterFunctionFactory(
+      SpringRouterFunctionFactory(
         routeConfigs = listOf(config),
         routeResponseService = RouteResponseService(
           routeRegistry = registry,
