@@ -11,8 +11,8 @@ creating, editing, and deleting posts.
 ```text
 examples/
 ├── route-definitions/  Shared blog route definitions
+├── frontend/           Shared React UI, spa-kit router, and Vite build
 └── spring/             Spring Boot application, in-memory store, and REST API
-    └── frontend/       React UI, spa-kit router, and Vite build
 ```
 
 ## Run the Spring example
@@ -26,7 +26,7 @@ Use JDK 21 and Node 22.12 or newer, with npm on `PATH`. From the repository root
 Open [http://localhost:8080/](http://localhost:8080/) or
 [http://localhost:8080/posts/1](http://localhost:8080/posts/1).
 Gradle generates the routes, installs the locked frontend dependencies,
-builds the Vite bundle, and includes it in Spring's static resources. Both
+builds the Vite bundle, and packages it in the shared frontend resource JAR. Both
 URLs serve the default SPA HTML shell. Stop the server with Ctrl+C.
 
 To use another port:
@@ -128,12 +128,13 @@ redirect to `/not-found` when the post does not exist. The navigation decision
 endpoint reports the same redirect in its JSON body.
 
 The example invokes this checkout's generator entry points through Gradle
-`JavaExec` tasks. Generated files stay under `spring/build/generated` and are
-not checked in. Kotlin compilation automatically generates the server routes.
+`JavaExec` tasks. Generated server files stay under `spring/build/generated`;
+client files stay under `frontend/build/generated`. Generated files are not
+checked in. Kotlin compilation automatically generates the server routes.
 Use the tasks below to generate both server and client routes explicitly.
 
 ```sh
-./gradlew :examples:spring:generateServerRoutes :examples:spring:generateClientRoutes
+./gradlew :examples:spring:generateServerRoutes :examples:frontend:generateClientRoutes
 ```
 
 Server output is in `spring/build/generated/source/spaRoutes/main`, including
@@ -146,7 +147,7 @@ reference to the authored `BlogApplication`.
 The `routeCodegen` Gradle configuration contains the definitions project and is
 used only by generator tasks. The server compiles and runs using generated
 classes; the definitions project is absent from its runtime classpath. Client
-output is in `spring/build/generated/client/routes/BlogRoutes.ts`.
+output is in `frontend/build/generated/client/routes/BlogRoutes.ts`.
 
 Generated Kotlin route objects extend `com.sparouting.contract.Route` and
 return `RouteTarget` values when invoked. Access-handler requests expose raw
@@ -221,7 +222,7 @@ For the search route, use `routeId=Index` and `queryString.q=kotlin`.
 
 ## Frontend
 
-`spring/frontend/src/components` contains the layout, searchable post list,
+`frontend/src/components` contains the layout, searchable post list,
 post reader, shared create/edit form, and message page. Loading, empty, error,
 and saving states are supplied through props; form editing state stays local.
 Links use the generated `BlogRoutes` builders. React Router loaders read posts;
@@ -242,17 +243,17 @@ to the authorization middleware. If the application handler needs to run on
 every navigation, the client should authorize every route.
 
 Vite emits `blog.bundle.js` and `blog.css` under
-`spring/build/generated/frontend/static/bundles`. Gradle's `processResources`
-includes these assets automatically. Rebuild and restart Spring after frontend
-changes; the example uses one server and has no separate development proxy.
+`frontend/build/generated/frontend/static/bundles`. The `examples:frontend`
+resource JAR supplies these assets through Spring's runtime classpath. Rebuild
+and restart Spring after frontend changes; the example uses one server and has no separate development proxy.
 
 To type-check the frontend separately, generate the client routes first.
 All frontend dependencies belong to the example.
 
 ```sh
-./gradlew :examples:spring:generateClientRoutes
-npm --prefix examples/spring/frontend ci
-npm --prefix examples/spring/frontend run typecheck
+./gradlew :examples:frontend:generateClientRoutes
+npm --prefix examples/frontend ci
+npm --prefix examples/frontend run typecheck
 ```
 
 The example pins `@spa-kit/react-router` 0.2.0, which matches the generated

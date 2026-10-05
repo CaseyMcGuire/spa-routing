@@ -4,7 +4,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "/bundles/",
   build: {
-    outDir: "../build/generated/frontend/static/bundles",
+    outDir: "build/generated/frontend/static/bundles",
     emptyOutDir: true,
     cssCodeSplit: false,
     rolldownOptions: {

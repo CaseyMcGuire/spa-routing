@@ -3,5 +3,9 @@ plugins {
 }
 
 tasks.named("build") {
-  dependsOn(":examples:route-definitions:build", ":examples:spring:build")
+  dependsOn(
+    ":examples:route-definitions:build",
+    ":examples:frontend:build",
+    ":examples:spring:build"
+  )
 }
