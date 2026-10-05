@@ -7,13 +7,13 @@ import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.access.ApplicationAccessHandler
-import com.sparouting.runtime.config.SinglePageApplicationConfig
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.ApplicationAccessHandler
+import com.sparouting.contract.SinglePageApplicationConfig
+import com.sparouting.contract.RouteRequest
 import com.sparouting.spring.autoconfigure.RoutingAutoConfiguration
+import com.sparouting.spring.testsupport.routeAccessHandlers
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import com.sparouting.spring.testsupport.TestSinglePageApplicationManifest
 import java.util.function.Supplier
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -25,33 +25,17 @@ import org.springframework.web.servlet.function.RouterFunction
 
 class RouteAccessTest {
   @Test
-  fun `missing application handler fails startup even with both endpoints disabled`() {
-    runner(config(enabled = false), emptyList())
-      .withPropertyValues("spa-routing.server.enabled=false", "spa-routing.route-decision.enabled=false")
+  fun `standalone handler beans are not discovered implicitly`() {
+    runner(config(enabled = false))
+      .withBean(ApplicationAccessHandler::class.java, Supplier { applicationAccessHandler { error("Unused handler") } })
+      .withBean(PostAccessHandler::class.java, Supplier { PostAccessHandler() })
       .run { context ->
-        assertThat(context).hasFailed()
-        assertThat(context.startupFailure).hasStackTraceContaining("Missing application access handler for test")
-      }
-  }
-
-  @Test
-  fun `duplicate application handler beans fail startup`() {
-    val config = config(enabled = false)
-    runner(config, listOf(applicationAccessHandler(config.manifest), applicationAccessHandler(config.manifest)))
-      .run { context ->
-        assertThat(context).hasFailed()
-        assertThat(context.startupFailure).hasStackTraceContaining("Expected exactly one application access handler for test, found 2")
-      }
-  }
-
-  @Test
-  fun `application handler bean for an unknown application fails startup`() {
-    val config = config(enabled = false)
-    val unknown = TestSinglePageApplicationManifest(id = "unknown", routes = emptyList())
-    runner(config, listOf(applicationAccessHandler(config.manifest), applicationAccessHandler(unknown)))
-      .run { context ->
-        assertThat(context).hasFailed()
-        assertThat(context.startupFailure).hasStackTraceContaining("Application access handler registered for unknown application: unknown")
+        assertThat(context).hasNotFailed()
+        val mockMvc = MockMvcBuilders.routerFunctions(
+          *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
+        ).build()
+        mockMvc.get("/test/posts/42").andExpect { status { isOk() } }
+        assertThat(context.getBean(PostAccessHandler::class.java).requests).isEmpty()
       }
   }
 
@@ -65,9 +49,7 @@ class RouteAccessTest {
 
   @Test
   fun `duplicate handlers fail startup`() {
-    runner()
-      .withBean("firstAccess", PostAccessHandler::class.java, Supplier { PostAccessHandler() })
-      .withBean("secondAccess", PostAccessHandler::class.java, Supplier { PostAccessHandler() })
+    runner(config().copy(routeAccessHandlers = routeAccessHandlers(PostAccessHandler(), PostAccessHandler())))
       .run { context ->
         assertThat(context).hasFailed()
         assertThat(context.startupFailure).hasStackTraceContaining("Expected exactly one access handler for test:Post, found 2")
@@ -76,8 +58,7 @@ class RouteAccessTest {
 
   @Test
   fun `handler for a route without the flag fails startup`() {
-    runner(config(enabled = false))
-      .withBean(PostAccessHandler::class.java, Supplier { PostAccessHandler() })
+    runner(config(enabled = false).copy(routeAccessHandlers = routeAccessHandlers(PostAccessHandler())))
       .run { context ->
         assertThat(context).hasFailed()
         assertThat(context.startupFailure).hasStackTraceContaining("does not declare hasAccessHandler = true")
@@ -86,11 +67,8 @@ class RouteAccessTest {
 
   @Test
   fun `handler for an unknown route fails startup`() {
-    val config = TestSinglePageApplicationConfig(
-      manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test/known", "Known")))
-    )
-    runner(config)
-      .withBean(PostAccessHandler::class.java, Supplier { PostAccessHandler() })
+    val config = TestSinglePageApplicationConfig(routes = listOf(RouteManifest("/test/known", "Known")))
+    runner(config.copy(routeAccessHandlers = routeAccessHandlers(PostAccessHandler())))
       .run { context ->
         assertThat(context).hasFailed()
         assertThat(context.startupFailure).hasStackTraceContaining("Access handler registered for test:Post")
@@ -102,11 +80,14 @@ class RouteAccessTest {
     val handler = PostAccessHandler()
     val config = config()
     val applicationRequests = mutableListOf<RouteRequest>()
-    val applicationHandler = applicationAccessHandler(config.manifest) { request ->
+    val applicationHandler = applicationAccessHandler { request ->
       applicationRequests.add(request)
       AccessDecision.Allow
     }
-    runner(config, listOf(applicationHandler)).withBean(PostAccessHandler::class.java, Supplier { handler }).run { context ->
+    runner(config.copy(
+      applicationAccessHandler = applicationHandler,
+      routeAccessHandlers = routeAccessHandlers(handler)
+    )).run { context ->
       assertThat(context).hasNotFailed()
       val mockMvc = MockMvcBuilders.routerFunctions(
         *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
@@ -189,9 +170,11 @@ class RouteAccessTest {
   fun `application redirect prevents route checks for page and navigation requests`() {
     val handler = PostAccessHandler()
     val config = config()
-    val applicationHandler = applicationAccessHandler(config.manifest) { AccessDecision.Redirect(RouteTarget("test", "Missing")) }
-    runner(config, listOf(applicationHandler))
-      .withBean(PostAccessHandler::class.java, Supplier { handler })
+    val applicationHandler = applicationAccessHandler { AccessDecision.Redirect(RouteTarget("test", "Missing")) }
+    runner(config.copy(
+      applicationAccessHandler = applicationHandler,
+      routeAccessHandlers = routeAccessHandlers(handler)
+    ))
       .run { context ->
         val mockMvc = MockMvcBuilders.routerFunctions(
           *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
@@ -213,26 +196,17 @@ class RouteAccessTest {
       }
   }
 
-  private fun runner(
-    config: SinglePageApplicationConfig = config(),
-    applicationHandlers: List<ApplicationAccessHandler> = listOf(applicationAccessHandler(config.manifest))
-  ): WebApplicationContextRunner {
-    var runner = WebApplicationContextRunner()
+  private fun runner(config: SinglePageApplicationConfig = config()): WebApplicationContextRunner {
+    return WebApplicationContextRunner()
       .withConfiguration(AutoConfigurations.of(RoutingAutoConfiguration::class.java))
       .withBean(SinglePageApplicationConfig::class.java, Supplier { config })
-    applicationHandlers.forEachIndexed { index, handler ->
-      runner = runner.withBean("applicationAccess$index", ApplicationAccessHandler::class.java, Supplier { handler })
-    }
-    return runner
   }
 
   private fun config(enabled: Boolean = true): TestSinglePageApplicationConfig {
-    return TestSinglePageApplicationConfig(
-      manifest = TestSinglePageApplicationManifest(routes = listOf(
-        RouteManifest("/test/posts/{id}", "Post", queryString = listOf(parameter("view").optional()), hasAccessHandler = enabled),
-        RouteManifest("/test/missing", "Missing", queryString = listOf(parameter("from").optional()))
-      ))
-    )
+    return TestSinglePageApplicationConfig(routes = listOf(
+      RouteManifest("/test/posts/{id}", "Post", queryString = listOf(parameter("view").optional()), hasAccessHandler = enabled),
+      RouteManifest("/test/missing", "Missing", queryString = listOf(parameter("from").optional()))
+    ))
   }
 
   data class PostRequest(val id: String, val context: RouteAccessContext)

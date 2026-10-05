@@ -1,6 +1,6 @@
 package com.sparouting.spring.web
 
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.toRouteHeaders

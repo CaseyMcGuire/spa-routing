@@ -50,7 +50,7 @@ class RoutingPlugin : Plugin<Project> {
     }
 
     val generateServerRoutes = project.tasks.register("generateServerRoutes", JavaExec::class.java) { task ->
-      task.description = "Generates Kotlin application manifests and typed route objects for the server."
+      task.description = "Generates Kotlin application configs, access handler collections, and typed route objects for the server."
       task.group = TASK_GROUP
       task.dependsOn(routeDefinitionClasses)
       task.classpath(routeDefinitionClasspath)

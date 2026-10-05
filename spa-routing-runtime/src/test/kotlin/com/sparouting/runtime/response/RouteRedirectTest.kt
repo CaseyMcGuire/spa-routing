@@ -6,9 +6,8 @@ import com.sparouting.contract.RouteManifest
 import com.sparouting.runtime.testsupport.applicationAccessHandler
 import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import com.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -49,12 +48,10 @@ class RouteRedirectTest {
 
   private fun redirect(target: RouteTarget): RouteHttpResponse {
     val config = TestSinglePageApplicationConfig(
-      manifest = TestSinglePageApplicationManifest(
-        routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))
-      )
+      routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))
     )
-    val handler = applicationAccessHandler(config.manifest) { AccessDecision.Redirect(target) }
-    val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
+    val handler = applicationAccessHandler { AccessDecision.Redirect(target) }
+    val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
     return RouteResponseService(registry, RouteAccessEvaluator(registry)).evaluate(
       RouteRequest("test", "UserDetail", mapOf("id" to "42"))
     )

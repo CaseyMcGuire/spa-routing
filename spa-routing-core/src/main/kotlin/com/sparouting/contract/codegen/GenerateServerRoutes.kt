@@ -1,5 +1,9 @@
 package com.sparouting.contract.codegen
 
+import com.sparouting.contract.ApplicationAccessHandler
+import com.sparouting.contract.RouteAccessHandler
+import com.sparouting.contract.RouteAccessHandlers
+import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.SinglePageApplicationDefinition
 import com.sparouting.contract.SinglePageApplicationDefinitionDiscovery
 import com.sparouting.contract.RouteDefinition
@@ -36,8 +40,16 @@ internal fun generateServerRoutes() {
         application.toKotlinRoutesObjectFile()
       )
       Files.writeString(
-        outputDirectory.resolve("${application.manifestClassName()}.kt"),
-        application.toKotlinManifestFile()
+        outputDirectory.resolve("${application.configClassName()}.kt"),
+        application.toKotlinConfigFile()
+      )
+      Files.writeString(
+        outputDirectory.resolve("${application.applicationAccessHandlerClassName()}.kt"),
+        application.toKotlinApplicationAccessHandlerFile()
+      )
+      Files.writeString(
+        outputDirectory.resolve("${application.routeAccessHandlersClassName()}.kt"),
+        application.toKotlinRouteAccessHandlersFile()
       )
 
       val routeOutputDirectory = outputDirectory.resolve(application.routePackagePath())
@@ -97,25 +109,33 @@ private fun SinglePageApplicationDefinition.toKotlinRoutesObjectFile(): String {
   }
 }
 
-private fun SinglePageApplicationDefinition.manifestClassName(): String = "${name.withoutWhitespace()}Manifest"
+private fun SinglePageApplicationDefinition.configClassName(): String = "${name.withoutWhitespace()}ApplicationConfig"
 
-private fun SinglePageApplicationDefinition.toKotlinManifestFile(): String {
-  val className = manifestClassName()
-  fun typeName(name: String): String = if (name == className) "com.sparouting.contract.$name" else name
+private fun SinglePageApplicationDefinition.applicationAccessHandlerClassName(): String =
+  "${name.withoutWhitespace()}ApplicationAccessHandler"
+
+private fun SinglePageApplicationDefinition.routeAccessHandlersClassName(): String =
+  "${name.withoutWhitespace()}RouteAccessHandlers"
+
+private fun SinglePageApplicationDefinition.toKotlinConfigFile(): String {
+  val configInterface = SinglePageApplicationConfig::class.java
+  val shadowsInterface = configClassName() == configInterface.simpleName
   return buildString {
     appendGeneratedFileHeader(
       generatedPackage(),
-      listOf("SinglePageApplicationManifest", "RouteManifest", "RouteParameter")
-        .filter { it != className }
-        .map { "com.sparouting.contract.$it" }
+      listOf("com.sparouting.contract.RouteManifest", "com.sparouting.contract.RouteParameter") +
+        if (shadowsInterface) emptyList() else listOf(configInterface.name)
     )
-    appendLine("class $className : ${typeName("SinglePageApplicationManifest")} {")
+    appendLine("class ${configClassName()}(")
+    appendLine("  override val applicationAccessHandler: ${applicationAccessHandlerClassName()},")
+    appendLine("  override val routeAccessHandlers: ${routeAccessHandlersClassName()}")
+    appendLine(") : ${if (shadowsInterface) configInterface.name else configInterface.simpleName} {")
     appendLine("  override val id: String = ${id.toKotlinStringLiteral()}")
     appendLine("  override val name: String = ${name.toKotlinStringLiteral()}")
     appendLine("  override val bundleName: String = ${bundleName.toKotlinStringLiteral()}")
-    appendLine("  override val routes: List<${typeName("RouteManifest")}> = listOf(")
+    appendLine("  override val routes: List<RouteManifest> = listOf(")
     routes.forEach { route ->
-      appendLine("    ${typeName("RouteManifest")}(")
+      appendLine("    RouteManifest(")
       appendLine("      path = ${getFullPathPattern(route).toKotlinStringLiteral()},")
       appendLine("      id = ${route.id.toKotlinStringLiteral()},")
       appendLine("      parameters = ${route.parameters.toKotlinManifestParameters()},")
@@ -127,6 +147,37 @@ private fun SinglePageApplicationDefinition.toKotlinManifestFile(): String {
     appendLine("}")
   }
 }
+
+private fun SinglePageApplicationDefinition.toKotlinApplicationAccessHandlerFile(): String = buildString {
+  val handlerType = ApplicationAccessHandler::class.java
+  appendGeneratedFileHeader(generatedPackage(), listOf(handlerType.name))
+  appendLine("abstract class ${applicationAccessHandlerClassName()} : ${handlerType.simpleName}<${configClassName()}>()")
+}
+
+private fun SinglePageApplicationDefinition.toKotlinRouteAccessHandlersFile(): String {
+  val gatedRoutes = routes.filter { it.generateAccessHandler }
+  val handlerType = RouteAccessHandler::class.java
+  val collectionType = RouteAccessHandlers::class.java
+  val shadowsHandler = gatedRoutes.any { "${it.id}AccessHandler" == handlerType.simpleName }
+  return buildString {
+    appendGeneratedFileHeader(
+      generatedPackage(),
+      listOf(collectionType.name) +
+        gatedRoutes.map { "${routePackageName()}.${it.id}AccessHandler" } +
+        if (shadowsHandler) emptyList() else listOf(handlerType.name)
+    )
+    appendLine("class ${routeAccessHandlersClassName()}(")
+    gatedRoutes.forEach { route ->
+      appendLine("  ${route.handlerParameterName()}: ${route.id}AccessHandler,")
+    }
+    appendLine(") : ${collectionType.simpleName}<${configClassName()}> {")
+    appendLine("  override val handlers: List<${if (shadowsHandler) handlerType.name else handlerType.simpleName}<*>> =")
+    appendLine("    listOf(${gatedRoutes.joinToString(", ") { it.handlerParameterName() }})")
+    appendLine("}")
+  }
+}
+
+private fun RouteDefinition.handlerParameterName(): String = id.replaceFirstChar { it.lowercaseChar() }.toKotlinIdentifier()
 
 private fun List<RouteParameter>.toKotlinManifestParameters(): String {
   return joinToString(prefix = "listOf(", postfix = ")") { parameter ->
@@ -207,7 +258,7 @@ private fun RouteDefinition.toKotlinAccessFile(packageName: String): String {
       packageName,
       listOf("com.sparouting.contract.RouteAccessHandler", "com.sparouting.contract.RouteAccessContext")
     )
-    appendLine("/** Implement evaluate and register the implementation with your server's DI container. */")
+    appendLine("/** Implement evaluate and pass the implementation to the generated route handler collection. */")
     appendLine("abstract class ${id}AccessHandler : RouteAccessHandler<${id}Request>($routeReference) {")
     appendLine("  final override fun createRequest(context: RouteAccessContext): ${id}Request {")
     appendLine("    return ${id}Request(")

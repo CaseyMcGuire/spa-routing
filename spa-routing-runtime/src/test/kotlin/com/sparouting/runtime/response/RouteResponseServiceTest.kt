@@ -6,26 +6,23 @@ import com.sparouting.contract.RouteManifest
 import com.sparouting.runtime.testsupport.applicationAccessHandler
 import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import com.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class RouteResponseServiceTest {
   private val config = TestSinglePageApplicationConfig(
-    manifest = TestSinglePageApplicationManifest(
-      routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"), RouteManifest("/test/login", "Login"))
-    )
+    routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"), RouteManifest("/test/login", "Login"))
   )
-  private val applicationHandler = applicationAccessHandler(config.manifest) { request ->
+  private val applicationHandler = applicationAccessHandler { request ->
     if (request.routeId == "Login") {
       AccessDecision.Allow
     } else {
       AccessDecision.Redirect(RouteTarget("test", "Login"))
     }
   }
-  private val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(applicationHandler))
+  private val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = applicationHandler)))
   private val evaluator = RouteAccessEvaluator(registry)
   private val service = RouteResponseService(registry, evaluator)
 
@@ -58,11 +55,11 @@ class RouteResponseServiceTest {
   @Test
   fun `query parameters are included in application access request`() {
     val requests = mutableListOf<RouteRequest>()
-    val handler = applicationAccessHandler(config.manifest) { request ->
+    val handler = applicationAccessHandler { request ->
       requests.add(request)
       AccessDecision.Allow
     }
-    val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
+    val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
     val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
 
     val response = service.evaluate(RouteRequest(
@@ -79,21 +76,20 @@ class RouteResponseServiceTest {
   @Test
   fun `each application uses its own handler`() {
     val applicationsChecked = mutableListOf<String>()
-    val publicConfig = TestSinglePageApplicationConfig(
-      manifest = TestSinglePageApplicationManifest(id = "public", routes = listOf(RouteManifest("/public", "Index")))
-    )
-    val privateConfig = TestSinglePageApplicationConfig(
-      manifest = TestSinglePageApplicationManifest(id = "private", routes = listOf(RouteManifest("/private", "Index")))
-    )
-    val publicHandler = applicationAccessHandler(publicConfig.manifest) { request ->
+    val publicConfig = TestSinglePageApplicationConfig(id = "public", routes = listOf(RouteManifest("/public", "Index")))
+    val privateConfig = TestSinglePageApplicationConfig(id = "private", routes = listOf(RouteManifest("/private", "Index")))
+    val publicHandler = applicationAccessHandler { request ->
       applicationsChecked.add(request.applicationId)
       AccessDecision.Allow
     }
-    val privateHandler = applicationAccessHandler(privateConfig.manifest) { request ->
+    val privateHandler = applicationAccessHandler { request ->
       applicationsChecked.add(request.applicationId)
       AccessDecision.Redirect(RouteTarget("public", "Index"))
     }
-    val registry = SinglePageApplicationRouteRegistry(listOf(publicConfig, privateConfig), listOf(privateHandler, publicHandler))
+    val registry = SinglePageApplicationRouteRegistry(listOf(
+      publicConfig.copy(applicationAccessHandler = publicHandler),
+      privateConfig.copy(applicationAccessHandler = privateHandler)
+    ))
     val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
 
     for (applicationId in listOf("public", "private")) {

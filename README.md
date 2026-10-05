@@ -3,14 +3,14 @@
 `spa-routing` lets a Kotlin server and a TypeScript SPA share one route definition source. You define your SPA routes once in Kotlin, then generate:
 
 - typed TypeScript route builders for the client
-- typed Kotlin route objects and application manifests for the server
+- typed Kotlin route objects and application configs for the server
 - bundle entry metadata for webpack or Vite
 
 ## Modules
 
-- `spa-routing-core`: route contracts and generators
+- `spa-routing-core`: route, application, and access contracts plus generators
 - `spa-routing-gradle-plugin`: Gradle integration for code generation
-- `spa-routing-runtime`: framework-neutral configuration, validation, access evaluation, redirect resolution, and HTML generation
+- `spa-routing-runtime`: framework-neutral registration, validation, access evaluation, redirect resolution, and HTML generation
 - `spa-routing-spring-boot-autoconfigure` / `-starter`: Spring MVC adapters, properties, and bean wiring
 
 The runtime depends on core and has no Spring dependency. See the
@@ -41,7 +41,9 @@ dependencies {
 }
 ```
 
-The `:spa-route-definitions` project contains your authored `SinglePageApplicationDefinition` objects. Configure it through `routeDefinitions.projectPath`; the plugin uses its compiled classes on the generator classpath. The server consumes generated manifests and does not need an implementation dependency on the definitions project.
+Generated server sources and authoring definitions need only `spa-routing-core` to compile. Add `spa-routing-runtime` for serving routes, or use the Spring starter below.
+
+The `:spa-route-definitions` project contains your authored `SinglePageApplicationDefinition` objects. Configure it through `routeDefinitions.projectPath`; the plugin uses its compiled classes on the generator classpath. The server consumes generated configs and does not need an implementation dependency on the definitions project.
 
 For Spring Boot route serving:
 
@@ -263,77 +265,80 @@ If discovery fails to find or load route definitions, check that:
 
 Do not point generation only at `spa-routing-core`; the generators need the compiled app-specific route definition classes too.
 
-## Generated Server Manifests
+## Generated Server Configuration
 
-`generateServerRoutes` also emits a concrete `<ApplicationName>Manifest` class,
-for example `AccountManifest`, next to `AccountRoutes`. It implements
-`com.sparouting.contract.SinglePageApplicationManifest` and contains the application
-ID, display name, bundle name, and `List<RouteManifest>`. Each route includes its
-full path pattern, path/query parameter metadata, and `hasAccessHandler` flag.
+`generateServerRoutes` emits a concrete `<ApplicationName>ApplicationConfig`,
+a typed `<ApplicationName>ApplicationAccessHandler` base class, and a required
+`<ApplicationName>RouteAccessHandlers` collection next to the route builders.
+For the blog, construction is ordinary Kotlin:
 
-Manifests contain literal runtime metadata and depend only on core contracts.
-`SinglePageApplicationDefinition`, `RouteDefinition`, and build-only fields such
-as `appRootPath` stay in the generation step. Register the generated manifest
-with your DI container and inject it into runtime configs and application handlers.
+```kotlin
+val config = BlogApplicationConfig(
+  applicationAccessHandler = checkBlogAccess,
+  routeAccessHandlers = BlogRouteAccessHandlers(
+    post = checkPostAccess,
+    editPost = checkEditPostAccess
+  )
+)
+```
+
+The config implements `SinglePageApplicationConfig` and contains generated
+`id`, `name`, `bundleName`, and `routes` properties. Each `RouteManifest` includes
+its full path pattern, path/query metadata, and `hasAccessHandler` flag.
+The handler collection requires the generated handler type for every gated route;
+missing or mismatched arguments fail compilation. An application with no gated
+routes has a zero-argument collection.
+
+Generated server configs depend only on `spa-routing-core` and have no framework
+annotations. Authoring definitions and build-only fields such as `appRootPath`
+stay in the generation step; the server needs no definitions-project dependency.
 
 ## Spring Boot Runtime
 
-The Spring Boot starter serves configured SPA routes from app-provided
-`SinglePageApplicationConfig` beans. Every application has one explicit access
-handler. Routes can also opt into a typed access handler.
-
-For complete setup, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
-A public application explicitly allows access:
+The starter discovers `SinglePageApplicationConfig` beans and reads the handlers
+from each config. For complete setup, see
+[docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
+A public application with no gated routes can be wired as follows:
 
 ```kotlin
-import com.example.generated.spa.routes.AccountManifest
+import com.example.generated.spa.routes.AccountApplicationConfig
+import com.example.generated.spa.routes.AccountApplicationAccessHandler
+import com.example.generated.spa.routes.AccountRouteAccessHandlers
 import com.sparouting.contract.AccessDecision
-import com.sparouting.runtime.access.ApplicationAccessHandler
-import com.sparouting.runtime.config.SinglePageApplicationConfig
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 class RoutesConfiguration {
   @Bean
-  fun accountManifest(): AccountManifest = AccountManifest()
-
-  @Bean
-  fun accountConfig(accountManifest: AccountManifest): SinglePageApplicationConfig {
-    return object : SinglePageApplicationConfig {
-      override val manifest = accountManifest
-    }
-  }
+  fun accountConfig(applicationAccessHandler: CheckAccountAccess): AccountApplicationConfig =
+    AccountApplicationConfig(
+      applicationAccessHandler = applicationAccessHandler,
+      routeAccessHandlers = AccountRouteAccessHandlers()
+    )
 }
 
 @Component
-class CheckAccountAccess(manifest: AccountManifest) : ApplicationAccessHandler(manifest) {
+class CheckAccountAccess : AccountApplicationAccessHandler() {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 ```
 
-The application handler must return `AccessDecision.Allow` before a route
-handler can run. Either handler can return `AccessDecision.Redirect(target)`
-to redirect to a registered route. A route without a handler is served once
-the application allows access. Every configured application requires exactly
-one application handler; missing or duplicate handlers fail startup.
+The application handler must return `AccessDecision.Allow` before the matching
+route handler runs. Either handler can return `AccessDecision.Redirect(target)`.
+Unflagged routes are allowed after the application check succeeds.
+`AccountApplicationAccessHandler` extends
+`ApplicationAccessHandler<AccountApplicationConfig>` and takes no config instance.
+Inject authentication or permission services into the concrete handler as needed.
 
-For application-specific checks, extend `ApplicationAccessHandler(manifest)`
-as a Spring component. The blog demonstrates this with its public
-`CheckBlogAccess` component, which receives the generated `BlogManifest` through
-constructor injection. The config and handler share that manifest bean.
-The config contains no handler wiring. Spring collects both kinds of handler
-and injects them into the registry, which binds them to applications and routes.
-Both page loads and client navigation checks use `RouteRequest`, containing the
-application and route IDs, path parameters, query values, and actual request
-headers. Application code supplies the authenticated user and reusable checks.
-
-For route-specific checks, declare `generateAccessHandler = true` and extend
-the generated `<Route>AccessHandler` class in a Spring `@Component`. Its
-`<Route>Request` provides typed path and query-string values. Spring collects
-these route handlers automatically. See [generated access handlers](docs/spring-boot-client-apps.md#generated-access-handlers)
+For route checks, declare `generateAccessHandler = true`, extend the generated
+`<Route>AccessHandler`, and supply the implementation to the generated handler
+collection. The starter reads only the handlers attached to configs; standalone
+handler beans are not automatically registered for access evaluation.
+Both page loads and navigation checks use the same `RouteRequest` and checks.
+See [generated access handlers](docs/spring-boot-client-apps.md#generated-access-handlers)
 and the [blog example](examples/README.md).
 
 Both levels share the same decision type. For example:
@@ -345,29 +350,10 @@ import com.sparouting.contract.AccessDecision
 AccessDecision.Redirect(AccountRoutes.UserDetail(id = "123"))
 ```
 
-Override the default HTML page for one SPA, keeping its application handler
-registered separately:
-
-```kotlin
-import com.example.generated.spa.routes.AccountManifest
-import com.sparouting.spring.config.SpringSinglePageApplicationConfig
-import org.springframework.context.annotation.Bean
-import org.springframework.http.MediaType
-import org.springframework.web.servlet.function.ServerResponse
-
-@Bean
-fun accountConfig(accountManifest: AccountManifest): SpringSinglePageApplicationConfig {
-  return object : SpringSinglePageApplicationConfig {
-    override val manifest = accountManifest
-
-    override fun renderHtml(): ServerResponse? {
-      return ServerResponse.ok()
-        .contentType(MediaType.TEXT_HTML)
-        .body(AccountPage().render())
-    }
-  }
-}
-```
+For application-specific HTML rendering, implement `SpringSinglePageApplicationConfig`
+and delegate its config properties to the generated config instance. See
+[HTML rendering](docs/spring-boot-client-apps.md#render-html) for this optional
+Spring hook and the global `HtmlRenderer` alternative.
 
 Check a client-side navigation before changing routes. Each generated route
 builder carries its `applicationId` and `routeId`, so the decision call does not

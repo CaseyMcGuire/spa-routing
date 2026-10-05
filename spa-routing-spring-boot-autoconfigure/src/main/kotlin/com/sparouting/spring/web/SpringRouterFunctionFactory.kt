@@ -1,7 +1,7 @@
 package com.sparouting.spring.web
 
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.config.SpringSinglePageApplicationConfig
 import com.sparouting.spring.rendering.HtmlRenderer
@@ -21,7 +21,7 @@ class SpringRouterFunctionFactory(
   fun routes(): RouterFunction<ServerResponse> {
     return router {
       routeConfigs.forEach { config ->
-        config.manifest.routes.forEach { route ->
+        config.routes.forEach { route ->
           GET(route.path) { request ->
             handleSinglePageApplicationRoute(config, route, request)
           }

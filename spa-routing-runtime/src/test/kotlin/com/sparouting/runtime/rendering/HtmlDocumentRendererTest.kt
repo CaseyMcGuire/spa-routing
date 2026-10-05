@@ -1,23 +1,20 @@
 package com.sparouting.runtime.rendering
 
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.config.SinglePageApplicationConfig
-import com.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
+import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
 
 class HtmlDocumentRendererTest {
-  private val config = object : SinglePageApplicationConfig {
-    override val manifest = TestSinglePageApplicationManifest(
-      name = "News & <updates>",
-      routes = listOf(RouteManifest("/test", "Index")),
-      bundleName = "custom\"bundle"
-    )
-  }
+  private val config = TestSinglePageApplicationConfig(
+    name = "News & <updates>",
+    routes = listOf(RouteManifest("/test", "Index")),
+    bundleName = "custom\"bundle"
+  )
 
   @Test
-  fun `default document uses escaped manifest metadata and includes stylesheets`() {
+  fun `default document uses escaped config metadata and includes stylesheets`() {
     val html = HtmlDocumentRenderer().render(config)
 
     assertContains(html, "<title>News &amp; &lt;updates&gt;</title>")

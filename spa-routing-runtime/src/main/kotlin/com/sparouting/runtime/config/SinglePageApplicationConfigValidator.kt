@@ -1,27 +1,28 @@
 package com.sparouting.runtime.config
 
+import com.sparouting.contract.SinglePageApplicationConfig
+
 class SinglePageApplicationConfigValidator private constructor() {
   companion object {
     fun validate(routeConfigs: List<SinglePageApplicationConfig>) {
-      val duplicateApplicationIds = routeConfigs.map { it.manifest.id }.duplicates()
+      val duplicateApplicationIds = routeConfigs.map { it.id }.duplicates()
       require(duplicateApplicationIds.isEmpty()) {
         "Duplicate single page application IDs: ${duplicateApplicationIds.joinToString(", ")}"
       }
       routeConfigs.forEach { application ->
-        val manifest = application.manifest
-        require(manifest.id.isNotBlank()) { "Application manifest ID must not be blank." }
-        val duplicateRouteIds = manifest.routes.map { it.id }.duplicates()
+        require(application.id.isNotBlank()) { "Application config ID must not be blank." }
+        val duplicateRouteIds = application.routes.map { it.id }.duplicates()
         require(duplicateRouteIds.isEmpty()) {
-          "Single page application ${manifest.id} has duplicate route IDs: ${duplicateRouteIds.joinToString(", ")}"
+          "Single page application ${application.id} has duplicate route IDs: ${duplicateRouteIds.joinToString(", ")}"
         }
-        val duplicatePaths = manifest.routes.map { it.path }.duplicates()
+        val duplicatePaths = application.routes.map { it.path }.duplicates()
         require(duplicatePaths.isEmpty()) {
-          "Single page application ${manifest.id} has duplicate route URLs: ${duplicatePaths.joinToString(", ")}"
+          "Single page application ${application.id} has duplicate route URLs: ${duplicatePaths.joinToString(", ")}"
         }
-        manifest.routes.forEach { route ->
+        application.routes.forEach { route ->
           require(route.id.isNotBlank()) { "Route manifest ID must not be blank." }
           require(route.path.startsWith("/")) {
-            "Route manifest ${manifest.id}:${route.id} must have an absolute path pattern: ${route.path}"
+            "Route manifest ${application.id}:${route.id} must have an absolute path pattern: ${route.path}"
           }
         }
       }

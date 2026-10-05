@@ -1,9 +1,7 @@
 package com.sparouting.spring.autoconfigure
 
-import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.runtime.access.ApplicationAccessHandler
 import com.sparouting.runtime.access.RouteAccessEvaluator
-import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.rendering.DefaultHtmlRenderer
@@ -31,11 +29,9 @@ class RoutingAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   fun singlePageApplicationRouteRegistry(
-    configs: List<SinglePageApplicationConfig>,
-    applicationHandlers: List<ApplicationAccessHandler>,
-    routeHandlers: List<RouteAccessHandler<*>>
+    configs: List<SinglePageApplicationConfig>
   ): SinglePageApplicationRouteRegistry {
-    return SinglePageApplicationRouteRegistry(configs, applicationHandlers, routeHandlers)
+    return SinglePageApplicationRouteRegistry(configs)
   }
 
   @Bean

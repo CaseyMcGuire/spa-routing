@@ -1,6 +1,6 @@
 package com.sparouting.spring.rendering
 
-import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 import com.sparouting.runtime.rendering.HtmlRenderingOptions
 import com.sparouting.spring.autoconfigure.RoutingProperties

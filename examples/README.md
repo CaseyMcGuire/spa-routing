@@ -36,22 +36,41 @@ To use another port:
 ```
 
 The Spring application uses the local `spa-routing-spring-boot-starter` project
-and exposes a `SinglePageApplicationConfig` bean. Spring separately discovers
-`CheckBlogAccess`, which declares the application it protects and explicitly
-allows access to the public blog:
+and constructs a generated `BlogApplicationConfig` bean. Its required application
+handler explicitly allows access to the public blog:
 
 ```kotlin
 @Component
-class CheckBlogAccess(manifest: BlogManifest) : ApplicationAccessHandler(manifest) {
+class CheckBlogAccess : BlogApplicationAccessHandler() {
   override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
 }
 ```
 
-`ExampleConfiguration` registers the generated `BlogManifest` as a bean.
-Spring injects that same bean into the config (`override val manifest = blogManifest`)
-and `CheckBlogAccess`. The registry binds the handler by manifest ID. Missing or duplicate
-application handlers fail startup. `CheckBlogAccess` runs before either post handler. Applications that restrict access
-can inject their permission service into this component and return a typed
+`ExampleConfiguration` wires the generated collection and config directly:
+
+```kotlin
+@Bean
+fun blogRouteAccessHandlers(
+  post: PostAccessHandler,
+  editPost: EditPostAccessHandler
+): BlogRouteAccessHandlers = BlogRouteAccessHandlers(post = post, editPost = editPost)
+
+@Bean
+fun blogConfig(
+  applicationAccessHandler: CheckBlogAccess,
+  routeAccessHandlers: BlogRouteAccessHandlers
+): BlogApplicationConfig = BlogApplicationConfig(
+  applicationAccessHandler = applicationAccessHandler,
+  routeAccessHandlers = routeAccessHandlers
+)
+```
+
+`BlogApplicationConfig` is concrete and contains the generated application metadata.
+`BlogApplicationAccessHandler` extends `ApplicationAccessHandler<BlogApplicationConfig>`;
+`BlogRouteAccessHandlers` requires both gated route handlers. Generated code stays
+independent of Spring. The registry reads handlers from the config.
+`CheckBlogAccess` runs before either post handler. Applications that restrict
+access can inject a permission service into this component and return a typed
 `AccessDecision.Redirect` when the user cannot view the application.
 
 The post reader and editor opt into typed access handlers in the shared route
@@ -79,12 +98,13 @@ class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
 }
 ```
 
-Spring registers the handler components automatically. Missing posts redirect
-to `/not-found` on both direct page requests and client-side navigation.
-Other routes need no handler. Spring fails startup if either required handler
-is missing or has multiple implementations. The generated request's `context`
+Spring injects the handler components into the explicitly wired collection.
+Missing posts redirect to `/not-found` on both direct page requests and
+client-side navigation. Other routes need no route handler. Omitting either
+required handler from `BlogRouteAccessHandlers` fails compilation; unresolved or
+ambiguous Spring dependencies fail startup. The generated request's `context`
 also exposes raw query-string values, actual request headers, method `GET`, and
-the destination path resolved from the manifest. Page loads and client navigation
+the destination path resolved from route metadata. Page loads and client navigation
 checks use the same runtime `RouteRequest` and access handlers.
 
 Boot's servlet error endpoint is configured at `/internal/error` so it does
@@ -117,9 +137,11 @@ Use the tasks below to generate both server and client routes explicitly.
 ```
 
 Server output is in `spring/build/generated/source/spaRoutes/main`, including
-`BlogManifest.kt` next to `BlogRoutes.kt`. The manifest contains the application
-ID, display/bundle names, full route paths, parameter metadata, and handler flags.
-It depends only on runtime contracts, with no reference to `BlogApplication`.
+`BlogApplicationConfig.kt`, `BlogApplicationAccessHandler.kt`, and
+`BlogRouteAccessHandlers.kt` next to `BlogRoutes.kt`. The config contains the
+application ID, display/bundle names, full route paths, parameter metadata, and
+handler flags. It depends only on core contracts, with no
+reference to the authored `BlogApplication`.
 
 The `routeCodegen` Gradle configuration contains the definitions project and is
 used only by generator tasks. The server compiles and runs using generated

@@ -15,19 +15,5 @@ data or an older checkout suggests — read the breaking-changes entries in
 [CHANGELOG.md](CHANGELOG.md). Behavior listed there has changed between
 versions; the newest entry is the current semantics.
 
-Each configured application requires exactly one separately registered
-`ApplicationAccessHandler(manifest)`. It must return
-`AccessDecision.Allow` before an optional typed route access handler runs.
-Both handlers return `AccessDecision.Allow` or a typed `AccessDecision.Redirect`.
-Routes with `generateAccessHandler = true` also require a registered route
-handler. Unflagged routes are allowed after the application handler allows
-access. Application and route rule lists, their result/action types, and
-builtin rules have been removed. The route registry validates and binds both
-handler types; the evaluator reads both from one registration. Configs do not
-contain handlers. `SinglePageApplicationConfig.manifest` and application
-handlers consume a generated `SinglePageApplicationManifest`; route metadata
-uses `RouteManifest` with full paths and `hasAccessHandler`. Authoring definitions
-belong on the generator classpath only, not in runtime config or handler code.
-
 User-facing runtime docs live in [docs/runtime.md](docs/runtime.md) and
 [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).

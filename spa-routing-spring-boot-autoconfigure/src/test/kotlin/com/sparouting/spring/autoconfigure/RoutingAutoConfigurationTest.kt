@@ -1,18 +1,17 @@
 package com.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.access.ApplicationAccessHandler
+import com.sparouting.contract.ApplicationAccessHandler
 import com.sparouting.runtime.access.RouteAccessEvaluator
-import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.rendering.DefaultHtmlRenderer
 import com.sparouting.spring.rendering.HtmlRenderer
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.request.RouteRequestFactory
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import com.sparouting.spring.testsupport.TestSinglePageApplicationManifest
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -116,13 +115,16 @@ class RoutingAutoConfigurationTest {
 
   @Configuration(proxyBeanMethods = false)
   class TestRouteConfiguration {
-    private val manifest = TestSinglePageApplicationManifest(routes = listOf(RouteManifest("/test/home", "Home")))
+    @Bean
+    internal fun testApplicationAccessHandler(): ApplicationAccessHandler<TestSinglePageApplicationConfig> = applicationAccessHandler()
 
     @Bean
-    fun testApplicationAccessHandler(): ApplicationAccessHandler = applicationAccessHandler(manifest)
-
-    @Bean
-    fun testApplicationConfig(): SinglePageApplicationConfig = TestSinglePageApplicationConfig(manifest)
+    internal fun testApplicationConfig(
+      applicationAccessHandler: ApplicationAccessHandler<TestSinglePageApplicationConfig>
+    ): SinglePageApplicationConfig = TestSinglePageApplicationConfig(
+      routes = listOf(RouteManifest("/test/home", "Home")),
+      applicationAccessHandler = applicationAccessHandler
+    )
   }
 
   @Configuration(proxyBeanMethods = false)
@@ -153,7 +155,7 @@ class RoutingAutoConfigurationTest {
       application: SinglePageApplicationConfig,
       route: com.sparouting.contract.RouteManifest
     ): RouteRequest {
-      return RouteRequest(application.manifest.id, route.id)
+      return RouteRequest(application.id, route.id)
     }
   }
 }

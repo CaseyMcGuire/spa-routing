@@ -3,7 +3,7 @@ package com.sparouting.runtime.access
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 
 /**
  * Evaluates the registered application handler before the matching route handler.

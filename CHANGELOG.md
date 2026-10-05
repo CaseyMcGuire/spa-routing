@@ -4,9 +4,52 @@
 
 ### Breaking changes
 
+- **Shared application contracts now live in core.** Move imports for
+  `SinglePageApplicationConfig` from `com.sparouting.runtime.config`,
+  `ApplicationAccessHandler` and `RouteAccessHandlers` from
+  `com.sparouting.runtime.access`, and `RouteRequest` from
+  `com.sparouting.runtime.request` to `com.sparouting.contract`.
+  No compatibility aliases are provided; regenerate sources and recompile consumers.
+
+  Generated server code requires only `spa-routing-core`. The generator derives
+  config and handler contract imports from class references, and core's tests
+  no longer depend on runtime. `spa-routing-runtime` continues to depend on core
+  and owns registration, validation, evaluation, redirect resolution, and rendering.
+  The concrete generated application config and its constructor API are unchanged.
+
+- **Generated application configs own their typed access handlers.**
+  `generateServerRoutes` now emits a concrete `<ApplicationName>ApplicationConfig`,
+  `<ApplicationName>ApplicationAccessHandler`, and `<ApplicationName>RouteAccessHandlers`.
+  For example, construct `BlogApplicationConfig(applicationAccessHandler, routeAccessHandlers)`
+  directly. It implements `SinglePageApplicationConfig` and contains generated
+  `id`, `name`, `bundleName`, and `routes` metadata. No config subclass is needed.
+  `SinglePageApplicationManifest`, generated `<ApplicationName>Manifest` classes,
+  and `SinglePageApplicationConfig.manifest` are removed.
+
+  `ApplicationAccessHandler<C : SinglePageApplicationConfig>` no longer takes
+  a manifest instance. Generated application handlers bind `C` to their generated
+  config type. The new `RouteAccessHandlers<C>` contract exposes the runtime handler
+  list; its generated implementation requires one correctly typed constructor
+  argument per gated route. Missing or mismatched handlers fail compilation.
+  Apps without gated routes get a zero-argument collection.
+
+  `SinglePageApplicationRouteRegistry` now takes only configs and reads their
+  handlers. Spring discovers config beans instead of collecting global handler
+  lists. Update bean wiring to construct the generated collection and config.
+  Runtime validation still checks missing, duplicate, unknown-route, unflagged,
+  and wrong-application route handlers for custom config implementations.
+  Generated server configs and authoring projects require only `spa-routing-core`.
+  The runtime handles route registration and evaluation and is included by the
+  Spring starter. Generated code has no framework annotations. For custom Spring rendering, delegate
+  `SinglePageApplicationConfig` to a generated instance while implementing
+  `SpringSinglePageApplicationConfig`.
+
+  Regenerate sources and recompile consumers. Request validation, the application
+  check followed by the route check, client metadata, and redirects are unchanged.
+
 - **Page requests and navigation checks now share `RouteRequest`.**
   `RouteResponseRequest` and its `RouteResponseService.evaluate` overload are
-  removed. Use `com.sparouting.runtime.request.RouteRequest` with application
+  removed. Use `com.sparouting.contract.RouteRequest` with application
   and route IDs, `pathParameters`, `queryString`, and actual request headers.
   Rename `parameters` to `pathParameters` when migrating navigation checks.
   Custom response services now override just `evaluate(RouteRequest)`.
@@ -36,57 +79,23 @@
   Update imports and constructor calls in `com.sparouting.spring.web`.
   Routing behavior is unchanged.
 
-- **Server configuration now consumes generated manifests instead of authoring definitions.**
-  `generateServerRoutes` emits `<ApplicationName>Manifest` alongside the route
-  builders. These concrete, framework-neutral classes implement core's
-  `SinglePageApplicationManifest` and contain application identity, display and
-  bundle names, and `List<RouteManifest>` with full path patterns, parameter
-  metadata, and `hasAccessHandler` flags.
+- **Runtime configuration uses generated metadata instead of authoring definitions.**
+  `SinglePageApplicationConfig.routes` contains `RouteManifest` values with full
+  path patterns, parameter metadata, and `hasAccessHandler` flags. Configs expose
+  `id`, `name`, and `bundleName` directly; the former `applicationId` is now `id`.
+  Runtime configs no longer expose `urlPrefix`, `appRootPath`,
+  `getFullPathPattern`, or `getFullPathPatterns`; use `route.path` and
+  `route.resolvePath(parameters)`. Registrations and request factories take
+  `RouteManifest`, not `RouteDefinition`.
 
-  Replace `SinglePageApplicationConfig.application` with `manifest`, and register
-  the generated manifest with your DI container. Inject it into both the config
-  and `ApplicationAccessHandler(manifest)`. The handler's identity property is
-  now `manifest` as well. Configs expose only `manifest`; read `routes`, `name`,
-  `bundleName`, and `id` directly from it instead of the former config properties
-  (`applicationId` becomes `manifest.id`). Runtime configs no longer expose `urlPrefix`,
-  `appRootPath`, `getFullPathPattern`, or `getFullPathPatterns`; use `route.path`
-  and `route.resolvePath(parameters)`. Registration and request-factory route
-  arguments now use `RouteManifest`, not `RouteDefinition`.
-
-  Keep `SinglePageApplicationDefinition` and `RouteDefinition` in the generation
-  step. The definitions project is no longer an implementation dependency of
-  the server; configure it through the plugin's `routeDefinitions.projectPath`
-  or a dedicated generator classpath. Core still contains the authoring contracts
-  and generators, but neither generated manifests nor the runtime reference
-  definition types. Runtime validation checks manifest identities and paths;
-  authoring and generated-name validation remains in code generation.
-
-  Regenerate server sources and update custom runtime wiring and request
-  factories. Parameter validation, query encoding, redirects, and access-check
-  order are unchanged. The Spring blog now registers `BlogManifest` as a bean
-  and has no runtime dependency on `examples:route-definitions`.
-
-- **Access handlers are registered independently of application configs.**
-  `ApplicationAccessHandler` is now an abstract class taking the protected
-  `SinglePageApplicationManifest` in its constructor. Extend it with, for
-  example, `CheckBlogAccess(manifest: BlogManifest) : ApplicationAccessHandler(manifest)`.
-  `SinglePageApplicationConfig.accessHandler` is removed. Register application
-  handlers as standalone beans, just like route handlers; the previous lambda
-  interface and config wiring are no longer supported.
-
-  `SinglePageApplicationRouteRegistry` now takes configs, application handlers,
-  and optional route handlers. It validates exactly one application handler per
-  configured application, rejects unknown application handlers, and owns the
-  existing route handler validation. Registrations now include a required
-  `applicationAccessHandler` and optional `routeAccessHandler`.
-  `RouteAccessEvaluator` takes only the registry, retrieves both handlers in one
-  lookup, and exposes `evaluate(request)`. Update custom wiring and evaluator
-  overrides; callers no longer pass handlers to the evaluator. Spring collects
-  and injects both handler lists into the registry automatically.
+  Keep `SinglePageApplicationDefinition` and `RouteDefinition` on the generator
+  classpath. The definitions project is no longer an implementation dependency
+  of the server; configure it through `routeDefinitions.projectPath` or a dedicated
+  generator classpath. The Spring blog runs without `examples:route-definitions`.
 
 - **Application rule lists are replaced by one required application access handler.**
-  Extend `runtime.access.ApplicationAccessHandler(manifest)` and
-  implement `evaluate(RouteRequest)`. Register one implementation per application.
+  Extend the generated `<ApplicationName>ApplicationAccessHandler` and
+  implement `evaluate(RouteRequest)`. Supply it to the generated application config.
   Public applications must explicitly return `AccessDecision.Allow`.
 
   Access has two levels: the application handler runs first, then the matching
@@ -128,9 +137,9 @@
 
 - **Shared server logic now lives in `spa-routing-runtime`.** Update imports
   from `com.sparouting.spring` to
-  `com.sparouting.runtime` for `config.*` (including
-  `SinglePageApplicationConfig`), access evaluation,
-  `request.RouteRequest`, and the response models and `RouteResponseService`.
+  `com.sparouting.runtime` for configuration validation, route registration,
+  access evaluation, and the response models and `RouteResponseService`.
+  Shared config, request, and handler contracts are in `com.sparouting.contract`.
   The Spring starter includes the new module transitively. No aliases for the
   old packages are provided.
 
@@ -221,9 +230,7 @@
   | `SpaRouteRequest` | `RouteRequest` |
   | `SpaTypedRoute` | `Route` |
 
-  With the runtime extraction above, `RouteRequest` is now in
-  `com.sparouting.runtime.request`; the other types are in
-  `com.sparouting.contract`. Regenerate server routes with
+  These types live in `com.sparouting.contract`. Regenerate server routes with
   `./gradlew generateServerRoutes`, then recompile consumers. Custom route
   subclasses now extend `Route`. This is a source and binary API rename;
   no aliases for the previous names are provided. Routing behavior is unchanged.

@@ -1,4 +1,4 @@
-package com.sparouting.runtime.request
+package com.sparouting.contract
 
 /** Target route and caller headers shared by page requests and client navigation checks. */
 data class RouteRequest @JvmOverloads constructor(

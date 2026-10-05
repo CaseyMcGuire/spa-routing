@@ -1,8 +1,8 @@
 package com.sparouting.spring.request
 
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.config.SinglePageApplicationConfig
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.SinglePageApplicationConfig
+import com.sparouting.contract.RouteRequest
 import org.springframework.web.servlet.function.ServerRequest
 
 interface RouteRequestFactory {

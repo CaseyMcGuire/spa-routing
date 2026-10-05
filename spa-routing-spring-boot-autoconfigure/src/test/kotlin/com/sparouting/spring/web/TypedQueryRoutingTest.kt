@@ -7,14 +7,13 @@ import com.sparouting.contract.RouteManifest
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.response.RouteHttpResponse
 import com.sparouting.runtime.response.RouteResponseService
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.rendering.DefaultHtmlRenderer
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
-import com.sparouting.spring.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -24,18 +23,16 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 class TypedQueryRoutingTest {
   private val requests = mutableListOf<RouteRequest>()
-  private val config = TestSinglePageApplicationConfig(
-    manifest = TestSinglePageApplicationManifest(routes = listOf(
-      RouteManifest("/test/users/{id}", "UserDetail", queryString = listOf(
-        parameter("foo"), parameter("tag").repeated(), parameter("baz").optional(), parameter("filter").repeated().optional()
-      ))
+  private val config = TestSinglePageApplicationConfig(routes = listOf(
+    RouteManifest("/test/users/{id}", "UserDetail", queryString = listOf(
+      parameter("foo"), parameter("tag").repeated(), parameter("baz").optional(), parameter("filter").repeated().optional()
     ))
-  )
-  private val handler = applicationAccessHandler(config.manifest) { request ->
+  ))
+  private val handler = applicationAccessHandler { request ->
     requests.add(request)
     AccessDecision.Allow
   }
-  private val registry = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
+  private val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
   private val evaluator = RouteAccessEvaluator(registry)
   private val valid = linkedMapOf("foo" to listOf("a b+&=雪"), "tag" to listOf("x/y", "é"))
 
@@ -113,8 +110,8 @@ class TypedQueryRoutingTest {
   }
 
   private fun redirect(target: RouteTarget): RouteHttpResponse {
-    val handler = applicationAccessHandler(config.manifest) { AccessDecision.Redirect(target) }
-    val routes = SinglePageApplicationRouteRegistry(listOf(config), listOf(handler))
+    val handler = applicationAccessHandler { AccessDecision.Redirect(target) }
+    val routes = SinglePageApplicationRouteRegistry(listOf(config.copy(applicationAccessHandler = handler)))
     return RouteResponseService(routes, RouteAccessEvaluator(routes)).evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",

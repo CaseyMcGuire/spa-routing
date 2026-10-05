@@ -1,8 +1,8 @@
 package com.sparouting.spring.request
 
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.config.SinglePageApplicationConfig
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.SinglePageApplicationConfig
+import com.sparouting.contract.RouteRequest
 import org.springframework.web.servlet.function.ServerRequest
 
 class DefaultRouteRequestFactory : RouteRequestFactory {
@@ -12,7 +12,7 @@ class DefaultRouteRequestFactory : RouteRequestFactory {
     route: RouteManifest
   ): RouteRequest {
     return RouteRequest(
-      applicationId = application.manifest.id,
+      applicationId = application.id,
       routeId = route.id,
       pathParameters = serverRequest.pathVariables().toMap(),
       queryString = serverRequest.params().mapValues { (_, values) -> values.toList() },

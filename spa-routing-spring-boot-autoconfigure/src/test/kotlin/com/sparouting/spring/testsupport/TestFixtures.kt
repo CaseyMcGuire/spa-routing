@@ -1,29 +1,33 @@
 package com.sparouting.spring.testsupport
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteManifest
-import com.sparouting.contract.SinglePageApplicationManifest
-import com.sparouting.runtime.access.ApplicationAccessHandler
-import com.sparouting.runtime.config.SinglePageApplicationConfig
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.ApplicationAccessHandler
+import com.sparouting.contract.RouteAccessHandlers
+import com.sparouting.contract.SinglePageApplicationConfig
+import com.sparouting.contract.RouteRequest
 
-internal data class TestSinglePageApplicationManifest(
+internal data class TestSinglePageApplicationConfig(
   override val id: String = "test",
   override val name: String = "Test",
   override val routes: List<RouteManifest>,
-  override val bundleName: String = id
-) : SinglePageApplicationManifest
-
-internal data class TestSinglePageApplicationConfig(
-  override val manifest: SinglePageApplicationManifest
+  override val bundleName: String = id,
+  override val applicationAccessHandler: ApplicationAccessHandler<TestSinglePageApplicationConfig> = applicationAccessHandler(),
+  override val routeAccessHandlers: RouteAccessHandlers<TestSinglePageApplicationConfig> = routeAccessHandlers()
 ) : SinglePageApplicationConfig
 
 internal fun applicationAccessHandler(
-  manifest: SinglePageApplicationManifest,
   evaluateAccess: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
-): ApplicationAccessHandler {
-  return object : ApplicationAccessHandler(manifest) {
+): ApplicationAccessHandler<TestSinglePageApplicationConfig> {
+  return object : ApplicationAccessHandler<TestSinglePageApplicationConfig>() {
     override fun evaluate(request: RouteRequest): AccessDecision = evaluateAccess(request)
+  }
+}
+
+internal fun routeAccessHandlers(vararg handlers: RouteAccessHandler<*>): RouteAccessHandlers<TestSinglePageApplicationConfig> {
+  return object : RouteAccessHandlers<TestSinglePageApplicationConfig> {
+    override val handlers: List<RouteAccessHandler<*>> = handlers.toList()
   }
 }
 

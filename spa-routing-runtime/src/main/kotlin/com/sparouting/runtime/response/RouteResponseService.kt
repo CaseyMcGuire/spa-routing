@@ -4,7 +4,7 @@ import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 
 /** Validates requests and converts access decisions into response data for pages and client navigation. */
 open class RouteResponseService @JvmOverloads constructor(

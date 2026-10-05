@@ -7,12 +7,12 @@ import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
+import com.sparouting.runtime.testsupport.routeAccessHandlers
 import com.sparouting.runtime.testsupport.applicationAccessHandler
 import com.sparouting.runtime.access.RouteAccessEvaluator
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import com.sparouting.runtime.request.RouteRequest
+import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
-import com.sparouting.runtime.testsupport.TestSinglePageApplicationManifest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -86,13 +86,11 @@ class RouteEvaluationTest {
   private class Runtime(applicationDecision: AccessDecision = AccessDecision.Allow) {
     val applicationRequests = mutableListOf<RouteRequest>()
     val handlerRequests = mutableListOf<RouteAccessContext>()
-    private val config = TestSinglePageApplicationConfig(
-      manifest = TestSinglePageApplicationManifest(routes = listOf(
-        RouteManifest("/test/posts/{id}", "Post", queryString = listOf(parameter("view").optional()), hasAccessHandler = true),
-        RouteManifest("/test/missing", "Missing", queryString = listOf(parameter("from")))
-      ))
-    )
-    private val applicationHandler = applicationAccessHandler(config.manifest) { request ->
+    private val config = TestSinglePageApplicationConfig(routes = listOf(
+      RouteManifest("/test/posts/{id}", "Post", queryString = listOf(parameter("view").optional()), hasAccessHandler = true),
+      RouteManifest("/test/missing", "Missing", queryString = listOf(parameter("from")))
+    ))
+    private val applicationHandler = applicationAccessHandler { request ->
       applicationRequests.add(request)
       applicationDecision
     }
@@ -111,7 +109,10 @@ class RouteEvaluationTest {
         ))
       }
     }
-    private val routeRegistry = SinglePageApplicationRouteRegistry(listOf(config), listOf(applicationHandler), listOf(handler))
+    private val routeRegistry = SinglePageApplicationRouteRegistry(listOf(config.copy(
+      applicationAccessHandler = applicationHandler,
+      routeAccessHandlers = routeAccessHandlers(handler)
+    )))
     val service = RouteResponseService(
       routeRegistry = routeRegistry,
       accessEvaluator = RouteAccessEvaluator(routeRegistry),

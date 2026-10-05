@@ -49,7 +49,7 @@ val clientRoutesDirectory = layout.buildDirectory.dir("generated/client/routes")
 // project and cannot be resolved through this build's plugins block.
 val generateServerRoutes by tasks.registering(JavaExec::class) {
   group = "spa routing"
-  description = "Generates a Kotlin application manifest and routes from the shared blog definitions."
+  description = "Generates Kotlin application configuration and routes from the shared blog definitions."
   classpath = routeCodegen
   mainClass.set("com.sparouting.contract.codegen.GenerateServerRoutesKt")
   inputs.dir(routeDefinitionsDirectory)

@@ -1,6 +1,6 @@
 package com.sparouting.spring.config
 
-import com.sparouting.runtime.config.SinglePageApplicationConfig
+import com.sparouting.contract.SinglePageApplicationConfig
 import org.springframework.web.servlet.function.ServerResponse
 
 /** Optional Spring-specific rendering hook; ordinary configurations can use the shared interface. */

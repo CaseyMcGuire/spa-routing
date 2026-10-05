@@ -1,6 +1,9 @@
 package com.sparouting.contract.codegen
 
-import com.sparouting.contract.SinglePageApplicationManifest
+import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.SinglePageApplicationDefinitionDiscovery
+import com.sparouting.contract.SinglePageApplicationConfig
+import com.sparouting.contract.RouteRequest
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import java.io.ByteArrayOutputStream
@@ -19,15 +22,17 @@ import kotlin.test.assertTrue
 
 class GeneratedQueryApiTest {
   @Test
-  fun `generated manifests compile and run without authored definitions`() = withGeneratedRoutes { output ->
-    val sources = Files.list(output.resolve("server")).use { files ->
-      files.filter { it.fileName.toString().endsWith("Manifest.kt") }.toList()
+  fun `generated configs compile with only core and run without authored definitions`() = withGeneratedRoutes { output ->
+    val sources = Files.walk(output.resolve("server")).use { files ->
+      files.filter { it.toString().endsWith(".kt") }.toList()
     }
-    val classes = output.resolve("manifest-classes")
-    val contractClasspath = listOf(SinglePageApplicationManifest::class.java, Unit::class.java)
+    val usage = output.resolve("ConfigUsage.kt")
+    usage.writeText(configUsage())
+    val classes = output.resolve("config-classes")
+    val contractClasspath = listOf(SinglePageApplicationConfig::class.java, Unit::class.java)
       .map { Path.of(it.protectionDomain.codeSource.location.toURI()).toString() }
       .joinToString(java.io.File.pathSeparator)
-    val (result, diagnostics) = compileKotlin(sources, classes, baseClasspath = contractClasspath)
+    val (result, diagnostics) = compileKotlin(sources + listOf(usage), classes, baseClasspath = contractClasspath)
     assertEquals(ExitCode.OK, result, diagnostics)
 
     val parent = object : ClassLoader(javaClass.classLoader) {
@@ -41,13 +46,15 @@ class GeneratedQueryApiTest {
       }
     }
     URLClassLoader(arrayOf(classes.toUri().toURL()), parent).use { loader ->
-      fun manifest(name: String): SinglePageApplicationManifest =
-        loader.loadClass("generated.$name").getConstructor().newInstance() as SinglePageApplicationManifest
+      fun config(name: String): SinglePageApplicationConfig =
+        loader.loadClass("ConfigUsageKt").getMethod("create$name").invoke(null) as SinglePageApplicationConfig
 
-      val root = manifest("ManifestTestManifest")
-      assertEquals("manifesttest", root.id)
-      assertEquals("Manifest Test", root.name)
+      val root = config("ConfigTestApplicationConfig")
+      assertEquals("configtest", root.id)
+      assertEquals("Config Test", root.name)
       assertEquals("custom-assets", root.bundleName)
+      assertEquals(AccessDecision.Allow, root.applicationAccessHandler.evaluate(RouteRequest("configtest", "Post")))
+      assertEquals(listOf("Post", "Class", "Handlers"), root.routeAccessHandlers.handlers.map { it.route.routeId })
       assertEquals("/", root.routes.single { it.id == "Index" }.path)
       val post = root.routes.single { it.id == "Post" }
       assertEquals("/posts/{postId}", post.path)
@@ -58,15 +65,69 @@ class GeneratedQueryApiTest {
       assertEquals("tag=a+b&tag=%E9%9B%AA", post.resolveQueryString(mapOf("tag" to listOf("a b", "雪"))))
       assertEquals("/posts/42", post.resolvePath(mapOf("postId" to "42")))
 
-      val access = manifest("AccessTestManifest")
+      val access = config("AccessTestApplicationConfig")
       assertEquals("/access/posts/{postId}", access.routes.single { it.id == "Post" }.path)
       assertTrue(access.routes.single { it.id == "Optional" }.parameters.single().optional)
       assertFalse(access.routes.single { it.id == "Public" }.hasAccessHandler)
       assertTrue(access.routes.single { it.id == "Post" }.queryString.single { it.name == "filter" }.repeated)
-      val special = manifest("QueryTestManifest").routes.single { it.id == "Special" }
+      val special = config("QueryTestApplicationConfig").routes.single { it.id == "Special" }
       assertTrue(special.queryString.any { it.name == "a\"$\n" && it.optional })
-      assertEquals("/collision", manifest("RouteManifest").routes.single().path)
-      assertTrue(manifest("SinglePageApplicationManifest").routes.isEmpty())
+      assertEquals("/collision", config("RouteApplicationConfig").routes.single().path)
+      assertTrue(config("SinglePageApplicationConfig").routes.isEmpty())
+    }
+
+    val failures = mapOf(
+      "MissingApplicationHandler" to "ConfigTestApplicationConfig(routeAccessHandlers = createConfigTestApplicationConfig().routeAccessHandlers)",
+      "MissingHandlerCollection" to "ConfigTestApplicationConfig(applicationAccessHandler = createConfigTestApplicationConfig().applicationAccessHandler)",
+      "MissingRouteHandler" to "ConfigTestRouteAccessHandlers(`class` = CheckClass(), handlers = CheckHandlers())",
+      "WrongRouteHandler" to "ConfigTestRouteAccessHandlers(post = CheckClass(), `class` = CheckClass(), handlers = CheckHandlers())",
+      "WrongApplicationHandler" to "ConfigTestApplicationConfig(createRouteApplicationConfig().applicationAccessHandler, createConfigTestApplicationConfig().routeAccessHandlers)",
+      "WrongHandlerCollection" to "ConfigTestApplicationConfig(createConfigTestApplicationConfig().applicationAccessHandler, RouteRouteAccessHandlers())",
+      "WrongGenericApplication" to "run { val handler: ApplicationAccessHandler<RouteApplicationConfig> = createConfigTestApplicationConfig().applicationAccessHandler }",
+      "WrongGenericCollection" to "run { val handlers: RouteAccessHandlers<RouteApplicationConfig> = createConfigTestApplicationConfig().routeAccessHandlers }",
+    ).map { (name, expression) ->
+      output.resolve("$name.kt").also {
+        it.writeText("""
+          import generated.*
+          import generated.configtest.*
+          import com.sparouting.contract.AccessDecision
+          import com.sparouting.contract.ApplicationAccessHandler
+          import com.sparouting.contract.RouteAccessHandlers
+          private class ${name}CheckClass : ClassAccessHandler() {
+            override fun evaluate(request: ClassRequest): AccessDecision = AccessDecision.Allow
+          }
+          private class ${name}CheckHandlers : HandlersAccessHandler() {
+            override fun evaluate(request: HandlersRequest): AccessDecision = AccessDecision.Allow
+          }
+          fun $name() { ${expression.replace("CheckClass", "${name}CheckClass").replace("CheckHandlers", "${name}CheckHandlers")} }
+        """.trimIndent())
+      }
+    }
+    val (failureResult, errors) = compileKotlin(failures, output.resolve("invalid-configs"), classes)
+    assertEquals(ExitCode.COMPILATION_ERROR, failureResult, errors)
+    failures.forEach { assertContains(errors, it.fileName.toString(), message = errors) }
+  }
+
+  private fun configUsage(): String = buildString {
+    appendLine("import generated.*")
+    appendLine("import com.sparouting.contract.AccessDecision")
+    appendLine("import com.sparouting.contract.RouteRequest")
+    // Instantiate every fixture, including empty applications and type-name collisions.
+    SinglePageApplicationDefinitionDiscovery.discoverFromSystemProperty().forEach { application ->
+      val name = application.name.replace("\\s+".toRegex(), "")
+      appendLine("fun create${name}ApplicationConfig(): ${name}ApplicationConfig = ${name}ApplicationConfig(")
+      appendLine("  applicationAccessHandler = object : ${name}ApplicationAccessHandler() {")
+      appendLine("    override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow")
+      appendLine("  },")
+      appendLine("  routeAccessHandlers = ${name}RouteAccessHandlers(")
+      application.routes.filter { it.generateAccessHandler }.forEach { route ->
+        val routePackage = "generated.${application.id}"
+        appendLine("    object : $routePackage.${route.id}AccessHandler() {")
+        appendLine("      override fun evaluate(request: $routePackage.${route.id}Request): AccessDecision = AccessDecision.Allow")
+        appendLine("    },")
+      }
+      appendLine("  )")
+      appendLine(")")
     }
   }
 
