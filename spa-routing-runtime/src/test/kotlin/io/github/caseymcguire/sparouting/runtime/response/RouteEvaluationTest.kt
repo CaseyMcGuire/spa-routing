@@ -1,19 +1,16 @@
 package io.github.caseymcguire.sparouting.runtime.response
 
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.contract.RouteDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
 import kotlin.test.Test
@@ -32,7 +29,7 @@ class RouteEvaluationTest {
   )
 
   @Test
-  fun `both entry points validate before invoking rules or handlers`() {
+  fun `both entry points validate before invoking either access handler`() {
     val runtime = Runtime()
     val invalidRequests = listOf(
       page.copy(pathParameters = emptyMap()) to 422,
@@ -46,23 +43,23 @@ class RouteEvaluationTest {
       assertEquals(expectedStatus, runtime.service.evaluate(request.toDecisionRequest()).statusCode)
     }
 
-    assertEquals(emptyList(), runtime.ruleRequests)
+    assertEquals(emptyList(), runtime.applicationRequests)
     assertEquals(emptyList(), runtime.handlerRequests)
   }
 
   @Test
-  fun `both entry points stop at application denial`() {
-    for ((gate, expectedStatus) in listOf(
-      RouteRuleResult.Skip to 404,
-      RouteRuleResult.Deny(RouteRuleAction.status(451)) to 451
-    )) {
-      val runtime = Runtime(gate)
+  fun `both entry points stop at application redirect`() {
+    val runtime = Runtime(AccessDecision.Redirect(RouteTarget(
+      applicationId = "test",
+      routeId = "Missing",
+      queryString = mapOf("from" to listOf("application"))
+    )))
+    val expected = RouteHttpResponse(statusCode = 302, location = "/test/missing?from=application")
 
-      assertEquals(expectedStatus, runtime.service.evaluate(page).statusCode)
-      assertEquals(expectedStatus, runtime.service.evaluate(page.toDecisionRequest()).statusCode)
-      assertEquals(2, runtime.ruleRequests.size)
-      assertEquals(emptyList(), runtime.handlerRequests)
-    }
+    assertEquals(expected, runtime.service.evaluate(page))
+    assertEquals(expected, runtime.service.evaluate(page.toDecisionRequest()))
+    assertEquals(2, runtime.applicationRequests.size)
+    assertEquals(emptyList(), runtime.handlerRequests)
   }
 
   @Test
@@ -72,7 +69,7 @@ class RouteEvaluationTest {
     assertEquals(200, runtime.service.evaluate(page).statusCode)
     assertEquals(200, runtime.service.evaluate(page.toDecisionRequest()).statusCode)
 
-    assertSame(page, runtime.ruleRequests[0])
+    assertSame(page, runtime.applicationRequests[0])
     assertEquals("HEAD", runtime.handlerRequests[0].method)
     assertEquals("/proxy/test/posts/42", runtime.handlerRequests[0].path)
     assertEquals("GET", runtime.handlerRequests[1].method)
@@ -104,31 +101,29 @@ class RouteEvaluationTest {
     )
   }
 
-  private class Runtime(gate: RouteRuleResult = RouteRuleResult.Allow) {
-    val ruleRequests = mutableListOf<RouteRequest>()
+  private class Runtime(applicationDecision: AccessDecision = AccessDecision.Allow) {
+    val applicationRequests = mutableListOf<RouteRequest>()
     val handlerRequests = mutableListOf<RouteAccessContext>()
     private val config = TestSinglePageApplicationConfig(
       application = TestSinglePageApplicationDefinition(routes = listOf(
         route("posts/{id}", "Post", queryString = listOf(parameter("view").optional()), generateAccessHandler = true),
         route("missing", "Missing", queryString = listOf(parameter("from")))
       )),
-      rules = listOf(object : RouteRule {
-        override fun evaluate(request: RouteRequest): RouteRuleResult {
-          ruleRequests.add(request)
-          return gate
-        }
-      })
+      accessHandler = ApplicationAccessHandler { request ->
+        applicationRequests.add(request)
+        applicationDecision
+      }
     )
     private val routeRegistry = SinglePageApplicationRouteRegistry(listOf(config))
     private val handler = object : RouteAccessHandler<RouteAccessContext>(Route("test", "Post")) {
       override fun createRequest(context: RouteAccessContext): RouteAccessContext = context
 
-      override fun evaluate(request: RouteAccessContext): RouteDecision {
+      override fun evaluate(request: RouteAccessContext): AccessDecision {
         handlerRequests.add(request)
         if (request.pathParameters.getValue("id") == "42") {
-          return RouteDecision.Allow
+          return AccessDecision.Allow
         }
-        return RouteDecision.Redirect(RouteTarget(
+        return AccessDecision.Redirect(RouteTarget(
           applicationId = "test",
           routeId = "Missing",
           queryString = mapOf("from" to listOf("post access"))
@@ -138,7 +133,6 @@ class RouteEvaluationTest {
     val service = RouteResponseService(
       routeRegistry = routeRegistry,
       accessEvaluator = RouteAccessEvaluator(routeRegistry, listOf(handler)),
-      actionResolver = RouteRuleActionResolver(listOf(config)),
       invalidPathParameterStatus = 422
     )
   }

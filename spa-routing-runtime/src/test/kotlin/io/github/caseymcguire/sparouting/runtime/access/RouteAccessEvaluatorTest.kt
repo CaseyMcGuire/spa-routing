@@ -1,144 +1,91 @@
 package io.github.caseymcguire.sparouting.runtime.access
 
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.contract.RouteDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
-import io.github.caseymcguire.sparouting.runtime.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
 import io.github.caseymcguire.sparouting.runtime.testsupport.testRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
+import kotlin.test.assertSame
 
 class RouteAccessEvaluatorTest {
-  private val evaluator = RouteAccessEvaluator(SinglePageApplicationRouteRegistry(emptyList()))
+  private val destination = RouteTarget(applicationId = "other", routeId = "Login")
 
   @Test
-  fun `application skip continues to later application rules`() {
-    val decision = evaluator.evaluate(
-      applicationRules = listOf(
-        RecordingRule(RouteRuleResult.Skip),
-        RecordingRule(RouteRuleResult.Deny(RouteRuleAction.notFound()))
-      ),
-      request = testRequest()
-    )
+  fun `application access is evaluated before route access`() {
+    val calls = mutableListOf<String>()
+    val applicationHandler = ApplicationAccessHandler { request ->
+      assertEquals(testRequest(), request)
+      calls.add("application")
+      AccessDecision.Allow
+    }
+    val evaluator = evaluator { context ->
+      assertEquals(testRequest().path, context.path)
+      calls.add("route")
+      AccessDecision.Allow
+    }
 
-    assertEquals(RouteRuleResult.Deny(RouteRuleAction.notFound()), decision)
+    val decision = evaluator.evaluate(applicationHandler, testRequest())
+
+    assertEquals(AccessDecision.Allow, decision)
+    assertEquals(listOf("application", "route"), calls)
   }
 
   @Test
-  fun `application allow passes the gate and skips later application rules`() {
-    var laterApplicationRuleEvaluated = false
+  fun `application redirect prevents route access evaluation`() {
+    val redirect = AccessDecision.Redirect(destination)
+    val evaluator = evaluator { error("Route handler must not run after application rejection") }
 
-    val decision = evaluator.evaluate(
-      applicationRules = listOf(
-        RecordingRule(RouteRuleResult.Allow),
-        RecordingRule(
-          RouteRuleResult.Deny(RouteRuleAction.notFound()),
-          onEvaluate = { laterApplicationRuleEvaluated = true }
-        )
-      ),
-      request = testRequest()
-    )
+    val decision = evaluator.evaluate(ApplicationAccessHandler { redirect }, testRequest())
 
-    assertEquals(RouteRuleResult.Allow, decision)
-    assertFalse(laterApplicationRuleEvaluated)
+    // Targets remain unresolved until the response service converts the decision.
+    assertSame(redirect, decision)
   }
 
   @Test
-  fun `application deny returns its action without evaluating later application rules`() {
-    var laterApplicationRuleEvaluated = false
+  fun `route redirect is returned after the application allows access`() {
+    val redirect = AccessDecision.Redirect(destination)
+    val evaluator = evaluator { redirect }
 
-    val decision = evaluator.evaluate(
-      applicationRules = listOf(
-        RecordingRule(RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))),
-        RecordingRule(RouteRuleResult.Allow, onEvaluate = { laterApplicationRuleEvaluated = true })
-      ),
-      request = testRequest()
-    )
+    val decision = evaluator.evaluate(ApplicationAccessHandler { AccessDecision.Allow }, testRequest())
 
-    assertEquals(RouteRuleResult.Deny(RouteRuleAction.redirect("/login")), decision)
-    assertFalse(laterApplicationRuleEvaluated)
+    assertSame(redirect, decision)
   }
 
   @Test
-  fun `no application rules denies by default`() {
-    val decision = evaluator.evaluate(
-      applicationRules = emptyList(),
-      request = testRequest()
+  fun `route without a handler still requires application allowance`() {
+    val config = TestSinglePageApplicationConfig(
+      application = TestSinglePageApplicationDefinition(routes = listOf(route("route", "Route")))
     )
+    val evaluator = RouteAccessEvaluator(SinglePageApplicationRouteRegistry(listOf(config)))
+    val redirect = AccessDecision.Redirect(destination)
 
-    assertEquals(RouteRuleResult.Deny(RouteRuleAction.notFound()), decision)
+    assertEquals(AccessDecision.Allow, evaluator.evaluate(
+      ApplicationAccessHandler { AccessDecision.Allow }, testRequest()
+    ))
+    assertEquals(redirect, evaluator.evaluate(ApplicationAccessHandler { redirect }, testRequest()))
   }
 
-  @Test
-  fun `all application rules skipping denies by default`() {
-    val decision = evaluator.evaluate(
-      applicationRules = listOf(RecordingRule(RouteRuleResult.Skip), RecordingRule(RouteRuleResult.Skip)),
-      request = testRequest()
-    )
-
-    assertEquals(RouteRuleResult.Deny(RouteRuleAction.notFound()), decision)
-  }
-
-  @Test
-  fun `route without a handler is served once the gate passes`() {
-    val decision = evaluator.evaluate(
-      applicationRules = listOf(RecordingRule(RouteRuleResult.Allow)),
-      request = testRequest()
-    )
-
-    assertEquals(RouteRuleResult.Allow, decision)
-  }
-
-  @Test
-  fun `application redirect targets are returned without response resolution`() {
-    val action = RouteRuleAction.redirectTo(
-      RouteTarget(applicationId = "other", routeId = "Login"),
-      statusCode = 307
-    )
-
-    val result = evaluator.evaluate(
-      applicationRules = listOf(RecordingRule(RouteRuleResult.Deny(action))),
-      request = testRequest()
-    )
-
-    // The destination is deliberately absent from the registry: resolution belongs to the service.
-    assertEquals(RouteRuleResult.Deny(action), result)
-  }
-
-  @Test
-  fun `handler redirect targets are returned without response resolution`() {
+  private fun evaluator(evaluateRoute: (RouteAccessContext) -> AccessDecision): RouteAccessEvaluator {
     val config = TestSinglePageApplicationConfig(
       application = TestSinglePageApplicationDefinition(
         routes = listOf(route("route", "Route", generateAccessHandler = true))
       )
     )
-    val destination = RouteTarget(applicationId = "other", routeId = "Login")
     val handler = object : RouteAccessHandler<RouteAccessContext>(Route("test", "Route")) {
       override fun createRequest(context: RouteAccessContext): RouteAccessContext = context
 
-      override fun evaluate(request: RouteAccessContext): RouteDecision {
-        return RouteDecision.Redirect(destination)
-      }
+      override fun evaluate(request: RouteAccessContext): AccessDecision = evaluateRoute(request)
     }
-    val evaluator = RouteAccessEvaluator(
+    return RouteAccessEvaluator(
       routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
       handlers = listOf(handler)
     )
-
-    val result = evaluator.evaluate(
-      applicationRules = listOf(RecordingRule(RouteRuleResult.Allow)),
-      request = testRequest()
-    )
-
-    assertEquals(RouteRuleResult.Deny(RouteRuleAction.redirectTo(destination)), result)
   }
 }

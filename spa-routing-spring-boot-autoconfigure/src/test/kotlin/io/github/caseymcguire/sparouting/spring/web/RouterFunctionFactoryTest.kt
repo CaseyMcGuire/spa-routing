@@ -1,18 +1,17 @@
 package io.github.caseymcguire.sparouting.spring.web
 
+import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
 import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
-import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
+import io.github.caseymcguire.sparouting.spring.testsupport.RecordingApplicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import kotlin.test.assertFalse
@@ -27,7 +26,7 @@ class RouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        rules = listOf(RecordingRule(RouteRuleResult.Allow))
+        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
       )
     )
 
@@ -45,7 +44,7 @@ class RouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        rules = listOf(RecordingRule(RouteRuleResult.Allow))
+        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
       )
     )
 
@@ -56,32 +55,34 @@ class RouterFunctionFactoryTest {
   }
 
   @Test
-  fun `denying rule returns response instead of html`() {
+  fun `application redirect returns response instead of html`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"))),
-        rules = listOf(RecordingRule(RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))))
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"), route("login", "Login"))),
+        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Redirect(RouteTarget("test", "Login")))
       )
     )
 
     mockMvc.get("/test/admin")
       .andExpect {
         status { isFound() }
-        header { string("Location", "/login") }
+        header { string("Location", "/test/login") }
       }
   }
 
   @Test
-  fun `application without an allowing rule does not serve html`() {
+  fun `unflagged route still checks application access`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("settings", "Settings")))
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("settings", "Settings"), route("login", "Login"))),
+        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Redirect(RouteTarget("test", "Login")))
       )
     )
 
     mockMvc.get("/test/settings")
       .andExpect {
-        status { isNotFound() }
+        status { isFound() }
+        header { string("Location", "/test/login") }
       }
   }
 
@@ -89,7 +90,7 @@ class RouterFunctionFactoryTest {
   fun `spring config can render an application-specific response after access is allowed`() {
     val config = object : SpringSinglePageApplicationConfig {
       override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
-      override val rules = listOf(RecordingRule(RouteRuleResult.Allow))
+      override val accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
 
       override fun renderHtml(): ServerResponse = ServerResponse.ok().body("Custom HTML")
     }
@@ -101,18 +102,18 @@ class RouterFunctionFactoryTest {
   }
 
   @Test
-  fun `application-specific rendering is skipped when access is denied`() {
+  fun `application-specific rendering is skipped when the application redirects`() {
     var rendered = false
     val config = object : SpringSinglePageApplicationConfig {
-      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
-
+      override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index"), route("login", "Login")))
+      override val accessHandler = RecordingApplicationAccessHandler(AccessDecision.Redirect(RouteTarget("test", "Login")))
       override fun renderHtml(): ServerResponse {
         rendered = true
         return ServerResponse.ok().body("Custom HTML")
       }
     }
 
-    mockMvc(config).get("/test").andExpect { status { isNotFound() } }
+    mockMvc(config).get("/test").andExpect { status { isFound() } }
     assertFalse(rendered)
   }
 
@@ -120,7 +121,7 @@ class RouterFunctionFactoryTest {
   fun `spring config without a rendering override uses the default renderer`() {
     val config = object : SpringSinglePageApplicationConfig {
       override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
-      override val rules = listOf(RecordingRule(RouteRuleResult.Allow))
+      override val accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
     }
 
     mockMvc(config).get("/test").andExpect {
@@ -138,7 +139,6 @@ class RouterFunctionFactoryTest {
       routeResponseService = RouteResponseService(
         routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
         accessEvaluator = RouteAccessEvaluator(SinglePageApplicationRouteRegistry(listOf(config))),
-        actionResolver = RouteRuleActionResolver(listOf(config)),
         invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
         invalidQueryStringStatus = properties.server.invalidQueryStringStatus
       ),

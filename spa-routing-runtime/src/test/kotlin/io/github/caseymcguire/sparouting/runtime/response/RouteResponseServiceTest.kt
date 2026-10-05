@@ -1,14 +1,12 @@
 package io.github.caseymcguire.sparouting.runtime.response
 
+import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
-import io.github.caseymcguire.sparouting.runtime.testsupport.RecordingRule
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
 import kotlin.test.Test
@@ -17,29 +15,29 @@ import kotlin.test.assertEquals
 class RouteResponseServiceTest {
   private val config = TestSinglePageApplicationConfig(
     application = TestSinglePageApplicationDefinition(
-      routes = listOf(route("users/{id}", "UserDetail"))
+      routes = listOf(route("users/{id}", "UserDetail"), route("login", "Login"))
     ),
-    rules = listOf(RecordingRule(RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))))
+    accessHandler = ApplicationAccessHandler { request ->
+      if (request.routeId == "Login") {
+        AccessDecision.Allow
+      } else {
+        AccessDecision.Redirect(RouteTarget("test", "Login"))
+      }
+    }
   )
   private val registry = SinglePageApplicationRouteRegistry(listOf(config))
   private val evaluator = RouteAccessEvaluator(registry)
-  private val actionResolver = RouteRuleActionResolver(listOf(config))
-  private val service = RouteResponseService(registry, evaluator, actionResolver)
+  private val service = RouteResponseService(registry, evaluator)
 
   @Test
   fun `unknown app or route returns not found`() {
-    val response = service.evaluate(RouteResponseRequest("missing", "UserDetail"))
-
-    assertEquals(404, response.statusCode)
+    assertEquals(404, service.evaluate(RouteResponseRequest("missing", "UserDetail")).statusCode)
+    assertEquals(404, service.evaluate(RouteResponseRequest("test", "Unknown")).statusCode)
   }
 
   @Test
   fun `missing required params returns bad request`() {
-    val response = service.evaluate(
-      RouteResponseRequest("test", "UserDetail")
-    )
-
-    assertEquals(400, response.statusCode)
+    assertEquals(400, service.evaluate(RouteResponseRequest("test", "UserDetail")).statusCode)
   }
 
   @Test
@@ -47,7 +45,6 @@ class RouteResponseServiceTest {
     val service = RouteResponseService(
       routeRegistry = registry,
       accessEvaluator = evaluator,
-      actionResolver = actionResolver,
       invalidPathParameterStatus = 422
     )
 
@@ -59,53 +56,57 @@ class RouteResponseServiceTest {
   }
 
   @Test
-  fun `query parameters are included in evaluated request`() {
-    val config = TestSinglePageApplicationConfig(
-      application = TestSinglePageApplicationDefinition(
-        routes = listOf(route("users/{id}", "UserDetail"))
-      ),
-      rules = listOf(RequireQueryParameterRule("tab", "billing"))
-    )
+  fun `query parameters are included in application access request`() {
+    val requests = mutableListOf<RouteRequest>()
+    val config = config.copy(accessHandler = ApplicationAccessHandler { request ->
+      requests.add(request)
+      AccessDecision.Allow
+    })
     val registry = SinglePageApplicationRouteRegistry(listOf(config))
-    val service = RouteResponseService(
-      routeRegistry = registry,
-      accessEvaluator = RouteAccessEvaluator(registry),
-      actionResolver = RouteRuleActionResolver(listOf(config))
-    )
+    val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
 
-    val response = service.evaluate(
-      RouteResponseRequest(
-        applicationId = "test",
-        routeId = "UserDetail",
-        parameters = mapOf("id" to "550e8400-e29b-41d4-a716-446655440000"),
-        queryString = mapOf("tab" to listOf("billing"))
-      )
-    )
+    val response = service.evaluate(RouteResponseRequest(
+      applicationId = "test",
+      routeId = "UserDetail",
+      parameters = mapOf("id" to "42"),
+      queryString = mapOf("tab" to listOf("billing"))
+    ))
 
-    assertEquals(451, response.statusCode)
+    assertEquals(200, response.statusCode)
+    assertEquals("billing", requests.single().queryStringValue("tab"))
   }
 
   @Test
-  fun `valid route returns evaluator result`() {
-    val response = service.evaluate(
-      RouteResponseRequest("test", "UserDetail", mapOf("id" to "550e8400-e29b-41d4-a716-446655440000"))
-    )
-
-    assertEquals(302, response.statusCode)
-    assertEquals("/login", response.location)
-  }
-
-  @Test
-  fun `service converts access actions using the supplied resolver for both entry points`() {
-    val actions = mutableListOf<RouteRuleAction>()
-    val expected = RouteHttpResponse(statusCode = 307, location = "/custom-login")
-    val resolver = object : RouteRuleActionResolver(listOf(config)) {
-      override fun resolve(action: RouteRuleAction): RouteHttpResponse {
-        actions.add(action)
-        return expected
+  fun `each application uses its own handler for both entry points`() {
+    val applicationsChecked = mutableListOf<String>()
+    val publicConfig = TestSinglePageApplicationConfig(
+      application = TestSinglePageApplicationDefinition(id = "public", routes = listOf(route("", "Index"))),
+      accessHandler = ApplicationAccessHandler { request ->
+        applicationsChecked.add(request.applicationId)
+        AccessDecision.Allow
       }
+    )
+    val privateConfig = TestSinglePageApplicationConfig(
+      application = TestSinglePageApplicationDefinition(id = "private", routes = listOf(route("", "Index"))),
+      accessHandler = ApplicationAccessHandler { request ->
+        applicationsChecked.add(request.applicationId)
+        AccessDecision.Redirect(RouteTarget("public", "Index"))
+      }
+    )
+    val registry = SinglePageApplicationRouteRegistry(listOf(publicConfig, privateConfig))
+    val service = RouteResponseService(registry, RouteAccessEvaluator(registry))
+
+    for (applicationId in listOf("public", "private")) {
+      val expected = if (applicationId == "public") RouteHttpResponse.ok() else RouteHttpResponse.found("/public")
+      assertEquals(expected, service.evaluate(RouteResponseRequest(applicationId, "Index")))
+      assertEquals(expected, service.evaluate(RouteRequest(applicationId, "Index", "GET", "/$applicationId")))
     }
-    val service = RouteResponseService(registry, evaluator, resolver)
+    assertEquals(listOf("public", "public", "private", "private"), applicationsChecked)
+  }
+
+  @Test
+  fun `service resolves application redirects for both entry points`() {
+    val expected = RouteHttpResponse(statusCode = 302, location = "/test/login")
     val parameters = mapOf("id" to "42")
 
     assertEquals(expected, service.evaluate(RouteResponseRequest("test", "UserDetail", parameters)))
@@ -116,33 +117,6 @@ class RouteResponseServiceTest {
       path = "/test/users/42",
       pathParameters = parameters
     )))
-    assertEquals(List(2) { RouteRuleAction.redirect("/login") }, actions)
-  }
-
-  @Test
-  fun `custom evaluator without an access decision is denied`() {
-    val evaluator = object : RouteAccessEvaluator(registry) {
-      override fun evaluate(applicationRules: List<RouteRule>, request: RouteRequest): RouteRuleResult {
-        return RouteRuleResult.Skip
-      }
-    }
-    val service = RouteResponseService(registry, evaluator, actionResolver)
-
-    val response = service.evaluate(RouteResponseRequest("test", "UserDetail", mapOf("id" to "42")))
-
-    assertEquals(404, response.statusCode)
-  }
-
-  private class RequireQueryParameterRule(
-    private val name: String,
-    private val value: String
-  ) : RouteRule {
-    override fun evaluate(request: RouteRequest): RouteRuleResult {
-      return if (request.queryStringValue(name) == value) {
-        RouteRuleResult.Deny(RouteRuleAction.status(451))
-      } else {
-        RouteRuleResult.Skip
-      }
-    }
+    assertEquals(200, service.evaluate(RouteResponseRequest("test", "Login")).statusCode)
   }
 }

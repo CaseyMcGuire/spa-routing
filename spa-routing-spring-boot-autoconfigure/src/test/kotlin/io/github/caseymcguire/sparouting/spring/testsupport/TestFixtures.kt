@@ -1,11 +1,11 @@
 package io.github.caseymcguire.sparouting.spring.testsupport
 
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.SinglePageApplicationDefinition
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 
 internal data class TestSinglePageApplicationDefinition(
   override val id: String = "test",
@@ -18,14 +18,14 @@ internal data class TestSinglePageApplicationDefinition(
 
 internal data class TestSinglePageApplicationConfig(
   override val application: SinglePageApplicationDefinition,
-  override val rules: List<RouteRule> = emptyList()
+  override val accessHandler: ApplicationAccessHandler = ApplicationAccessHandler { AccessDecision.Allow }
 ) : SinglePageApplicationConfig
 
-internal class RecordingRule(
-  private val result: RouteRuleResult,
+internal class RecordingApplicationAccessHandler(
+  private val result: AccessDecision,
   private val onEvaluate: () -> Unit = {}
-) : RouteRule {
-  override fun evaluate(request: RouteRequest): RouteRuleResult {
+) : ApplicationAccessHandler {
+  override fun evaluate(request: RouteRequest): AccessDecision {
     onEvaluate()
     return result
   }

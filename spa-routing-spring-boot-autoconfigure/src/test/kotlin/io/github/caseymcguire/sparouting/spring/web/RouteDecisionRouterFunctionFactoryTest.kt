@@ -1,16 +1,15 @@
 package io.github.caseymcguire.sparouting.spring.web
 
+import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteTarget
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingProperties
-import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
+import io.github.caseymcguire.sparouting.spring.testsupport.RecordingApplicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import org.junit.jupiter.api.Test
@@ -23,7 +22,7 @@ class RouteDecisionRouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        rules = listOf(RecordingRule(RouteRuleResult.Allow))
+        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
       )
     )
 
@@ -45,8 +44,8 @@ class RouteDecisionRouterFunctionFactoryTest {
   fun `route decision returns denied response without redirecting`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
-        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"))),
-        rules = listOf(RequireHeaderRule("X-User"))
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"), route("login", "Login"))),
+        accessHandler = RequireHeaderAccess("X-User")
       )
     )
 
@@ -57,7 +56,7 @@ class RouteDecisionRouterFunctionFactoryTest {
       status { isOk() }
       header { string("Cache-Control", "no-store") }
       jsonPath("$.statusCode") { value(302) }
-      jsonPath("$.location") { value("/login") }
+      jsonPath("$.location") { value("/test/login") }
     }
   }
 
@@ -66,7 +65,7 @@ class RouteDecisionRouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSinglePageApplicationDefinition(routes = listOf(route("admin", "Admin"))),
-        rules = listOf(RequireHeaderRule("X-User"))
+        accessHandler = RequireHeaderAccess("X-User")
       )
     )
 
@@ -88,7 +87,7 @@ class RouteDecisionRouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        rules = listOf(RecordingRule(RouteRuleResult.Allow))
+        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
       ),
       properties = properties
     )
@@ -107,7 +106,10 @@ class RouteDecisionRouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSinglePageApplicationDefinition(routes = listOf(route("users/{id}", "UserDetail"))),
-        rules = listOf(RequireQueryParameterRule("tab", "billing"))
+        accessHandler = ApplicationAccessHandler { request ->
+          kotlin.test.assertEquals("billing", request.queryStringValue("tab"))
+          AccessDecision.Allow
+        }
       )
     )
 
@@ -118,7 +120,7 @@ class RouteDecisionRouterFunctionFactoryTest {
       param("queryString.tab", "billing")
     }.andExpect {
       status { isOk() }
-      jsonPath("$.statusCode") { value(451) }
+      jsonPath("$.statusCode") { value(200) }
     }
   }
 
@@ -129,7 +131,7 @@ class RouteDecisionRouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home"))),
-        rules = listOf(RecordingRule(RouteRuleResult.Allow))
+        accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
       ),
       properties = properties
     )
@@ -143,27 +145,14 @@ class RouteDecisionRouterFunctionFactoryTest {
     }
   }
 
-  private class RequireHeaderRule(
+  private class RequireHeaderAccess(
     private val headerName: String
-  ) : RouteRule {
-    override fun evaluate(request: RouteRequest): RouteRuleResult {
+  ) : ApplicationAccessHandler {
+    override fun evaluate(request: RouteRequest): AccessDecision {
       return if (request.header(headerName).isEmpty()) {
-        RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
+        AccessDecision.Redirect(RouteTarget("test", "Login"))
       } else {
-        RouteRuleResult.Allow
-      }
-    }
-  }
-
-  private class RequireQueryParameterRule(
-    private val name: String,
-    private val value: String
-  ) : RouteRule {
-    override fun evaluate(request: RouteRequest): RouteRuleResult {
-      return if (request.queryStringValue(name) == value) {
-        RouteRuleResult.Deny(RouteRuleAction.status(451))
-      } else {
-        RouteRuleResult.Skip
+        AccessDecision.Allow
       }
     }
   }
@@ -176,7 +165,6 @@ class RouteDecisionRouterFunctionFactoryTest {
       responseService = RouteResponseService(
         routeRegistry = SinglePageApplicationRouteRegistry(listOf(config)),
         accessEvaluator = RouteAccessEvaluator(SinglePageApplicationRouteRegistry(listOf(config))),
-        actionResolver = RouteRuleActionResolver(listOf(config)),
         invalidPathParameterStatus = properties.server.invalidPathParameterStatus
       ),
       properties = properties

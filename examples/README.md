@@ -36,9 +36,21 @@ To use another port:
 ```
 
 The Spring application uses the local `spa-routing-spring-boot-starter` project
-and exposes a `SinglePageApplicationConfig` bean. Its application-level
-`AllowAll()` rule explicitly allows access to the example routes. Removing that
-rule makes the application gate deny requests with `404`.
+and exposes a `SinglePageApplicationConfig` bean. Its required `accessHandler`
+is the injected `CheckBlogAccess` component, which explicitly allows access to
+the public blog:
+
+```kotlin
+@Component
+class CheckBlogAccess : ApplicationAccessHandler {
+  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
+}
+```
+
+The config binds this component with `override val accessHandler = checkBlogAccess`.
+It runs before any route-specific handler. Applications that restrict access
+can inject their permission service into this component and return a typed
+`AccessDecision.Redirect` when the user cannot view the application.
 
 The post reader and editor opt into typed access handlers in the shared route
 definitions:
@@ -56,11 +68,11 @@ receives the same `BlogPostStore` used by the API through constructor injection:
 ```kotlin
 @Component
 class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
-  override fun evaluate(request: PostRequest): RouteDecision {
+  override fun evaluate(request: PostRequest): AccessDecision {
     if (posts.find(request.postId) == null) {
-      return RouteDecision.Redirect(BlogRoutes.NotFound())
+      return AccessDecision.Redirect(BlogRoutes.NotFound())
     }
-    return RouteDecision.Allow
+    return AccessDecision.Allow
   }
 }
 ```
@@ -144,7 +156,7 @@ Missing posts return `404`; malformed or blank write inputs return `400`.
 The server assigns IDs. The synchronized in-memory store starts with sample
 posts `1` and `2` and resets on restart. Lists show newest posts first and search
 matches title or body, ignoring case. The UI uses plain text for post bodies
-and basic list/read/edit forms, keeping attention on route generation, rules,
+and basic list/read/edit forms, keeping attention on route generation, access checks,
 and client navigation.
 
 With the server running, create a post using:
@@ -187,14 +199,14 @@ navigate to generated route targets, while failed writes keep the form visible.
 shared authorization middleware. The wrapper finds the generated route using
 the matched IDs from `spaRouteContext` and checks its `hasAccessHandler` flag.
 Only `Post` and `EditPost` call Spring's decision endpoint before running their
-loader or action. The blog uses `AllowAll` at application level, so the other
+loader or action. `CheckBlogAccess` always allows access, so the other
 routes can skip that request. The unflagged error page remains reachable when
 the decision endpoint is unavailable. `NavigationProgress` shows pending navigation.
 
 The installed spa-kit version exposes only IDs in its middleware context, so
 the wrapper reads the flag from `BlogRoutes`. Missing route metadata falls back
-to the authorization middleware. An application with global rules that need
-checking on every navigation should authorize every route.
+to the authorization middleware. If the application handler needs to run on
+every navigation, the client should authorize every route.
 
 Vite emits `blog.bundle.js` and `blog.css` under
 `spring/build/generated/frontend/static/bundles`. Gradle's `processResources`

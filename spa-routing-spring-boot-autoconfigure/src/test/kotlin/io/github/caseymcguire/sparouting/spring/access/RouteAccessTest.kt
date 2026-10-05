@@ -1,19 +1,15 @@
 package io.github.caseymcguire.sparouting.spring.access
 
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.contract.RouteDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.response.RouteResponseRequest
-import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import io.github.caseymcguire.sparouting.spring.autoconfigure.RoutingAutoConfiguration
-import io.github.caseymcguire.sparouting.spring.testsupport.RecordingRule
+import io.github.caseymcguire.sparouting.spring.testsupport.RecordingApplicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.spring.testsupport.TestSinglePageApplicationDefinition
 import java.util.function.Supplier
@@ -136,26 +132,28 @@ class RouteAccessTest {
   }
 
   @Test
-  fun `application default denial prevents handler evaluation`() {
+  fun `application redirect prevents route checks for page and navigation requests`() {
     val handler = PostAccessHandler()
-    runner(config().copy(rules = emptyList()))
+    val applicationHandler = RecordingApplicationAccessHandler(AccessDecision.Redirect(RouteTarget("test", "Missing")))
+    runner(config().copy(accessHandler = applicationHandler))
       .withBean(PostAccessHandler::class.java, Supplier { handler })
       .run { context ->
-        val result = context.getBean(RouteResponseService::class.java).evaluate(request("42"))
-        assertThat(result.statusCode).isEqualTo(404)
-        assertThat(handler.requests).isEmpty()
-      }
-  }
+        val mockMvc = MockMvcBuilders.routerFunctions(
+          *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
+        ).build()
 
-  @Test
-  fun `explicit application denial prevents handler evaluation`() {
-    val handler = PostAccessHandler()
-    runner(config().copy(rules = listOf(RecordingRule(RouteRuleResult.Deny(RouteRuleAction.status(451))))))
-      .withBean(PostAccessHandler::class.java, Supplier { handler })
-      .run { context ->
-        val service = context.getBean(RouteResponseService::class.java)
-        assertThat(service.evaluate(request("missing")).statusCode).isEqualTo(451)
-        assertThat(service.evaluate(request("42")).statusCode).isEqualTo(451)
+        mockMvc.get("/test/posts/42").andExpect {
+          status { isFound() }
+          header { string("Location", "/test/missing") }
+        }
+        mockMvc.get("/__spa/route-decision") {
+          param("applicationId", "test")
+          param("routeId", "Post")
+          param("parameters.id", "42")
+        }.andExpect {
+          jsonPath("$.statusCode") { value(302) }
+          jsonPath("$.location") { value("/test/missing") }
+        }
         assertThat(handler.requests).isEmpty()
       }
   }
@@ -172,12 +170,8 @@ class RouteAccessTest {
         route("posts/{id}", "Post", queryString = listOf(parameter("view").optional()), generateAccessHandler = enabled),
         route("missing", "Missing", queryString = listOf(parameter("from").optional()))
       )),
-      rules = listOf(RecordingRule(RouteRuleResult.Allow))
+      accessHandler = RecordingApplicationAccessHandler(AccessDecision.Allow)
     )
-  }
-
-  private fun request(id: String): RouteResponseRequest {
-    return RouteResponseRequest(applicationId = "test", routeId = "Post", parameters = mapOf("id" to id))
   }
 
   data class PostRequest(val id: String, val context: RouteAccessContext)
@@ -189,12 +183,12 @@ class RouteAccessTest {
       return PostRequest(id = context.pathParameters.getValue("id"), context = context)
     }
 
-    override fun evaluate(request: PostRequest): RouteDecision {
+    override fun evaluate(request: PostRequest): AccessDecision {
       requests.add(request)
       if (request.id == "42") {
-        return RouteDecision.Allow
+        return AccessDecision.Allow
       }
-      return RouteDecision.Redirect(RouteTarget(
+      return AccessDecision.Redirect(RouteTarget(
         applicationId = "test",
         routeId = "Missing",
         queryString = mapOf("from" to listOf("post access"))

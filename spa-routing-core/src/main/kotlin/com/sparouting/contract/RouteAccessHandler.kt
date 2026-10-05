@@ -5,12 +5,12 @@ package com.sparouting.contract
  * which supplies the route identity and converts validated input to [R].
  */
 abstract class RouteAccessHandler<R>(val route: Route) {
-  abstract fun evaluate(request: R): RouteDecision
+  abstract fun evaluate(request: R): AccessDecision
 
   protected abstract fun createRequest(context: RouteAccessContext): R
 
   /** Runtime bridge; path and query cardinality must be validated before calling this method. */
-  fun evaluateRequest(context: RouteAccessContext): RouteDecision {
+  fun evaluateRequest(context: RouteAccessContext): AccessDecision {
     return evaluate(createRequest(context))
   }
 }

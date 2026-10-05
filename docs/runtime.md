@@ -7,27 +7,28 @@ Its public types live under `io.github.caseymcguire.sparouting.runtime`.
 | Module | Responsibility |
 | --- | --- |
 | `spa-routing-core` | Route definitions, generated route contracts, access handler contracts, and generators |
-| `spa-routing-runtime` | Application configuration, route registry, handler registration validation, application rules, access evaluation, redirect resolution, and HTML document generation |
+| `spa-routing-runtime` | Application configuration, route registry, handler registration validation, application and route access checks, redirect resolution, and HTML document generation |
 | `spa-routing-spring-boot-autoconfigure` | Bean discovery, properties, MVC route registration, request conversion, HTTP/JSON responses, and Spring rendering hooks |
 | `spa-routing-spring-boot-starter` | Dependencies for Spring Boot applications |
 
 Spring is currently the only supplied adapter. A future Ktor adapter can call
-the same runtime service. Evaluation is synchronous; suspendable rules and
+the same runtime service. Evaluation is synchronous; suspendable access
 handlers are outside this extraction.
 
 ## Wire the runtime
 
 Keep the same application definition and generated access handlers across
-frameworks. Configure an application gate explicitly, including `AllowAll()`
-for public applications:
+frameworks. Supply an application access handler explicitly. Public applications return
+`AccessDecision.Allow`:
 
 ```kotlin
+import com.sparouting.contract.AccessDecision
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
 
 val config = object : SinglePageApplicationConfig {
   override val application = BlogApplication
-  override val rules = listOf(AllowAll())
+  override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
 }
 ```
 
@@ -39,7 +40,6 @@ import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 
 fun createRouteService(
   configs: List<SinglePageApplicationConfig>,
@@ -49,7 +49,6 @@ fun createRouteService(
   return RouteResponseService(
     routeRegistry = routes,
     accessEvaluator = RouteAccessEvaluator(routes, handlers),
-    actionResolver = RouteRuleActionResolver(configs),
     invalidPathParameterStatus = 400,
     invalidQueryStringStatus = 400
   )
@@ -61,12 +60,18 @@ the handler list is empty. It rejects missing, duplicate, and stale handlers
 for routes with `generateAccessHandler`. Spring performs this wiring
 automatically through its starter.
 
-The evaluator runs application rules and the matching handler, returning
-`RouteRuleResult.Allow` or `RouteRuleResult.Deny`. Redirects remain unresolved
-actions at this point. `RouteResponseService` owns request validation and
-response conversion, using `RouteRuleActionResolver` to resolve those actions.
-The evaluator does not construct HTTP responses. If a custom evaluator returns
-`Skip`, the service denies access with `404`.
+The evaluator invokes the application's `ApplicationAccessHandler` first.
+Only `AccessDecision.Allow` proceeds to the matching `RouteAccessHandler`.
+If there is no route handler, the application's allowance is sufficient.
+Either handler can return `AccessDecision.Redirect` with an unresolved typed
+target. The evaluator returns that decision; `RouteResponseService` resolves
+redirects and constructs response data.
+
+`SinglePageApplicationConfig.accessHandler` is required and non-null. It can
+hold a handler supplied by any DI container, or a lambda for a public app.
+Application handlers receive the framework-neutral `RouteRequest`. Typed route
+handlers continue receiving their generated request models. Both return core's
+`AccessDecision`; neither has a skip result or an ordered rule chain.
 
 ## Adapt requests and responses
 
@@ -78,11 +83,11 @@ Use `RouteResponseService` as the entry point for both kinds of request:
   resolves the target route and builds its GET request. Pass headers from the
   actual client request.
 
-Both look up the route, validate path and declared query values, evaluate the
-application gate, then invoke the route's handler. Unknown routes return `404`.
-Invalid input stops before rules and handlers. A missing application-level
-allow decision returns `404`; a route without a handler is allowed after the
-application gate passes. Typed redirects use the same resolver in both paths.
+Both look up the route, validate path and declared query values, then run the
+application and route access checks in order. Unknown routes return `404`.
+Invalid input stops before either handler. An application redirect stops the
+route check. Typed redirects are validated and resolved by the response
+service for both entry points.
 
 The result is `RouteHttpResponse(statusCode, location)`. It contains no native
 framework response or serialization annotations. The adapter chooses how to
@@ -91,7 +96,7 @@ redirect for other page outcomes, and returns HTTP `200` with the result as JSON
 and `Cache-Control: no-store` for a navigation check.
 
 An adapter also owns URL matching, decoding, request authentication context,
-and HTTP serialization. Application rules that use a framework's security
+and HTTP serialization. Application access handlers that use a framework's security
 context will need an equivalent implementation when moving frameworks.
 
 ## Render the default HTML document
@@ -112,7 +117,7 @@ val html = HtmlDocumentRenderer(
 ).render(config)
 ```
 
-`SinglePageApplicationConfig` contains definition and rule configuration only.
+`SinglePageApplicationConfig` contains the definition and required application access handler.
 Spring applications with a per-application `ServerResponse` override use
 `SpringSinglePageApplicationConfig`; global HTTP rendering remains a Spring
 `HtmlRenderer` bean. See the [Spring guide](spring-boot-client-apps.md#render-html).

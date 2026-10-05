@@ -1,12 +1,13 @@
 package io.github.caseymcguire.sparouting.spring.autoconfigure
 
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.route
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
@@ -31,8 +32,11 @@ class RoutingAutoConfigurationTest {
   fun `default beans are created when spring mvc is on the classpath`() {
     contextRunner.run { context ->
       assertThat(context).hasSingleBean(SinglePageApplicationRouteRegistry::class.java)
-      assertThat(context).hasSingleBean(RouteRuleActionResolver::class.java)
       assertThat(context).hasSingleBean(RouteAccessEvaluator::class.java)
+      assertThat(context).hasSingleBean(ApplicationAccessHandler::class.java)
+      assertThat(context.getBean(SinglePageApplicationConfig::class.java).accessHandler)
+        .isSameAs(context.getBean(ApplicationAccessHandler::class.java))
+      assertThat(context).doesNotHaveBean("routeRuleActionResolver")
       assertThat(context).hasBean("routeAccessEvaluator")
       assertThat(context).doesNotHaveBean("routeResponseEvaluator")
       assertThat(context).doesNotHaveBean("routeHandlerRegistry")
@@ -113,9 +117,13 @@ class RoutingAutoConfigurationTest {
   @Configuration(proxyBeanMethods = false)
   class TestRouteConfiguration {
     @Bean
-    fun testApplicationConfig(): SinglePageApplicationConfig {
+    fun applicationAccessHandler(): ApplicationAccessHandler = ApplicationAccessHandler { AccessDecision.Allow }
+
+    @Bean
+    fun testApplicationConfig(applicationAccessHandler: ApplicationAccessHandler): SinglePageApplicationConfig {
       return TestSinglePageApplicationConfig(
-        TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home")))
+        application = TestSinglePageApplicationDefinition(routes = listOf(route("home", "Home"))),
+        accessHandler = applicationAccessHandler
       )
     }
   }

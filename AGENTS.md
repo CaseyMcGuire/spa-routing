@@ -15,12 +15,13 @@ data or an older checkout suggests — read the breaking-changes entries in
 [CHANGELOG.md](CHANGELOG.md). Behavior listed there has changed between
 versions; the newest entry is the current semantics.
 
-Application rules are a deny-by-default gate, followed by an optional typed
-route access handler. Any config, test, or example needs an application-level
-`Allow` — e.g. the `AllowAll` builtin, or `RecordingRule(RouteRuleResult.Allow)`
-in tests — for a route to be served. Routes with `generateAccessHandler = true`
-also require a registered handler returning `RouteDecision.Allow` or `Redirect`.
-Per-route `routeRules` have been removed.
+Each config requires an `ApplicationAccessHandler`. It must return
+`AccessDecision.Allow` before an optional typed route access handler runs.
+Both handlers return `AccessDecision.Allow` or a typed `AccessDecision.Redirect`.
+Routes with `generateAccessHandler = true` also require a registered route
+handler. Unflagged routes are allowed after the application handler allows
+access. Application and route rule lists, their result/action types, and
+builtin rules have been removed.
 
 User-facing runtime docs live in [docs/runtime.md](docs/runtime.md) and
 [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).

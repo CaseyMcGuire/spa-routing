@@ -8,8 +8,8 @@ you want Spring to handle:
 
 - registering MVC `GET` routes for each SPA route
 - validating path parameters
-- evaluating application rules and route access handlers
-- resolving raw and typed redirects
+- evaluating application and route access handlers
+- resolving typed redirects
 - rendering a default SPA HTML page
 - exposing a route decision endpoint for client-side navigation checks
 
@@ -17,7 +17,7 @@ Your application still owns:
 
 - route definitions
 - `SinglePageApplicationConfig` beans
-- app-specific authorization or redirect rules
+- app-specific access handlers
 - custom HTML rendering, if the default page is not enough
 - any custom GraphQL or REST route decision endpoint, if you do not want the built-in endpoint
 
@@ -53,8 +53,7 @@ Client apps usually import from these packages:
 Packages below share the prefix `io.github.caseymcguire.sparouting`:
 
 - `runtime.config`: application configuration, validation, and route registry
-- `runtime.access`: application gate and route handler evaluation, plus handler registration validation
-- `runtime.rules`: rule interfaces, results, actions, and action resolver
+- `runtime.access`: application access handler contract, two-level access evaluation, and route handler registration validation
 - `runtime.request`: framework-neutral request model
 - `runtime.response`: route-decision request, response, and shared evaluation service
 - `runtime.rendering`: HTML document builder and asset options
@@ -131,8 +130,9 @@ The starter reads these beans during auto-configuration.
 package com.example.web
 
 import com.example.routes.AccountApplication
+import com.sparouting.contract.AccessDecision
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -142,7 +142,7 @@ class RoutesConfiguration {
   fun accountConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
       override val application = AccountApplication
-      override val rules = listOf(AllowAll())
+      override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
     }
   }
 }
@@ -158,58 +158,62 @@ GET /account/users/{id}
 The route only matches `GET`. Invalid path parameter values return
 `spa-routing.server.invalid-path-parameter-status`, which defaults to `400`.
 
-## Add Rules
+## Application Access
 
-Application-wide rules run for every route in that SPA:
+Every application config must supply one `ApplicationAccessHandler`. It checks
+whether the current user can view that application. The handler can use your
+existing authentication service and compose reusable checks through constructor
+injection. For example, `AccountPermissions` below is an app-owned service;
+`PublicRoutes.Login()` is a generated route in a separately configured public
+application:
 
 ```kotlin
+import com.example.generated.spa.routes.PublicRoutes
+import com.sparouting.contract.AccessDecision
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 import org.springframework.context.annotation.Bean
+import org.springframework.stereotype.Component
 
-class RequireLogin : RouteRule {
-  override fun evaluate(request: RouteRequest): RouteRuleResult {
-    return if (request.header("X-User").isEmpty()) {
-      RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
-    } else {
-      RouteRuleResult.Allow
+@Component
+class CheckAccountAccess(private val permissions: AccountPermissions) : ApplicationAccessHandler {
+  override fun evaluate(request: RouteRequest): AccessDecision {
+    if (!permissions.canViewApplication(request)) {
+      return AccessDecision.Redirect(PublicRoutes.Login())
     }
+    return AccessDecision.Allow
   }
 }
 
 @Bean
-fun accountConfig(): SinglePageApplicationConfig {
+fun accountConfig(checkAccountAccess: CheckAccountAccess): SinglePageApplicationConfig {
   return object : SinglePageApplicationConfig {
     override val application = AccountApplication
-    override val rules = listOf(RequireLogin())
+    override val accessHandler = checkAccountAccess
   }
 }
 ```
 
-Requests pass through the application gate, then the route's access handler:
+The config binds a specific application to its handler. Spring injects that
+component normally; the library does not select an application handler from
+an unqualified list of beans. Multiple applications can supply different
+handlers, or explicitly share one.
 
-1. **Application rules are a gate, deny-by-default.** The first `Allow` passes
-   the request on to the access handler, the first `Deny` denies it, and if every
-   rule returns `Skip` — including when the SPA has no rules at all — the
-   request is answered with `404`. Every SPA must explicitly allow its routes;
-   use the built-in `AllowAll` as the sole rule of an ungated SPA.
-2. **Route access handlers decide whether to serve or redirect.** A handler's
-   `RouteDecision.Allow` serves the requested route; `RouteDecision.Redirect`
-   sends the user to another route. Routes without a handler are served once
-   the application gate passes.
+There are two access checks, after parameter validation:
 
-Application rule results mean:
+1. The application handler decides whether the user can view the application.
+   `AccessDecision.Redirect` stops evaluation immediately.
+2. If the application returns `AccessDecision.Allow`, the matching route
+   handler decides whether the user can view that route. Unflagged routes need
+   no route handler and are allowed after the application check.
 
-- `Skip`: continue to the next rule
-- `Allow`: stop evaluating application rules and proceed to the access handler
-- `Deny`: stop evaluating and return the configured status or redirect
-
-In the example above, `RequireLogin` must allow the request before any route's
-access handler runs. Put route-specific checks in the generated handler below;
-reusable checks can be injected into the handler through its constructor.
+Both handlers return `AccessDecision.Allow` or `AccessDecision.Redirect`.
+There are no ordered rule lists, skip results, or implicit application allowance.
+For a public application, use `ApplicationAccessHandler { AccessDecision.Allow }`.
+An omitted `accessHandler` is a compile error when implementing the config.
+If the sign-in page belongs to the gated application itself, its application
+handler must allow that route so a redirect does not loop.
 
 ## Generated Access Handlers
 
@@ -228,7 +232,7 @@ identity and converts validated input into `PostRequest`.
 Implement the handler as a Spring bean. For example, the blog example uses:
 
 ```kotlin
-import com.sparouting.contract.RouteDecision
+import com.sparouting.contract.AccessDecision
 import com.sparouting.examples.generated.routes.BlogRoutes
 import com.sparouting.examples.generated.routes.blog.PostAccessHandler
 import com.sparouting.examples.generated.routes.blog.PostRequest
@@ -236,11 +240,11 @@ import org.springframework.stereotype.Component
 
 @Component
 class CheckPostAccess(private val posts: BlogPostStore) : PostAccessHandler() {
-  override fun evaluate(request: PostRequest): RouteDecision {
+  override fun evaluate(request: PostRequest): AccessDecision {
     if (posts.find(request.postId) == null) {
-      return RouteDecision.Redirect(BlogRoutes.NotFound())
+      return AccessDecision.Redirect(BlogRoutes.NotFound())
     }
-    return RouteDecision.Allow
+    return AccessDecision.Allow
   }
 }
 ```
@@ -251,8 +255,8 @@ handlers fail startup, as do handlers for unknown routes or routes without
 `generateAccessHandler = true`.
 
 The flag defaults to `false`. Unflagged routes require no handler and are served
-once the application gate passes. Application rules still deny by
-default: configure an explicit gate such as `AllowAll()` for a public SPA.
+once the application handler allows access. Every app, including a public
+app, must provide that application handler.
 Generated client routes expose this setting as `hasAccessHandler: boolean`:
 
 ```ts
@@ -260,16 +264,16 @@ BlogRoutes.Post.hasAccessHandler;  // true
 BlogRoutes.Index.hasAccessHandler; // false
 ```
 
-This describes route-specific checks. Application-wide rules live in runtime
-configuration and are not included in this flag. For a public application using
-`AllowAll`, the client can skip the decision request when `hasAccessHandler` is
-`false`. Applications that need their global rules checked on each navigation
-must continue calling the endpoint for every route. Treat missing metadata as
+This describes route-specific checks. Application access is configured on the
+server and is not included in this flag. If the application handler always
+allows access, the client can skip the decision request when `hasAccessHandler`
+is `false`. Applications that check application access on each navigation must
+continue calling the endpoint for every route. Treat missing metadata as
 requiring a check when integrating clients generated by an older version.
 
 Both page requests and route decisions validate parameters before evaluating
 the application gate, then the access handler.
-`RouteDecision.Allow` serves the route; `RouteDecision.Redirect(target)`
+`AccessDecision.Allow` serves the route; `AccessDecision.Redirect(target)`
 resolves a generated `RouteTarget` and produces a `302` redirect. The decision
 endpoint reports that redirect through its existing JSON response.
 
@@ -282,31 +286,25 @@ If a path parameter uses `queryString` or `context`, the generated metadata
 property appends underscores until its name is unique. Generated access/request
 type names must not collide with another route ID in the application.
 
-The access contracts live in core. Validation, registration, and execution live
+The shared decision and typed route access contracts live in core. The
+application handler contract, validation, registration, and execution live
 in the framework-neutral runtime. The Spring starter collects handler beans
 and supplies request data to that runtime.
 
-## Redirect From Rules
+## Redirect From Access Handlers
 
-Use a raw location when the target is outside the SPA route definitions:
-
-```kotlin
-RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
-```
-
-Use a typed generated route target when redirecting to another SPA route:
+Either handler can redirect to a typed generated route target:
 
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
+import com.sparouting.contract.AccessDecision
 
-RouteRuleResult.Deny(
-  RouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
-)
+AccessDecision.Redirect(AccountRoutes.UserDetail(id = "123"))
 ```
 
 Typed redirects are validated against the target route parameters. Unknown
 applications, unknown routes, and invalid target parameters fail with clear
-startup or runtime errors instead of producing broken URLs.
+runtime errors instead of producing broken URLs.
 
 The example above uses `route("users/{id}", "UserDetail")`. The `id` parameter is
 inferred from the path as a string. Pass strings, including numeric IDs, to
@@ -343,16 +341,15 @@ AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
 
 ```kotlin
 import com.example.generated.spa.routes.account.UserSearch
+import com.sparouting.contract.AccessDecision
 
-RouteRuleResult.Deny(
-  RouteRuleAction.redirectTo(
-    UserSearch(id = "123", queryString = UserSearch.QueryString(q = "hello world", tag = listOf("a", "b")))
-  )
+AccessDecision.Redirect(
+  UserSearch(id = "123", queryString = UserSearch.QueryString(q = "hello world", tag = listOf("a", "b")))
 )
 ```
 
 Kotlin targets retain query-string values in `RouteTarget.queryString` as
-`Map<String, List<String>>`. The redirect resolver validates and URL-encodes
+`Map<String, List<String>>`. The response service validates and URL-encodes
 these values. Encoding preserves repeated-value order and uses `+` for spaces;
 an omitted query string never adds a trailing `?`. Route `.path` metadata contains only
 the path pattern.
@@ -372,7 +369,7 @@ values; empty optional lists and omitted optional fields add no key. Builders
 reject empty required lists at runtime. Path and query-string keys may share a
 name. Duplicate names and colliding generated identifiers are rejected.
 
-Validation runs before application rules and access handlers on both page loads and route
+Validation runs before application and route access handlers on both page loads and route
 decisions. Invalid query strings use `spa-routing.server.invalid-query-string-status`
 (default `400`); invalid typed redirect targets throw `IllegalArgumentException`.
 Extra incoming keys such as `utm_source` are accepted and remain in the raw
@@ -418,7 +415,8 @@ It can also include route CSS and a global stylesheet through properties.
 Override rendering for one SPA by implementing `SpringSinglePageApplicationConfig`:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
+import com.sparouting.contract.AccessDecision
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.http.MediaType
 import org.springframework.context.annotation.Bean
@@ -428,7 +426,7 @@ import org.springframework.web.servlet.function.ServerResponse
 fun accountConfig(): SpringSinglePageApplicationConfig {
   return object : SpringSinglePageApplicationConfig {
     override val application = AccountApplication
-    override val rules = listOf(AllowAll())
+    override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()
@@ -514,7 +512,7 @@ type RouteDecision = {
 ```
 
 `Cache-Control: no-store` is applied because route decisions commonly depend on
-the current authenticated user. The endpoint evaluates rules using the real
+the current authenticated user. The endpoint evaluates access using the real
 request headers, cookies, and security context from the decision request; clients
 do not pass headers as query parameters. Route parameters use the `parameters.`
 query parameter prefix, for example `parameters.id=123`. Target route query
@@ -539,7 +537,7 @@ The decision endpoint builds a synthetic `RouteRequest` for the target route:
 - `headers`: real request headers from the decision request
 
 The endpoint does not call `RouteRequestFactory`; that factory adapts real
-page-load `ServerRequest` instances. Shared rules should rely on the fields
+page-load `ServerRequest` instances. Application handlers should rely on the fields
 above, or the application should replace `RouteResponseService` for a custom
 decision context.
 
@@ -547,7 +545,7 @@ Both endpoints now use `RouteResponseService`: page loads call
 `evaluate(RouteRequest)` and navigation checks call `evaluate(RouteResponseRequest)`.
 A custom service should account for both overloads. For page loads,
 `RouteRequestFactory` runs before shared validation; validation applies to the
-values it returns before rules or handlers execute.
+values it returns before either access handler executes.
 
 The generated TypeScript route files do not include a route decision helper, but
 each generated route builder carries its `applicationId` and `routeId`, so
@@ -594,7 +592,6 @@ Decision statuses match what the MVC route would use:
 - configured `spa-routing.server.invalid-path-parameter-status`: invalid path parameters
 - configured `spa-routing.server.invalid-query-string-status`: invalid declared query-string values
 - `404`: unknown route
-- any other 3xx, 4xx, or 5xx returned by your rules
 
 For custom GraphQL or REST APIs, call `RouteResponseService` directly:
 
@@ -638,7 +635,6 @@ Replaceable beans:
 
 - `SinglePageApplicationRouteRegistry`
 - `RouteAccessEvaluator`
-- `RouteRuleActionResolver`
 - `RouteRequestFactory`
 - `HtmlRenderer`
 - `RouteResponseService`
@@ -649,8 +645,8 @@ For an existing Spring app that copied SPA routing code locally:
 
 1. Add `spa-routing-spring-boot-starter`.
 2. Keep app-owned `SinglePageApplicationDefinition` objects in the route definitions project.
-3. Keep app-owned rules, but switch their imports to the `io.github.caseymcguire.sparouting.runtime.*` subpackages. Request factories, HTTP renderers, and Spring wiring stay under `spring.*`.
-4. Replace copied registry, evaluator, resolver, request adapter, and response classes with the starter.
-5. Expose one `SinglePageApplicationConfig` bean per SPA.
+3. Replace application rule lists with one `ApplicationAccessHandler` per config. Move reusable checks into its dependencies; use `AccessDecision` at both access levels.
+4. Replace copied registry, evaluator, request adapter, and response classes with the starter.
+5. Expose one `SinglePageApplicationConfig` bean per SPA, with its required `accessHandler`.
 6. Move any app-specific HTML page rendering into `SpringSinglePageApplicationConfig.renderHtml()` or a `HtmlRenderer` bean.
 7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteResponseService` from a custom GraphQL or REST endpoint.

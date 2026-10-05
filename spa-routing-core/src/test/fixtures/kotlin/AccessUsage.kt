@@ -1,4 +1,4 @@
-import com.sparouting.contract.RouteDecision
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteAccessContext
 import generated.accesstest.*
 
@@ -11,7 +11,7 @@ fun verifyAccess(): String {
     headers = mapOf("X-User" to listOf("casey"))
   )
   val post = object : PostAccessHandler() {
-    override fun evaluate(request: PostRequest): RouteDecision {
+    override fun evaluate(request: PostRequest): AccessDecision {
       val postId: String = request.postId
       val q: String = request.queryString.q
       val tags: List<String> = request.queryString.tag
@@ -21,60 +21,60 @@ fun verifyAccess(): String {
       check(sort == null && filter == null)
       check(request.context.header("x-user") == listOf("casey"))
       check(request.context.queryString["extra"] == listOf("raw"))
-      return RouteDecision.Redirect(Public())
+      return AccessDecision.Redirect(Public())
     }
   }
   check(post.route === Post)
-  check(post.evaluateRequest(context) == RouteDecision.Redirect(Public()))
-  check(post.evaluateRequest(context.copy(queryString = context.queryString + ("sort" to emptyList()))) == RouteDecision.Redirect(Public()))
+  check(post.evaluateRequest(context) == AccessDecision.Redirect(Public()))
+  check(post.evaluateRequest(context.copy(queryString = context.queryString + ("sort" to emptyList()))) == AccessDecision.Redirect(Public()))
 
   val start = object : StartAccessHandler() {
-    override fun evaluate(request: StartRequest): RouteDecision {
+    override fun evaluate(request: StartRequest): AccessDecision {
       check(request.context.method == "GET")
-      return RouteDecision.Allow
+      return AccessDecision.Allow
     }
   }
-  check(start.evaluateRequest(context.copy(pathParameters = emptyMap())) == RouteDecision.Allow)
+  check(start.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allow)
 
   val optional = object : OptionalAccessHandler() {
-    override fun evaluate(request: OptionalRequest): RouteDecision {
+    override fun evaluate(request: OptionalRequest): AccessDecision {
       val id: String? = request.id
       check(id == null)
-      return RouteDecision.Allow
+      return AccessDecision.Allow
     }
   }
-  check(optional.evaluateRequest(context.copy(pathParameters = emptyMap())) == RouteDecision.Allow)
+  check(optional.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allow)
 
   val names = object : NamesAccessHandler() {
-    override fun evaluate(request: NamesRequest): RouteDecision {
+    override fun evaluate(request: NamesRequest): AccessDecision {
       check(request.context == "path context")
       check(request.queryString == "path query")
       check(request.`class` == "path keyword")
       check(request.queryString_.`class` == "query keyword")
       check(request.context_.header("X-USER") == listOf("casey"))
-      return RouteDecision.Allow
+      return AccessDecision.Allow
     }
   }
   check(names.evaluateRequest(context.copy(
     pathParameters = mapOf("context" to "path context", "queryString" to "path query", "class" to "path keyword"),
     queryString = mapOf("class" to listOf("query keyword"))
-  )) == RouteDecision.Allow)
+  )) == AccessDecision.Allow)
 
   // Route IDs may also be names of the library's core types.
   val routeHandler = object : generated.accesstest.RouteAccessHandler() {
-    override fun evaluate(request: generated.accesstest.RouteRequest): RouteDecision {
-      return RouteDecision.Redirect(generated.accesstest.RouteTarget())
+    override fun evaluate(request: generated.accesstest.RouteRequest): AccessDecision {
+      return AccessDecision.Redirect(generated.accesstest.RouteTarget())
     }
   }
   check(routeHandler.route === generated.accesstest.Route)
-  check(routeHandler.evaluateRequest(context) == RouteDecision.Redirect(generated.accesstest.RouteTarget()))
+  check(routeHandler.evaluateRequest(context) == AccessDecision.Redirect(generated.accesstest.RouteTarget()))
   val contextHandler = object : RouteAccessContextAccessHandler() {
-    override fun evaluate(request: RouteAccessContextRequest): RouteDecision {
+    override fun evaluate(request: RouteAccessContextRequest): AccessDecision {
       check(request.queryString.q == "hello + 雪")
-      return RouteDecision.Allow
+      return AccessDecision.Allow
     }
   }
   check(contextHandler.route === generated.accesstest.RouteAccessContext)
-  check(contextHandler.evaluateRequest(context) == RouteDecision.Allow)
+  check(contextHandler.evaluateRequest(context) == AccessDecision.Allow)
   return "access verified"
 }

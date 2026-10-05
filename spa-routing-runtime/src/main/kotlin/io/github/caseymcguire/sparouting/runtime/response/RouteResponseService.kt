@@ -1,17 +1,16 @@
 package io.github.caseymcguire.sparouting.runtime.response
 
+import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteTarget
 import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistration
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 
 /** Validates requests and converts access decisions into response data for pages and client navigation. */
 open class RouteResponseService @JvmOverloads constructor(
   private val routeRegistry: SinglePageApplicationRouteRegistry,
   private val accessEvaluator: RouteAccessEvaluator,
-  private val actionResolver: RouteRuleActionResolver,
   private val invalidPathParameterStatus: Int = 400,
   private val invalidQueryStringStatus: Int = 400
 ) {
@@ -57,14 +56,26 @@ open class RouteResponseService @JvmOverloads constructor(
     }
 
     val decision = accessEvaluator.evaluate(
-      applicationRules = match.application.rules,
+      applicationAccessHandler = match.application.accessHandler,
       request = request
     )
 
     return when (decision) {
-      RouteRuleResult.Allow -> RouteHttpResponse.ok()
-      is RouteRuleResult.Deny -> actionResolver.resolve(decision.action)
-      RouteRuleResult.Skip -> RouteHttpResponse.notFound()
+      AccessDecision.Allow -> RouteHttpResponse.ok()
+      is AccessDecision.Redirect -> resolveRedirect(decision.destination)
     }
+  }
+
+  private fun resolveRedirect(target: RouteTarget): RouteHttpResponse {
+    val match = routeRegistry.findByApplicationAndRouteId(target.applicationId, target.routeId)
+      ?: throw IllegalStateException("Unknown SPA route target: ${target.applicationId}:${target.routeId}")
+
+    require(match.route.hasValidParameterValues(target.parameters)) {
+      "Invalid parameters for SPA route target ${target.applicationId}:${target.routeId}"
+    }
+
+    val path = match.route.resolvePath(match.application.getFullPathPattern(match.route), target.parameters)
+    val query = match.route.resolveQueryString(target.queryString)
+    return RouteHttpResponse.found(if (query.isEmpty()) path else "$path?$query")
   }
 }

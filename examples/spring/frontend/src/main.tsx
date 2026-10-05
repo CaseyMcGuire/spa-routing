@@ -64,7 +64,7 @@ const router = createSpaRouter(BlogRoutes, {
     const route = Object.values(BlogRoutes).find((route) => (
       route.applicationId === identity?.applicationId && route.routeId === identity?.routeId
     ));
-    // The blog uses AllowAll at application level, so only handler routes need a check.
+    // CheckBlogAccess always allows access, so only handler routes need a check.
     if (route?.hasAccessHandler === false) {
       await next();
       return;

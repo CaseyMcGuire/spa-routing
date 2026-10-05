@@ -34,10 +34,10 @@ class GeneratedQueryApiTest {
 
     val invalid = output.resolve("WrongAccess.kt")
     invalid.writeText("""
-      import com.sparouting.contract.RouteDecision
+      import com.sparouting.contract.AccessDecision
       import generated.accesstest.*
       class WrongAccess : PostAccessHandler() {
-        override fun evaluate(request: StartRequest): RouteDecision = RouteDecision.Allow
+        override fun evaluate(request: StartRequest): AccessDecision = AccessDecision.Allow
       }
     """.trimIndent())
     val (failureResult, errors) = compileKotlin(listOf(invalid), output.resolve("invalid-access"), classes)

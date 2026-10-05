@@ -12,7 +12,7 @@ data class RouteDefinition(
   val queryString: List<RouteParameter> = emptyList(),
   /**
    * Generate a typed access-handler base class and require an implementation at runtime.
-   * Also exposes hasAccessHandler on the generated client route; application rules are separate.
+   * Also exposes hasAccessHandler on the generated client route; application access checks are separate.
    */
   val generateAccessHandler: Boolean = false
 ) {

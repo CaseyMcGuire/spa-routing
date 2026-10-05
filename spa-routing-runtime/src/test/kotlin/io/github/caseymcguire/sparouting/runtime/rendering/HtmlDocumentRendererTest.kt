@@ -1,5 +1,7 @@
 package io.github.caseymcguire.sparouting.runtime.rendering
 
+import com.sparouting.contract.AccessDecision
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import com.sparouting.contract.route
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.testsupport.TestSinglePageApplicationDefinition
@@ -9,6 +11,7 @@ import kotlin.test.assertFalse
 
 class HtmlDocumentRendererTest {
   private val config = object : SinglePageApplicationConfig {
+    override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
     override val application = TestSinglePageApplicationDefinition(routes = listOf(route("", "Index")))
     override val name = "News & <updates>"
     override val bundleName = "custom\"bundle"

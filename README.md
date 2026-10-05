@@ -178,8 +178,8 @@ from its `generateAccessHandler` setting. For example,
 `BlogRoutes.Post.hasAccessHandler` is `true`, while
 `BlogRoutes.Index.hasAccessHandler` is `false`. A client router can use it to
 request a route decision only for routes with extra checks when the application
-gate is public. Application-wide rules are configured separately on the server;
-apps that need those rules checked on each navigation must still call the endpoint.
+gate is public. Application access is configured separately on the server;
+apps that need that check on each navigation must still call the endpoint.
 
 A consumer-defined `createSpaRouter` can infer each `render(params, queryString)`
 callback's arguments from the route's parser return type:
@@ -267,13 +267,17 @@ Do not point generation only at `spa-routing-core`; the generators need the comp
 
 ## Spring Boot Runtime
 
-The Spring Boot starter serves configured SPA routes from app-provided `SinglePageApplicationConfig` beans. Application code owns the configs and rules; the starter owns the registry, route matching, rule evaluation, redirects, the route decision endpoint, and default HTML response.
+The Spring Boot starter serves configured SPA routes from app-provided
+`SinglePageApplicationConfig` beans. Every application has one explicit access
+handler. Routes can also opt into a typed access handler.
 
-For complete client setup, access handlers, HTML rendering, properties, and route decision examples, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
+For complete setup, see [docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md).
+A public application explicitly allows access:
 
 ```kotlin
+import com.sparouting.contract.AccessDecision
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -283,79 +287,44 @@ class RoutesConfiguration {
   fun accountConfig(): SinglePageApplicationConfig {
     return object : SinglePageApplicationConfig {
       override val application = AccountApplication
-      override val rules = listOf(AllowAll())
+      override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
     }
   }
 }
 ```
 
-Application-wide rules are a deny-by-default gate: an SPA whose rules all skip
-or that has none answers `404`. Use the built-in `AllowAll` for a public SPA.
-Once the gate passes, a registered route access handler returns `Allow` to
-serve the route or `Redirect` to send the user elsewhere. Routes without an
-access handler are served once the gate passes. See
-[docs/spring-boot-client-apps.md](docs/spring-boot-client-apps.md) for details.
+The application handler must return `AccessDecision.Allow` before a route
+handler can run. Either handler can return `AccessDecision.Redirect(target)`
+to redirect to a registered route. A route without a handler is served once
+the application allows access. There are no rule lists or skip results, and
+`SinglePageApplicationConfig.accessHandler` has no default.
 
-Add application-wide rules when every route in an SPA needs the same behavior:
+For application-specific checks, implement `ApplicationAccessHandler` as a
+Spring component and inject it into the config bean. The blog demonstrates
+this with its public `CheckBlogAccess` component. The handler receives a
+`RouteRequest` containing the application and route IDs, request metadata, and
+headers; application code supplies the authenticated user and reusable checks.
 
-```kotlin
-import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
-
-class RequireLogin : RouteRule {
-  override fun evaluate(request: RouteRequest): RouteRuleResult {
-    return if (request.header("X-User").isEmpty()) {
-      RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
-    } else {
-      RouteRuleResult.Allow
-    }
-  }
-}
-```
-
-Attach application-wide rules from a config bean:
-
-```kotlin
-import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
-import org.springframework.context.annotation.Bean
-
-@Bean
-fun accountConfig(): SinglePageApplicationConfig {
-  return object : SinglePageApplicationConfig {
-    override val application = AccountApplication
-    override val rules = listOf(RequireLogin())
-  }
-}
-```
-
-For an automatically registered, typed handler, declare the route with
-`generateAccessHandler = true` and extend its generated `<Route>AccessHandler` class
-in a Spring `@Component`. The generated `<Route>Request` provides typed path
-and query-string values. The handler returns `RouteDecision.Allow` or
-`RouteDecision.Redirect(target)`. Spring registers and invokes the handler automatically. See
-[generated access handlers](docs/spring-boot-client-apps.md#generated-access-handlers)
+For route-specific checks, declare `generateAccessHandler = true` and extend
+the generated `<Route>AccessHandler` class in a Spring `@Component`. Its
+`<Route>Request` provides typed path and query-string values. Spring collects
+these route handlers automatically. See [generated access handlers](docs/spring-boot-client-apps.md#generated-access-handlers)
 and the [blog example](examples/README.md).
 
-Redirect to a raw URL or a generated typed SPA route:
+Both levels share the same decision type. For example:
 
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
+import com.sparouting.contract.AccessDecision
 
-RouteRuleResult.Deny(RouteRuleAction.redirect("/login"))
-
-RouteRuleResult.Deny(
-  RouteRuleAction.redirectTo(AccountRoutes.UserDetail(id = "123"))
-)
+AccessDecision.Redirect(AccountRoutes.UserDetail(id = "123"))
 ```
 
 Override the default HTML page for one SPA:
 
 ```kotlin
-import io.github.caseymcguire.sparouting.runtime.rules.builtin.AllowAll
+import com.sparouting.contract.AccessDecision
+import io.github.caseymcguire.sparouting.runtime.access.ApplicationAccessHandler
 import io.github.caseymcguire.sparouting.spring.config.SpringSinglePageApplicationConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
@@ -365,7 +334,7 @@ import org.springframework.web.servlet.function.ServerResponse
 fun accountConfig(): SpringSinglePageApplicationConfig {
   return object : SpringSinglePageApplicationConfig {
     override val application = AccountApplication
-    override val rules = listOf(AllowAll())
+    override val accessHandler = ApplicationAccessHandler { AccessDecision.Allow }
 
     override fun renderHtml(): ServerResponse? {
       return ServerResponse.ok()
@@ -418,7 +387,6 @@ spa-routing:
 Override these beans to customize runtime behavior:
 
 - `HtmlRenderer`
-- `RouteRuleActionResolver`
 - `RouteAccessEvaluator`
 - `RouteRequestFactory`
 - `SinglePageApplicationRouteRegistry`

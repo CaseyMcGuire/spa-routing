@@ -4,27 +4,53 @@
 
 ### Breaking changes
 
+- **Application rule lists are replaced by one required application access handler.**
+  Implement `runtime.access.ApplicationAccessHandler.evaluate(RouteRequest)` and
+  bind it through `SinglePageApplicationConfig.accessHandler`. The property is
+  non-null and has no default. A public application can explicitly use
+  `ApplicationAccessHandler { AccessDecision.Allow }`; Spring applications can
+  inject a component into their config.
+
+  Access has two levels: the application handler runs first, then the matching
+  typed route handler if the application returns `Allow`. An application
+  redirect short-circuits the route handler. Unflagged routes are allowed after
+  the application check succeeds. Request validation still precedes both checks.
+
+  Both handlers return `com.sparouting.contract.AccessDecision`, renamed from
+  `RouteDecision`. Its outcomes are `Allow` and `Redirect(RouteTarget)`.
+  `SinglePageApplicationConfig.rules`, `RouteRule`, `RouteRuleResult`,
+  `RouteRuleAction`, `RouteRuleActionResolver`, and the `AllowAll`, `AllowPublic`,
+  and `DenyAll` builtins are removed, with no aliases. Compose reusable checks
+  inside handlers. Ordered rule evaluation, `Skip`, raw URL redirects, and
+  custom HTTP status denials are no longer part of the access API. Replace
+  denied outcomes with typed redirects to registered routes. Validation's
+  configured HTTP status responses are unchanged.
+
+  Update imports and handler return types, then recompile consumers.
+  `RouteAccessEvaluator.evaluate(applicationAccessHandler, request)` now returns
+  `AccessDecision`. `RouteResponseService` resolves typed redirects itself and
+  no longer takes an action resolver; the `routeRuleActionResolver` Spring bean
+  is removed. Update custom runtime wiring accordingly.
+
 - **Access evaluation is consolidated in `runtime.access.RouteAccessEvaluator`.**
   It replaces `RouteResponseEvaluator` and `RouteHandlerRegistry`, taking the
   route registry and access handlers. It validates handler registrations at
   construction and evaluates the application gate before the matching handler.
-  Its `evaluate(applicationRules, request)` method returns `RouteRuleResult`
-  (`Allow` or `Deny`) instead of `RouteHttpResponse`. Redirect actions retain
-  their unresolved targets; handler contracts remain `RouteDecision.Allow` or
-  `RouteDecision.Redirect`.
+  Its `evaluate(applicationAccessHandler, request)` method returns
+  `AccessDecision` instead of `RouteHttpResponse`. Redirect decisions retain
+  their unresolved targets.
 
-  `RouteResponseService` now takes `accessEvaluator` and `actionResolver` along
+  `RouteResponseService` now takes `accessEvaluator` along
   with the route registry. It validates requests and converts access results
   into response data, including resolving redirects. The Spring bean is now
   `routeAccessEvaluator`; the separate `routeResponseEvaluator` and
   `routeHandlerRegistry` beans are removed. Update custom wiring and overrides.
-  No aliases are provided. Registration validation, deny-by-default behavior,
-  and HTTP outcomes are unchanged.
+  No aliases are provided. Handler registration validation is unchanged.
 
 - **Shared server logic now lives in `spa-routing-runtime`.** Update imports
   from `io.github.caseymcguire.sparouting.spring` to
   `io.github.caseymcguire.sparouting.runtime` for `config.*` (including
-  `SinglePageApplicationConfig`), access evaluation, `rules.*`,
+  `SinglePageApplicationConfig`), access evaluation,
   `request.RouteRequest`, and the response models and `RouteResponseService`.
   The Spring starter includes the new module transitively. No aliases for the
   old packages are provided.
@@ -54,10 +80,6 @@
   | Previous name | New name |
   | --- | --- |
   | `SpaRouteParameter` | `RouteParameter` |
-  | `SpaRouteRule` | `RouteRule` |
-  | `SpaRouteRuleResult` | `RouteRuleResult` |
-  | `SpaRouteRuleAction` | `RouteRuleAction` |
-  | `SpaRouteRuleActionResolver` | `RouteRuleActionResolver` |
   | `SpaRouteResponseEvaluator` | `RouteAccessEvaluator` |
   | `SpaRouteHttpResponse` | `RouteHttpResponse` |
   | `SpaRouteResponseRequest` | `RouteResponseRequest` |
@@ -90,14 +112,12 @@
   `SinglePageApplicationConfig.routeRules` and `getRouteRules` were removed.
   Set `generateAccessHandler = true` on routes that need checks, then register
   an implementation of the generated `<Route>AccessHandler`. Return
-  `RouteDecision.Allow` to serve the requested route or `RouteDecision.Redirect`
+  `AccessDecision.Allow` to serve the requested route or `AccessDecision.Redirect`
   to send the user to another route; reusable checks can be composed inside
   the handler. Regenerate server routes after opting in.
 
-  Application-level `rules` remain a deny-by-default gate and must allow the
-  request before its handler runs. Unflagged routes are served after that gate
-  passes. `RouteAccessEvaluator.evaluate` takes only
-  `applicationRules` and `request`.
+  The required application access handler must allow the request before its
+  route handler runs. Unflagged routes are served after that check passes.
 
 - **`SpaApplicationDefinition` was renamed to `SinglePageApplicationDefinition`.**
   Update imports and implemented interfaces in shared route definitions. The
@@ -106,8 +126,8 @@
   `com.sparouting.contract`. Regenerate routes and recompile consumers after
   updating; the old type names are removed.
 
-- **The public `RouteKey` interface was removed.** `RouteAccessHandler.route` and
-  `AllowPublic` now accept `Route`
+- **The public `RouteKey` interface was removed.** `RouteAccessHandler.route`
+  now accepts `Route`
   directly. Replace `RouteKey` (or `SpaRouteKey`) type declarations with `Route`.
   Custom implementations should extend `Route(applicationId, routeId)` or use
   a `Route` instance directly. Generated route objects already extend `Route`.
@@ -193,7 +213,7 @@
 - Generated client route builders expose `hasAccessHandler: boolean`, derived
   from `generateAccessHandler`. The flag is present on routes with and without
   path or query-string parameters. Regenerate client routes to expose it.
-  It describes route-specific checks; application-wide rules remain separate.
+  It describes route-specific checks; application-wide access checks remain separate.
   The public blog example uses the flag to call the decision endpoint only for
   `Post` and `EditPost`, while retaining parameter validation for every route.
 
@@ -201,13 +221,13 @@
   Server generation adds sibling `<Route>Request` models and `<Route>AccessHandler`
   abstract classes extending the framework-neutral `RouteAccessHandler<R>` base.
   Requests expose typed path and declared query-string values, plus raw request
-  metadata through `context`. Handlers return `RouteDecision.Allow` or a typed
-  `RouteDecision.Redirect`.
+  metadata through `context`. Handlers return `AccessDecision.Allow` or a typed
+  `AccessDecision.Redirect`.
 - Spring automatically registers access-handler beans and fails startup for
   missing, duplicate, unknown-route, or unflagged-route handlers. Validated page
   requests and client route decisions run the same handler after the application
   gate. Unflagged routes are served once the application gate passes;
-  the flag does not disable application rules or client checks.
+  the flag does not disable application access checks or client checks.
 - Path parameters are inferred as strings from route placeholders, so
   `route("users/{id}", "UserDetail")` needs no separate parameter declaration.
   Explicit metadata remains supported for optional path values. Duplicate and
@@ -224,7 +244,7 @@
   declared values through enum-keyed maps. Raw incoming query maps retain extra
   keys. Query values remain strings; the helpers preserve lists without parsing
   them into the generated `QueryString` model.
-- Declared query cardinality is validated before rules for page loads and route
+- Declared query cardinality is validated before access checks for page loads and route
   decisions, and when resolving typed redirects. Required scalars need one value,
   optional scalars accept at most one, and required lists need at least one.
   Empty strings and extra incoming keys are allowed. Routes without query

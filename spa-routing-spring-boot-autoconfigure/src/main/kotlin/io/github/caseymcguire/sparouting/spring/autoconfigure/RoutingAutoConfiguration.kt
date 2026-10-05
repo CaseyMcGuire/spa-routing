@@ -5,7 +5,6 @@ import io.github.caseymcguire.sparouting.runtime.access.RouteAccessEvaluator
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationConfig
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.response.RouteResponseService
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleActionResolver
 import io.github.caseymcguire.sparouting.spring.rendering.DefaultHtmlRenderer
 import io.github.caseymcguire.sparouting.spring.rendering.HtmlRenderer
 import io.github.caseymcguire.sparouting.spring.request.DefaultRouteRequestFactory
@@ -38,14 +37,6 @@ class RoutingAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  fun routeRuleActionResolver(
-    configs: List<SinglePageApplicationConfig>
-  ): RouteRuleActionResolver {
-    return RouteRuleActionResolver(configs)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
   fun routeAccessEvaluator(
     routeRegistry: SinglePageApplicationRouteRegistry,
     handlers: List<RouteAccessHandler<*>>
@@ -72,13 +63,11 @@ class RoutingAutoConfiguration {
   fun routeResponseService(
     routeRegistry: SinglePageApplicationRouteRegistry,
     accessEvaluator: RouteAccessEvaluator,
-    actionResolver: RouteRuleActionResolver,
     properties: RoutingProperties
   ): RouteResponseService {
     return RouteResponseService(
       routeRegistry = routeRegistry,
       accessEvaluator = accessEvaluator,
-      actionResolver = actionResolver,
       invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
       invalidQueryStringStatus = properties.server.invalidQueryStringStatus
     )

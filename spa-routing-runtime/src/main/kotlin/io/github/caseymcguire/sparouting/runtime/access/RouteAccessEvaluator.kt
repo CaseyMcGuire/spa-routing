@@ -1,16 +1,13 @@
 package io.github.caseymcguire.sparouting.runtime.access
 
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
-import com.sparouting.contract.RouteDecision
 import io.github.caseymcguire.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import io.github.caseymcguire.sparouting.runtime.request.RouteRequest
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRule
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleAction
-import io.github.caseymcguire.sparouting.runtime.rules.RouteRuleResult
 
 /**
- * Evaluates the application gate and then the matching route access handler.
+ * Evaluates the application access handler and then the matching route access handler.
  * Handler registrations are validated at construction. Requests must be validated before evaluation;
  * adapters should use [io.github.caseymcguire.sparouting.runtime.response.RouteResponseService].
  */
@@ -26,37 +23,23 @@ open class RouteAccessEvaluator @JvmOverloads constructor(
     validateHandlerRegistrations(routeRegistry)
   }
 
-  /** Returns Allow or Deny, leaving redirect targets unresolved. An undecided application gate denies access. */
+  /** Route access is checked only after the application handler allows access. Redirect targets remain unresolved. */
   open fun evaluate(
-    applicationRules: List<RouteRule>,
+    applicationAccessHandler: ApplicationAccessHandler,
     request: RouteRequest
-  ): RouteRuleResult {
-    val gate = firstDecision(applicationRules, request)
-      ?: return RouteRuleResult.Deny(RouteRuleAction.notFound())
-    if (gate is RouteRuleResult.Deny) {
-      return gate
+  ): AccessDecision {
+    val applicationDecision = applicationAccessHandler.evaluate(request)
+    if (applicationDecision != AccessDecision.Allow) {
+      return applicationDecision
     }
 
-    return when (val access = evaluateRouteAccess(request)) {
-      RouteDecision.Allow -> RouteRuleResult.Allow
-      is RouteDecision.Redirect -> RouteRuleResult.Deny(RouteRuleAction.redirectTo(access.destination))
-    }
+    return evaluateRouteAccess(request)
   }
 
-  private fun firstDecision(rules: List<RouteRule>, request: RouteRequest): RouteRuleResult? {
-    for (rule in rules) {
-      val result = rule.evaluate(request)
-      if (result != RouteRuleResult.Skip) {
-        return result
-      }
-    }
-    return null
-  }
-
-  private fun evaluateRouteAccess(request: RouteRequest): RouteDecision {
+  private fun evaluateRouteAccess(request: RouteRequest): AccessDecision {
     val key = RouteKey(applicationId = request.applicationId, routeId = request.routeId)
     val handler = routeToHandler[key]?.single()
-      ?: return RouteDecision.Allow
+      ?: return AccessDecision.Allow
     return handler.evaluateRequest(
       RouteAccessContext(
         method = request.method,
