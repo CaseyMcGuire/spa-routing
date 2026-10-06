@@ -40,11 +40,9 @@ fun Route.singlePageApplicationRoutes(
           RouteRequest(
             applicationId = config.id,
             routeId = route.id,
-            pathParameters = call.pathParameters.entries().associate { (name, values) ->
-              name to values.firstOrNull().orEmpty()
-            },
-            queryString = call.request.queryParameters.entries().associate { (name, values) -> name to values },
-            headers = call.request.headers.entries().associate { (name, values) -> name to values }
+            pathParameters = call.toRoutePathParameters(),
+            queryString = call.toRouteQueryString(),
+            headers = call.toRouteHeaders()
           )
         )
         if (response.statusCode == 200) {
@@ -58,17 +56,14 @@ fun Route.singlePageApplicationRoutes(
   }
 
   get(routeDecisionPath) {
-    val query = call.request.queryParameters.entries().associate { (name, values) -> name to values }
+    val query = call.toRouteQueryString()
     val response = responseService.evaluate(
       RouteRequest(
-        applicationId = query["applicationId"]?.firstOrNull().orEmpty(),
-        routeId = query["routeId"]?.firstOrNull().orEmpty(),
-        pathParameters = query.filterKeys { it.startsWith("parameters.") }
-          .mapKeys { (name, _) -> name.removePrefix("parameters.") }
-          .mapValues { (_, values) -> values.firstOrNull().orEmpty() },
-        queryString = query.filterKeys { it.startsWith("queryString.") }
-          .mapKeys { (name, _) -> name.removePrefix("queryString.") },
-        headers = call.request.headers.entries().associate { (name, values) -> name to values }
+        applicationId = query.firstValueOrEmpty("applicationId"),
+        routeId = query.firstValueOrEmpty("routeId"),
+        pathParameters = query.toRouteDecisionPathParameters(),
+        queryString = query.toRouteDecisionQueryString(),
+        headers = call.toRouteHeaders()
       )
     )
     call.response.headers.append(HttpHeaders.CacheControl, "no-store")
