@@ -4,7 +4,7 @@ import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.RouteRequest
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -142,9 +142,8 @@ class RouteDecisionRouterFunctionFactoryTest {
   ): MockMvc {
     return MockMvcBuilders.routerFunctions(
       RouteDecisionRouterFunctionFactory(
-        responseService = RouteResponseService(
-          configs = listOf(config.copy(applicationAccessHandler = applicationAccessHandler(evaluateApplication))),
-          invalidPathParameterStatus = properties.server.invalidPathParameterStatus
+        evaluator = RouteRequestEvaluator(
+          configs = listOf(config.copy(applicationAccessHandler = applicationAccessHandler(evaluateApplication)))
         ),
         properties = properties
       ).routes()

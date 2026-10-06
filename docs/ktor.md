@@ -49,20 +49,21 @@ fun Application.registerApplications(configs: List<SinglePageApplicationConfig>)
 ```
 
 Call `singlePageApplicationRoutes` once at the routing root. It constructs one
-shared service for all supplied configs. Route metadata already contains full paths,
+shared evaluator for all supplied configs. Route metadata already contains full paths,
 including application prefixes. The extension passes these patterns to Ktor's
 `get` function and reads decoded values from `call.pathParameters`. Keep patterns
 compatible with Ktor's path syntax; mounting the extension beneath another path
 would change URLs without updating generated client URLs or redirect targets.
 
-The service validates access-handler registration at startup. The response
-service handles validation, application access, route access, and redirect
-resolution. Access handlers remain synchronous. The optional
+The evaluator validates access-handler registration at startup and handles request
+validation, application access, route access, and redirect resolution. It returns
+a `RouteResult`; the adapter maps that result to HTTP responses. Access handlers
+remain synchronous. The optional
 `invalidPathParameterStatus` and `invalidQueryStringStatus` arguments both default
 to `400` and apply to page requests and navigation decisions.
 
 Install content negotiation with a converter capable of serializing the plain
-Kotlin `RouteHttpResponse` model, such as Jackson. The adapter does not install
+Kotlin `RouteDecisionResponse` model, such as Jackson. The adapter does not install
 a converter or add serialization annotations to core/runtime models.
 
 ## Configure the decision endpoint
@@ -105,7 +106,7 @@ describes the target page outcome:
 ```
 
 Page loads and navigation decisions both pass actual request headers to
-`RouteResponseService.evaluate`. Repeated query values retain their cardinality,
+`RouteRequestEvaluator.evaluate`. Repeated query values retain their cardinality,
 and path values are kept separate from query values. Navigation results share
 the same validation and access checks as page requests.
 

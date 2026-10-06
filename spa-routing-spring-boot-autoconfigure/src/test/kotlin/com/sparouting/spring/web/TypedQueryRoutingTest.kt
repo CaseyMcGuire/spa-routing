@@ -6,8 +6,8 @@ import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.contract.RouteRequest
-import com.sparouting.runtime.response.RouteHttpResponse
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteResult
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -74,14 +74,14 @@ class TypedQueryRoutingTest {
   }
 
   @Test
-  fun `service rejects empty required lists and permits empty optional lists`() {
-    val service = RouteResponseService(configs)
-    assertEquals(400, service.evaluate(RouteRequest(
+  fun `evaluator rejects empty required lists and permits empty optional lists`() {
+    val evaluator = RouteRequestEvaluator(configs)
+    assertEquals(RouteResult.InvalidQueryString, evaluator.evaluate(RouteRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
-    )).statusCode)
-    assertEquals(200, service.evaluate(RouteRequest(
+    )))
+    assertEquals(RouteResult.Allowed, evaluator.evaluate(RouteRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("filter" to emptyList())
-    )).statusCode)
+    )))
   }
 
   @Test
@@ -90,8 +90,10 @@ class TypedQueryRoutingTest {
       "test", "UserDetail", mapOf("id" to "123"),
       queryString = valid + mapOf("baz" to listOf(""), "utm_source" to listOf("extra"))
     ))
-    assertEquals(302, result.statusCode)
-    assertEquals("/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra", result.location)
+    assertEquals(
+      RouteResult.Redirect("/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra"),
+      result
+    )
   }
 
   @Test
@@ -105,9 +107,9 @@ class TypedQueryRoutingTest {
     }
   }
 
-  private fun redirect(target: RouteTarget): RouteHttpResponse {
+  private fun redirect(target: RouteTarget): RouteResult {
     val handler = applicationAccessHandler { AccessDecision.Redirect(target) }
-    return RouteResponseService(listOf(config.copy(applicationAccessHandler = handler))).evaluate(RouteRequest(
+    return RouteRequestEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
       pathParameters = mapOf("id" to "123"),
@@ -120,19 +122,16 @@ class TypedQueryRoutingTest {
     expectedStatus: Int,
     properties: RoutingProperties = RoutingProperties()
   ) {
-    val service = RouteResponseService(
-      configs = configs,
-      invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
-      invalidQueryStringStatus = properties.server.invalidQueryStringStatus
-    )
+    val evaluator = RouteRequestEvaluator(configs)
     val mockMvc = MockMvcBuilders.routerFunctions(
       SpringRouterFunctionFactory(
         routeConfigs = configs,
-        routeResponseService = service,
-        requestFactory = DefaultRouteRequestFactory()
+        evaluator = evaluator,
+        requestFactory = DefaultRouteRequestFactory(),
+        properties = properties
       ).routes(),
       RouteDecisionRouterFunctionFactory(
-        responseService = service,
+        evaluator = evaluator,
         properties = properties
       ).routes()
     ).build()

@@ -5,7 +5,7 @@ import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.applicationAccessHandler
@@ -118,8 +118,12 @@ class SpringRouterFunctionFactoryTest {
       htmlRenderer = HtmlRenderer { error("Rendering must follow validation") }
     )
 
-    mockMvc(config).get("/test").andExpect {
-      status { isBadRequest() }
+    for (statusCode in listOf(400, 200)) {
+      val properties = RoutingProperties().apply { server.invalidQueryStringStatus = statusCode }
+      mockMvc(config, properties).get("/test").andExpect {
+        status { isEqualTo(statusCode) }
+        content { string("") }
+      }
     }
   }
 
@@ -130,12 +134,9 @@ class SpringRouterFunctionFactoryTest {
     return MockMvcBuilders.routerFunctions(
       SpringRouterFunctionFactory(
         routeConfigs = listOf(config),
-        routeResponseService = RouteResponseService(
-          configs = listOf(config),
-          invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
-          invalidQueryStringStatus = properties.server.invalidQueryStringStatus
-        ),
-        requestFactory = DefaultRouteRequestFactory()
+        evaluator = RouteRequestEvaluator(listOf(config)),
+        requestFactory = DefaultRouteRequestFactory(),
+        properties = properties
       ).routes()
     ).build()
   }

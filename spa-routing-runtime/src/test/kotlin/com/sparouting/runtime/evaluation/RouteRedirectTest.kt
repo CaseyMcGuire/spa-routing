@@ -1,4 +1,4 @@
-package com.sparouting.runtime.response
+package com.sparouting.runtime.evaluation
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
@@ -16,8 +16,7 @@ class RouteRedirectTest {
     for (id in listOf("user-42", "0042", "550e8400-e29b-41d4-a716-446655440000")) {
       val response = redirect(RouteTarget("test", "UserDetail", mapOf("id" to id)))
 
-      assertEquals(302, response.statusCode)
-      assertEquals("/test/users/$id", response.location)
+      assertEquals(RouteResult.Redirect("/test/users/$id"), response)
     }
   }
 
@@ -44,12 +43,12 @@ class RouteRedirectTest {
     }
   }
 
-  private fun redirect(target: RouteTarget): RouteHttpResponse {
+  private fun redirect(target: RouteTarget): RouteResult {
     val config = TestSinglePageApplicationConfig(
       routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))
     )
     val handler = applicationAccessHandler { AccessDecision.Redirect(target) }
-    return RouteResponseService(listOf(config.copy(applicationAccessHandler = handler))).evaluate(
+    return RouteRequestEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(
       RouteRequest("test", "UserDetail", mapOf("id" to "42"))
     )
   }

@@ -1,4 +1,4 @@
-package com.sparouting.runtime.response
+package com.sparouting.runtime.evaluation
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteTarget
@@ -11,7 +11,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class RouteResponseServiceTest {
+class RouteRequestEvaluatorTest {
   private val config = TestSinglePageApplicationConfig(
     routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"), RouteManifest("/test/login", "Login"))
   )
@@ -23,17 +23,17 @@ class RouteResponseServiceTest {
     }
   }
   private val configs = listOf(config.copy(applicationAccessHandler = applicationHandler))
-  private val service = RouteResponseService(configs)
+  private val evaluator = RouteRequestEvaluator(configs)
 
   @Test
-  fun `invalid configs fail during service construction`() {
+  fun `invalid configs fail during evaluator construction`() {
     val duplicate = assertFailsWith<IllegalArgumentException> {
-      RouteResponseService(configs + configs)
+      RouteRequestEvaluator(configs + configs)
     }
     assertContains(duplicate.message.orEmpty(), "Duplicate single page application IDs")
 
     val missingHandler = assertFailsWith<IllegalArgumentException> {
-      RouteResponseService(listOf(config.copy(
+      RouteRequestEvaluator(listOf(config.copy(
         routes = listOf(RouteManifest("/test/private", "Private", hasAccessHandler = true))
       )))
     }
@@ -42,27 +42,22 @@ class RouteResponseServiceTest {
 
   @Test
   fun `unknown app or route returns not found`() {
-    assertEquals(404, service.evaluate(RouteRequest("missing", "UserDetail")).statusCode)
-    assertEquals(404, service.evaluate(RouteRequest("test", "Unknown")).statusCode)
+    assertEquals(RouteResult.NotFound, evaluator.evaluate(RouteRequest("missing", "UserDetail")))
+    assertEquals(RouteResult.NotFound, evaluator.evaluate(RouteRequest("test", "Unknown")))
   }
 
   @Test
-  fun `missing required params returns bad request`() {
-    assertEquals(400, service.evaluate(RouteRequest("test", "UserDetail")).statusCode)
+  fun `missing required params returns invalid path parameters`() {
+    assertEquals(RouteResult.InvalidPathParameters, evaluator.evaluate(RouteRequest("test", "UserDetail")))
   }
 
   @Test
-  fun `unknown params returns configured status`() {
-    val service = RouteResponseService(
-      configs = configs,
-      invalidPathParameterStatus = 422
-    )
-
-    val response = service.evaluate(
+  fun `unknown params returns invalid path parameters`() {
+    val response = evaluator.evaluate(
       RouteRequest("test", "UserDetail", mapOf("id" to "user-42", "unknown" to "value"))
     )
 
-    assertEquals(422, response.statusCode)
+    assertEquals(RouteResult.InvalidPathParameters, response)
   }
 
   @Test
@@ -72,16 +67,16 @@ class RouteResponseServiceTest {
       requests.add(request)
       AccessDecision.Allow
     }
-    val service = RouteResponseService(listOf(config.copy(applicationAccessHandler = handler)))
+    val evaluator = RouteRequestEvaluator(listOf(config.copy(applicationAccessHandler = handler)))
 
-    val response = service.evaluate(RouteRequest(
+    val response = evaluator.evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
       pathParameters = mapOf("id" to "42"),
       queryString = mapOf("tab" to listOf("billing"))
     ))
 
-    assertEquals(200, response.statusCode)
+    assertEquals(RouteResult.Allowed, response)
     assertEquals("billing", requests.single().queryStringValue("tab"))
   }
 
@@ -98,28 +93,28 @@ class RouteResponseServiceTest {
       applicationsChecked.add(request.applicationId)
       AccessDecision.Redirect(RouteTarget("public", "Index"))
     }
-    val service = RouteResponseService(listOf(
+    val evaluator = RouteRequestEvaluator(listOf(
       publicConfig.copy(applicationAccessHandler = publicHandler),
       privateConfig.copy(applicationAccessHandler = privateHandler)
     ))
 
     for (applicationId in listOf("public", "private")) {
-      val expected = if (applicationId == "public") RouteHttpResponse.ok() else RouteHttpResponse.found("/public")
-      assertEquals(expected, service.evaluate(RouteRequest(applicationId, "Index")))
+      val expected = if (applicationId == "public") RouteResult.Allowed else RouteResult.Redirect("/public")
+      assertEquals(expected, evaluator.evaluate(RouteRequest(applicationId, "Index")))
     }
     assertEquals(listOf("public", "private"), applicationsChecked)
   }
 
   @Test
-  fun `service resolves application redirects`() {
-    val expected = RouteHttpResponse(statusCode = 302, location = "/test/login")
+  fun `evaluator resolves application redirects`() {
+    val expected = RouteResult.Redirect("/test/login")
     val parameters = mapOf("id" to "42")
 
-    assertEquals(expected, service.evaluate(RouteRequest(
+    assertEquals(expected, evaluator.evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
       pathParameters = parameters
     )))
-    assertEquals(200, service.evaluate(RouteRequest("test", "Login")).statusCode)
+    assertEquals(RouteResult.Allowed, evaluator.evaluate(RouteRequest("test", "Login")))
   }
 }

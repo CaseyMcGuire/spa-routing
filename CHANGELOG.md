@@ -4,6 +4,26 @@
 
 ### Breaking changes
 
+- **Route evaluation returns semantic results; adapters own HTTP mapping.**
+  `runtime.evaluation.RouteRequestEvaluator(configs)` replaces `RouteResponseService`
+  and the internal `RouteAccessEvaluator`. It validates the request, runs application
+  access before route access, and resolves redirects using the same registration.
+  `evaluate(RouteRequest)` returns `RouteResult.Allowed`, `Redirect(url)`, `NotFound`,
+  `InvalidPathParameters`, or `InvalidQueryString`.
+
+  The evaluator takes no HTTP status settings. Spring and Ktor retain their existing
+  validation-status configuration and map every result to an explicit response.
+  Only `Allowed` renders HTML; configuring a validation status as `200` no longer
+  renders an invalid page. Spring's `toServerResponse` now takes a `RouteResult`,
+  application config, and routing properties and always returns a complete response.
+  Router factories take `evaluator` instead of a response service; the page factory
+  also takes routing properties for validation-status mapping.
+
+  `RouteHttpResponse` is replaced by `runtime.response.RouteDecisionResponse`, used
+  only as the navigation JSON payload. Its `{ statusCode, location }` wire format,
+  HTTP `200` envelope, and `Cache-Control: no-store` are unchanged. Existing failure
+  status settings remain in use.
+
 - **HTML rendering belongs to each application config.** `SinglePageApplicationConfig`
   and generated config constructors now require `htmlRenderer: com.sparouting.contract.HtmlRenderer`.
   Its `render(application)` method returns an HTML string. The runtime's

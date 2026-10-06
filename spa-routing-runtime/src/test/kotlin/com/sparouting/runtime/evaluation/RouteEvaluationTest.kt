@@ -1,4 +1,4 @@
-package com.sparouting.runtime.response
+package com.sparouting.runtime.evaluation
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.Route
@@ -28,14 +28,14 @@ class RouteEvaluationTest {
   fun `requests are validated before invoking either access handler`() {
     val runtime = Runtime()
     val invalidRequests = listOf(
-      routeRequest.copy(pathParameters = emptyMap()) to 422,
-      routeRequest.copy(pathParameters = mapOf("id" to "42", "extra" to "value")) to 422,
-      routeRequest.copy(queryString = mapOf("view" to listOf("one", "two"))) to 400,
-      routeRequest.copy(routeId = "Unknown") to 404
+      routeRequest.copy(pathParameters = emptyMap()) to RouteResult.InvalidPathParameters,
+      routeRequest.copy(pathParameters = mapOf("id" to "42", "extra" to "value")) to RouteResult.InvalidPathParameters,
+      routeRequest.copy(queryString = mapOf("view" to listOf("one", "two"))) to RouteResult.InvalidQueryString,
+      routeRequest.copy(routeId = "Unknown") to RouteResult.NotFound
     )
 
-    for ((request, expectedStatus) in invalidRequests) {
-      assertEquals(expectedStatus, runtime.service.evaluate(request).statusCode)
+    for ((request, expectedResult) in invalidRequests) {
+      assertEquals(expectedResult, runtime.evaluator.evaluate(request))
     }
 
     assertEquals(emptyList(), runtime.applicationRequests)
@@ -49,9 +49,9 @@ class RouteEvaluationTest {
       routeId = "Missing",
       queryString = mapOf("from" to listOf("application"))
     )))
-    val expected = RouteHttpResponse(statusCode = 302, location = "/test/missing?from=application")
+    val expected = RouteResult.Redirect("/test/missing?from=application")
 
-    assertEquals(expected, runtime.service.evaluate(routeRequest))
+    assertEquals(expected, runtime.evaluator.evaluate(routeRequest))
     assertEquals(1, runtime.applicationRequests.size)
     assertEquals(emptyList(), runtime.handlerRequests)
   }
@@ -60,7 +60,7 @@ class RouteEvaluationTest {
   fun `handlers receive caller data with context resolved from the target route`() {
     val runtime = Runtime()
 
-    assertEquals(200, runtime.service.evaluate(routeRequest).statusCode)
+    assertEquals(RouteResult.Allowed, runtime.evaluator.evaluate(routeRequest))
 
     assertSame(routeRequest, runtime.applicationRequests.single())
     val context = runtime.handlerRequests.single()
@@ -76,9 +76,9 @@ class RouteEvaluationTest {
   fun `typed redirects from handlers are resolved`() {
     val runtime = Runtime()
     val request = routeRequest.copy(pathParameters = mapOf("id" to "missing"))
-    val expected = RouteHttpResponse(statusCode = 302, location = "/test/missing?from=post+access")
+    val expected = RouteResult.Redirect("/test/missing?from=post+access")
 
-    assertEquals(expected, runtime.service.evaluate(request))
+    assertEquals(expected, runtime.evaluator.evaluate(request))
   }
 
   private class Runtime(applicationDecision: AccessDecision = AccessDecision.Allow) {
@@ -107,12 +107,11 @@ class RouteEvaluationTest {
         ))
       }
     }
-    val service = RouteResponseService(
+    val evaluator = RouteRequestEvaluator(
       configs = listOf(config.copy(
         applicationAccessHandler = applicationHandler,
         routeAccessHandlers = routeAccessHandlers(handler)
-      )),
-      invalidPathParameterStatus = 422
+      ))
     )
   }
 }

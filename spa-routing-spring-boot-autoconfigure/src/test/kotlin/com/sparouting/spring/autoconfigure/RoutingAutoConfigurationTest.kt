@@ -6,7 +6,8 @@ import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.parameter
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
+import com.sparouting.runtime.evaluation.RouteResult
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.request.RouteRequestFactory
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -38,7 +39,7 @@ class RoutingAutoConfigurationTest {
       assertThat(context).doesNotHaveBean("routeAccessEvaluator")
       assertThat(context).hasSingleBean(DefaultRouteRequestFactory::class.java)
       assertThat(context).doesNotHaveBean(HtmlRenderer::class.java)
-      assertThat(context).doesNotHaveBean(RouteResponseService::class.java)
+      assertThat(context).doesNotHaveBean(RouteRequestEvaluator::class.java)
       assertThat(context.getBeansOfType(RouterFunction::class.java)).hasSize(2)
       assertThat(context).hasBean("routerFunction")
       assertThat(context).hasBean("routeDecisionRouterFunction")
@@ -46,12 +47,12 @@ class RoutingAutoConfigurationTest {
   }
 
   @Test
-  fun `an application service bean does not replace built-in route evaluation`() {
+  fun `an application evaluator bean does not replace built-in route evaluation`() {
     contextRunner
-      .withBean(RouteResponseService::class.java, Supplier { RouteResponseService(emptyList()) })
+      .withBean(RouteRequestEvaluator::class.java, Supplier { RouteRequestEvaluator(emptyList()) })
       .run { context ->
-        assertThat(context.getBean(RouteResponseService::class.java).evaluate(RouteRequest("test", "Home")).statusCode)
-          .isEqualTo(404)
+        assertThat(context.getBean(RouteRequestEvaluator::class.java).evaluate(RouteRequest("test", "Home")))
+          .isEqualTo(RouteResult.NotFound)
         val mockMvc = MockMvcBuilders.routerFunctions(
           *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
         ).build()
@@ -120,7 +121,7 @@ class RoutingAutoConfigurationTest {
       .run { context ->
         assertThat(context).doesNotHaveBean("routerFunction")
         assertThat(context).hasBean("routeDecisionRouterFunction")
-        assertThat(context).doesNotHaveBean(RouteResponseService::class.java)
+        assertThat(context).doesNotHaveBean(RouteRequestEvaluator::class.java)
       }
   }
 

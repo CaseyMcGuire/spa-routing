@@ -1,7 +1,7 @@
 package com.sparouting.spring.web
 
 import com.sparouting.contract.RouteRequest
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.toRouteHeaders
 import com.sparouting.spring.response.toRouteDecisionResponse
@@ -11,7 +11,7 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 class RouteDecisionRouterFunctionFactory(
-  private val responseService: RouteResponseService,
+  private val evaluator: RouteRequestEvaluator,
   private val properties: RoutingProperties
 ) {
   fun routes(): RouterFunction<ServerResponse> {
@@ -23,7 +23,7 @@ class RouteDecisionRouterFunctionFactory(
   }
 
   private fun handleRouteDecision(request: ServerRequest): ServerResponse {
-    return responseService.evaluate(
+    return evaluator.evaluate(
       RouteRequest(
         applicationId = request.queryStringValue("applicationId"),
         routeId = request.queryStringValue("routeId"),
@@ -31,7 +31,7 @@ class RouteDecisionRouterFunctionFactory(
         queryString = request.routeQueryString(),
         headers = request.toRouteHeaders()
       )
-    ).toRouteDecisionResponse()
+    ).toRouteDecisionResponse(properties)
   }
 
   private fun ServerRequest.queryStringValue(name: String): String {

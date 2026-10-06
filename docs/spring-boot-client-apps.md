@@ -54,9 +54,9 @@ Client apps usually import from these packages:
 Packages below share the prefix `com.sparouting`:
 
 - `contract`: application configuration, route metadata, access and rendering contracts, and framework-neutral request models
-- `runtime.config`: configuration validation and route/handler registry
-- `runtime.access`: two-level access evaluation
-- `runtime.response`: response models and shared evaluation service
+- `runtime.config`: configuration validation
+- `runtime.evaluation`: shared request evaluator and semantic route results
+- `runtime.response`: navigation endpoint JSON payload
 - `runtime.rendering`: HTML document builder and asset options
 - `spring.request`: Spring request factory
 - `spring.response`: Spring response conversion
@@ -213,7 +213,7 @@ application at compile time. Spring still resolves your component dependencies;
 missing or ambiguous dependencies fail during bean creation. Reusable permission
 services can be injected into multiple handlers.
 
-The starter constructs one private runtime service from the config beans and
+The starter constructs one private evaluator from the config beans and
 shares it between page requests and navigation checks.
 
 There are two access checks, after parameter validation:
@@ -569,7 +569,7 @@ their actual incoming headers. Application handlers receive the fields above.
 Typed route handlers also receive a `RouteAccessContext` with method `GET` and
 the destination path resolved from route metadata for both entry points.
 
-Both endpoints call the same `RouteResponseService.evaluate(RouteRequest)`. For page loads,
+Both endpoints call the same `RouteRequestEvaluator.evaluate(RouteRequest)`. For page loads,
 `RouteRequestFactory` runs before shared validation; validation applies to the
 values it returns before either access handler executes.
 
@@ -619,25 +619,25 @@ Decision statuses match what the MVC route would use:
 - configured `spa-routing.server.invalid-query-string-status`: invalid declared query-string values
 - `404`: unknown route
 
-For custom GraphQL or REST APIs, construct a `RouteResponseService` from your
-configs. The starter's service is private and is not exposed as a Spring bean:
+For custom GraphQL or REST APIs, construct a `RouteRequestEvaluator` from your
+configs. The starter's evaluator is private and is not exposed as a Spring bean:
 
 ```kotlin
 import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 
 class RouteDecisionHandler(
   configs: List<SinglePageApplicationConfig>
 ) {
-  private val routeResponseService = RouteResponseService(configs)
+  private val evaluator = RouteRequestEvaluator(configs)
 
   fun evaluateAccountRoute(
     routeId: String,
     parameters: Map<String, String>,
     queryString: Map<String, List<String>>,
     headers: Map<String, List<String>>
-  ) = routeResponseService.evaluate(
+  ) = evaluator.evaluate(
     RouteRequest(
       applicationId = "account",
       routeId = routeId,
@@ -648,6 +648,9 @@ class RouteDecisionHandler(
   )
 }
 ```
+
+The custom handler above returns `RouteResult`. Map that result to your API's response format;
+the built-in navigation endpoint maps it to `RouteDecisionResponse(statusCode, location)`.
 
 ## Replace Starter Beans
 
@@ -677,4 +680,4 @@ For an existing Spring app that copied SPA routing code locally:
 4. Replace copied registry, evaluator, request adapter, and response classes with the starter.
 5. Construct the generated route-handler collection with every gated handler, and pass it, the application handler, and a core `HtmlRenderer` to the generated `<ApplicationName>ApplicationConfig`. Expose that instance as a bean.
 6. Use `HtmlDocumentRenderer(...)` for the default shell or supply your own renderer returning an HTML string.
-7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteResponseService` from a custom GraphQL or REST endpoint.
+7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteRequestEvaluator` from a custom GraphQL or REST endpoint.

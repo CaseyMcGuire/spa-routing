@@ -2,21 +2,16 @@ package com.sparouting.ktor
 
 import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.response.RouteResponseService
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 
 /**
  * Registers page routes for [configs] and one shared endpoint at [routeDecisionPath].
  *
- * Call once at the routing root. Builds and validates the shared runtime service at registration.
+ * Call once at the routing root. Builds and validates the shared evaluator at registration.
  * Allowed pages use the matching config's HTML renderer.
- * Install ContentNegotiation with a converter for RouteHttpResponse, such as Jackson.
+ * Install ContentNegotiation with a converter for RouteDecisionResponse, such as Jackson.
  * Configure client authorization to use the same [routeDecisionPath].
  * [invalidPathParameterStatus] and [invalidQueryStringStatus] apply to both pages and navigation checks.
  * Asset serving and the server engine are configured by the application.
@@ -27,16 +22,12 @@ fun Route.singlePageApplicationRoutes(
   invalidPathParameterStatus: Int = 400,
   invalidQueryStringStatus: Int = 400
 ) {
-  val responseService = RouteResponseService(
-    configs = configs,
-    invalidPathParameterStatus = invalidPathParameterStatus,
-    invalidQueryStringStatus = invalidQueryStringStatus
-  )
+  val evaluator = RouteRequestEvaluator(configs)
 
   configs.forEach { config ->
     config.routes.forEach { route ->
       get(route.path) {
-        val response = responseService.evaluate(
+        val result = evaluator.evaluate(
           RouteRequest(
             applicationId = config.id,
             routeId = route.id,
@@ -45,19 +36,19 @@ fun Route.singlePageApplicationRoutes(
             headers = call.toRouteHeaders()
           )
         )
-        if (response.statusCode == 200) {
-          call.respondText(config.htmlRenderer.render(config), ContentType.Text.Html)
-        } else {
-          response.location?.let { call.response.headers.append(HttpHeaders.Location, it) }
-          call.respond(HttpStatusCode.fromValue(response.statusCode))
-        }
+        call.respondPage(
+          result = result,
+          application = config,
+          invalidPathParameterStatus = invalidPathParameterStatus,
+          invalidQueryStringStatus = invalidQueryStringStatus
+        )
       }
     }
   }
 
   get(routeDecisionPath) {
     val query = call.toRouteQueryString()
-    val response = responseService.evaluate(
+    val result = evaluator.evaluate(
       RouteRequest(
         applicationId = query.firstValueOrEmpty("applicationId"),
         routeId = query.firstValueOrEmpty("routeId"),
@@ -66,7 +57,10 @@ fun Route.singlePageApplicationRoutes(
         headers = call.toRouteHeaders()
       )
     )
-    call.response.headers.append(HttpHeaders.CacheControl, "no-store")
-    call.respond(response)
+    call.respondRouteDecision(
+      result = result,
+      invalidPathParameterStatus = invalidPathParameterStatus,
+      invalidQueryStringStatus = invalidQueryStringStatus
+    )
   }
 }

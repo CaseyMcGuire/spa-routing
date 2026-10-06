@@ -1,7 +1,7 @@
 package com.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.request.RouteRequestFactory
 import com.sparouting.spring.web.RouteDecisionRouterFunctionFactory
@@ -25,11 +25,7 @@ class RoutingAutoConfiguration(
   private val configs: List<SinglePageApplicationConfig>,
   private val properties: RoutingProperties
 ) {
-  private val responseService = RouteResponseService(
-    configs = configs,
-    invalidPathParameterStatus = properties.server.invalidPathParameterStatus,
-    invalidQueryStringStatus = properties.server.invalidQueryStringStatus
-  )
+  private val evaluator = RouteRequestEvaluator(configs)
 
   @Bean
   @ConditionalOnMissingBean
@@ -46,7 +42,7 @@ class RoutingAutoConfiguration(
   )
   fun routeDecisionRouterFunction(): RouterFunction<ServerResponse> {
     return RouteDecisionRouterFunctionFactory(
-      responseService = responseService,
+      evaluator = evaluator,
       properties = properties
     ).routes()
   }
@@ -62,8 +58,9 @@ class RoutingAutoConfiguration(
   ): RouterFunction<ServerResponse> {
     return SpringRouterFunctionFactory(
       routeConfigs = configs,
-      routeResponseService = responseService,
-      requestFactory = requestFactory
+      evaluator = evaluator,
+      requestFactory = requestFactory,
+      properties = properties
     ).routes()
   }
 }

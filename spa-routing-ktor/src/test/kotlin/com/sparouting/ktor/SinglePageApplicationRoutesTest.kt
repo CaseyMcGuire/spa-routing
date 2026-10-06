@@ -14,7 +14,7 @@ import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.parameter
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
-import com.sparouting.runtime.response.RouteHttpResponse
+import com.sparouting.runtime.response.RouteDecisionResponse
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
@@ -57,7 +57,7 @@ class SinglePageApplicationRoutesTest {
       assertEquals(ContentType.Text.Html, page.contentType()?.withoutParameters())
       assertEquals("<h1>${config.id}: ${config.name}</h1>", page.bodyAsText())
       assertEquals(
-        RouteHttpResponse.ok(),
+        RouteDecisionResponse(statusCode = 200),
         client.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home").decision()
       )
     }
@@ -87,7 +87,7 @@ class SinglePageApplicationRoutesTest {
       assertContains(page.bodyAsText(), "/assets/${config.bundleName}.bundle.js")
 
       val decision = client.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home")
-      assertEquals(RouteHttpResponse.ok(), decision.decision())
+      assertEquals(RouteDecisionResponse(statusCode = 200), decision.decision())
     }
     assertEquals(listOf("one", "one", "two", "two"), requests.map { it.applicationId })
     assertEquals(HttpStatusCode.NotFound, client.get("/unknown").status)
@@ -101,7 +101,7 @@ class SinglePageApplicationRoutesTest {
     }
 
     val decision = client.get("/internal/navigation?applicationId=app&routeId=Home")
-    assertEquals(RouteHttpResponse.ok(), decision.decision())
+    assertEquals(RouteDecisionResponse(statusCode = 200), decision.decision())
     assertEquals(
       HttpStatusCode.NotFound,
       client.get("/__spa/route-decision?applicationId=app&routeId=Home").status
@@ -145,7 +145,7 @@ class SinglePageApplicationRoutesTest {
       headers.append("X-Group", "one")
       headers.append("X-Group", "two")
     }
-    assertEquals(RouteHttpResponse.ok(), decision.decision())
+    assertEquals(RouteDecisionResponse(statusCode = 200), decision.decision())
     assertEquals(2, requests.size)
     requests.forEach { request ->
       assertEquals("app", request.applicationId)
@@ -186,6 +186,24 @@ class SinglePageApplicationRoutesTest {
     assertEquals(404, client.get("/__spa/route-decision?applicationId=missing&routeId=User").decision().statusCode)
     assertEquals(404, client.get("/__spa/route-decision?applicationId=app&routeId=missing").decision().statusCode)
     assertTrue(requests.isEmpty())
+  }
+
+  @Test
+  fun `a validation status of 200 does not render an invalid page`() = testApplication {
+    val config = TestConfig(
+      routes = listOf(RouteManifest(path = "/app", id = "Home", queryString = listOf(parameter("q")))),
+      evaluateApplication = { error("Invalid requests must not reach access handlers") },
+      htmlRenderer = HtmlRenderer { error("Only Allowed may render HTML") }
+    )
+    application { installRoutes(listOf(config), invalidQueryStringStatus = 200) }
+
+    val page = client.get("/app")
+    assertEquals(HttpStatusCode.OK, page.status)
+    assertEquals("", page.bodyAsText())
+    assertEquals(
+      RouteDecisionResponse(statusCode = 200),
+      client.get("/__spa/route-decision?applicationId=app&routeId=Home").decision()
+    )
   }
 
   @Test
@@ -232,7 +250,7 @@ class SinglePageApplicationRoutesTest {
           header("X-User", "reader")
         }
       }
-      assertEquals(RouteHttpResponse.found("/login"), decision.decision())
+      assertEquals(RouteDecisionResponse(statusCode = 302, location = "/login"), decision.decision())
       assertEquals(if (authenticated) 2 else 0, routeChecks.size)
     }
     assertEquals(routeChecks[0].path, routeChecks[1].path)
@@ -256,7 +274,7 @@ class SinglePageApplicationRoutesTest {
     }
   }
 
-  private suspend fun HttpResponse.decision(): RouteHttpResponse {
+  private suspend fun HttpResponse.decision(): RouteDecisionResponse {
     assertEquals(HttpStatusCode.OK, status)
     assertEquals(ContentType.Application.Json, contentType()?.withoutParameters())
     assertEquals("no-store", headers[HttpHeaders.CacheControl])

@@ -1,4 +1,4 @@
-package com.sparouting.runtime.access
+package com.sparouting.runtime.evaluation
 
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.Route
@@ -6,7 +6,6 @@ import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
-import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.testsupport.applicationAccessHandler
@@ -14,11 +13,13 @@ import com.sparouting.runtime.testsupport.routeAccessHandlers
 import com.sparouting.runtime.testsupport.testRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertSame
 
-class RouteAccessEvaluatorTest {
+class RouteAccessTest {
   private val destination = RouteTarget(applicationId = "other", routeId = "Login")
+  private val destinationConfig = TestSinglePageApplicationConfig(
+    id = "other",
+    routes = listOf(RouteManifest("/other/login", "Login"))
+  )
 
   @Test
   fun `application access is evaluated before route access`() {
@@ -37,7 +38,7 @@ class RouteAccessEvaluatorTest {
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertEquals(AccessDecision.Allow, decision)
+    assertEquals(RouteResult.Allowed, decision)
     assertEquals(listOf("application", "route"), calls)
   }
 
@@ -50,8 +51,7 @@ class RouteAccessEvaluatorTest {
 
     val decision = evaluator.evaluate(testRequest())
 
-    // Targets remain unresolved until the response service converts the decision.
-    assertSame(redirect, decision)
+    assertEquals(RouteResult.Redirect("/other/login"), decision)
   }
 
   @Test
@@ -61,7 +61,7 @@ class RouteAccessEvaluatorTest {
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertSame(redirect, decision)
+    assertEquals(RouteResult.Redirect("/other/login"), decision)
   }
 
   @Test
@@ -69,15 +69,14 @@ class RouteAccessEvaluatorTest {
     val redirect = AccessDecision.Redirect(destination)
     val publicConfig = TestSinglePageApplicationConfig(id = "public", routes = listOf(RouteManifest("/public/route", "Route")))
     val privateConfig = TestSinglePageApplicationConfig(id = "private", routes = listOf(RouteManifest("/private/route", "Route")))
-    val registry = SinglePageApplicationRouteRegistry(
-      listOf(publicConfig, privateConfig.copy(applicationAccessHandler = applicationAccessHandler { redirect }))
+    val evaluator = RouteRequestEvaluator(
+      listOf(publicConfig, privateConfig.copy(applicationAccessHandler = applicationAccessHandler { redirect }), destinationConfig)
     )
-    val evaluator = RouteAccessEvaluator(registry)
 
-    assertEquals(AccessDecision.Allow, evaluator.evaluate(
+    assertEquals(RouteResult.Allowed, evaluator.evaluate(
       testRequest().copy(applicationId = "public")
     ))
-    assertEquals(redirect, evaluator.evaluate(testRequest().copy(applicationId = "private")))
+    assertEquals(RouteResult.Redirect("/other/login"), evaluator.evaluate(testRequest().copy(applicationId = "private")))
   }
 
   @Test
@@ -87,16 +86,14 @@ class RouteAccessEvaluatorTest {
     }
 
     for (request in listOf(testRequest().copy(applicationId = "unknown"), testRequest().copy(routeId = "Unknown"))) {
-      assertFailsWith<IllegalArgumentException> {
-        evaluator.evaluate(request)
-      }
+      assertEquals(RouteResult.NotFound, evaluator.evaluate(request))
     }
   }
 
   private fun evaluator(
     evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allow },
     evaluateRoute: (RouteAccessContext) -> AccessDecision
-  ): RouteAccessEvaluator {
+  ): RouteRequestEvaluator {
     val config = TestSinglePageApplicationConfig(
       routes = listOf(RouteManifest("/test/route", "Route", hasAccessHandler = true))
     )
@@ -105,11 +102,11 @@ class RouteAccessEvaluatorTest {
 
       override fun evaluate(request: RouteAccessContext): AccessDecision = evaluateRoute(request)
     }
-    return RouteAccessEvaluator(SinglePageApplicationRouteRegistry(
-      routeConfigs = listOf(config.copy(
+    return RouteRequestEvaluator(
+      configs = listOf(config.copy(
         applicationAccessHandler = applicationAccessHandler(evaluateApplication),
         routeAccessHandlers = routeAccessHandlers(handler)
-      ))
-    ))
+      ), destinationConfig)
+    )
   }
 }

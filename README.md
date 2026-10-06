@@ -401,9 +401,9 @@ spa-routing:
 Override the `RouteRequestFactory` bean to customize page request conversion.
 Configure rendering and asset options through each config's `htmlRenderer`.
 
-The adapters construct the runtime service internally from application configs.
-Configure access through application and route handlers; the registry and evaluator
-are internal implementation details.
+The adapters construct a private `RouteRequestEvaluator` from application configs
+and map its `RouteResult` to HTTP responses. Configure access through application
+and route handlers; registration stays internal.
 
 ## Development
 

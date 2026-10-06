@@ -9,10 +9,10 @@ Its public types live under `com.sparouting.runtime`.
 | `spa-routing-core` | Authoring definitions, route and application contracts, request models, access handler contracts, and generators |
 | `spa-routing-runtime` | Route registry, handler registration validation, application and route access checks, redirect resolution, and HTML document generation |
 | `spa-routing-ktor` | Ktor route registration, request conversion, and HTTP/JSON responses |
-| `spa-routing-spring-boot-autoconfigure` | Bean discovery, properties, MVC route registration, request conversion, HTTP/JSON responses, and Spring rendering hooks |
+| `spa-routing-spring-boot-autoconfigure` | Bean discovery, properties, MVC route registration, request conversion, HTTP/JSON responses, and HTML delivery |
 | `spa-routing-spring-boot-starter` | Dependencies for Spring Boot applications |
 
-Spring and Ktor adapters call the same runtime service. See the
+Spring and Ktor adapters call the same runtime evaluator. See the
 [Ktor setup](ktor.md) and [blog examples](../examples/README.md), which share
 their blog service, access handlers, generated config, and frontend.
 Evaluation is synchronous; suspendable access handlers are not supported.
@@ -70,31 +70,22 @@ val config = BlogApplicationConfig(
 
 This wiring is plain Kotlin and works with manual construction or any DI container.
 
-Spring and Ktor construct the runtime service internally from the supplied configs.
-When writing another adapter, construct one service for all applications and reuse
-it for page requests and navigation checks:
+Spring and Ktor construct the evaluator internally from the supplied configs.
+When writing another adapter, construct one evaluator for all applications and
+reuse it for page requests and navigation checks:
 
 ```kotlin
-import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.response.RouteResponseService
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 
-fun createRouteService(
-  configs: List<SinglePageApplicationConfig>
-): RouteResponseService {
-  return RouteResponseService(
-    configs = configs,
-    invalidPathParameterStatus = 400,
-    invalidQueryStringStatus = 400
-  )
-}
+val evaluator = RouteRequestEvaluator(configs = listOf(config))
 ```
 
-`RouteResponseService` builds and validates its registrations during construction.
+`RouteRequestEvaluator` builds and validates its registrations during construction.
 It reads handlers from each config instead of discovering them globally.
 Generated constructors enforce application-handler and route-handler types.
 For custom config or collection implementations, runtime validation still rejects
 missing, duplicate, unknown-route, unflagged-route, and wrong-application route
-handlers. The registry and access evaluator are internal implementation details.
+handlers. The registry is an internal implementation detail.
 Customize access through the handlers supplied in each application config.
 
 Application handlers receive the framework-neutral `RouteRequest`. Typed route
@@ -103,7 +94,7 @@ handlers receive their generated request models. Both return core's
 
 ## Adapt requests and responses
 
-Use `RouteResponseService.evaluate(RouteRequest)` for both page requests and
+Use `RouteRequestEvaluator.evaluate(RouteRequest)` for both page requests and
 client navigation checks. Adapters supply application and route IDs, decoded
 `pathParameters` and `queryString` values, and headers from the actual incoming
 request. Both entry points use the same request type and validation/access pipeline.
@@ -117,17 +108,29 @@ Route paths in the config already include the application prefix. Adapters
 register `route.path` directly; `route.resolvePath(parameters)` substitutes path
 values for navigation and redirects.
 
-Both look up the route, validate path and declared query values, then run the
-application and route access checks in order. Unknown routes return `404`.
-Invalid input stops before either handler. An application redirect stops the
-route check. Typed redirects are validated and resolved by the response
-service for both entry points.
+The evaluator looks up the route once, validates path and declared query values,
+then runs the application and route access checks in order. Invalid input stops
+before either handler. An application redirect stops the route check. Typed
+redirects are validated and resolved to URLs by the evaluator.
 
-The result is `RouteHttpResponse(statusCode, location)`. It contains no native
-framework response or serialization annotations. The adapter chooses how to
-write it: Spring renders HTML for an allowed page request, sends a status or
-redirect for other page outcomes, and returns HTTP `200` with the result as JSON
-and `Cache-Control: no-store` for a navigation check.
+Evaluation returns `com.sparouting.runtime.evaluation.RouteResult`, with no HTTP
+status codes. Each adapter maps it explicitly:
+
+| Result | Page response |
+| --- | --- |
+| `Allowed` | `200` with the config's rendered HTML |
+| `Redirect(url)` | `302` with a `Location` header |
+| `NotFound` | `404` |
+| `InvalidPathParameters` | Configured path-validation status, default `400` |
+| `InvalidQueryString` | Configured query-validation status, default `400` |
+
+Validation status settings belong to the adapters. Only `Allowed` renders HTML,
+even if a validation status is configured as `200`.
+
+For navigation checks, the adapter maps the result to the shared JSON payload
+`RouteDecisionResponse(statusCode, location)` in `com.sparouting.runtime.response`.
+The endpoint itself returns HTTP `200` and `Cache-Control: no-store`. The payload
+describes the target page's status and redirect; it is not the evaluator's return type.
 
 An adapter also owns URL matching, decoding, request authentication context,
 and HTTP serialization. Application access handlers that use a framework's security
