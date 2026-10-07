@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Generated Kotlin route access handlers accept lambdas, such as
+  `PostAccessHandler { request -> AccessDecision.Allowed }`, with inferred
+  route-specific request types. Existing subclasses and required handler
+  collections remain supported. Regenerate server sources to use the factories.
+
 ## 0.5.0 (2026-10-07)
 
 ### Added

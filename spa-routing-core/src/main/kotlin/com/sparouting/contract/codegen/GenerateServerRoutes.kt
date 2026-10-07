@@ -1,5 +1,6 @@
 package com.sparouting.contract.codegen
 
+import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.ApplicationAccessHandler
 import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteAccessHandler
@@ -252,17 +253,29 @@ private fun RouteDefinition.toKotlinRequestFile(packageName: String): String {
 
 private fun RouteDefinition.toKotlinAccessFile(packageName: String): String {
   val (queryProperty, contextProperty) = requestPropertyNames()
+  val handlerType = RouteAccessHandler::class.java
+  val shadowsHandler = "${id}AccessHandler" == handlerType.simpleName
   val routeReference = when (id) {
-    "RouteAccessHandler", "RouteAccessContext" -> "$packageName.$id"
+    "AccessDecision", "Companion", "RouteAccessHandler", "RouteAccessContext" -> "$packageName.$id"
     else -> id
   }
   return buildString {
     appendGeneratedFileHeader(
       packageName,
-      listOf("com.sparouting.contract.RouteAccessHandler", "com.sparouting.contract.RouteAccessContext")
+      listOf(AccessDecision::class.java.name, "com.sparouting.contract.RouteAccessContext") +
+        if (shadowsHandler) emptyList() else listOf(handlerType.name)
     )
-    appendLine("/** Implement evaluate and pass the implementation to the generated route handler collection. */")
-    appendLine("abstract class ${id}AccessHandler : RouteAccessHandler<${id}Request>($routeReference) {")
+    appendLine("/** Create with a lambda or implement evaluate, then pass to the generated route handler collection. */")
+    appendLine("abstract class ${id}AccessHandler : ${if (shadowsHandler) handlerType.name else handlerType.simpleName}<${id}Request>($routeReference) {")
+    appendLine("  companion object {")
+    appendLine("    /** Creates a handler from a route-specific access check. */")
+    appendLine("    operator fun invoke(evaluate: (${id}Request) -> AccessDecision): ${id}AccessHandler {")
+    appendLine("      return object : ${id}AccessHandler() {")
+    appendLine("        override fun evaluate(request: ${id}Request): AccessDecision = evaluate.invoke(request)")
+    appendLine("      }")
+    appendLine("    }")
+    appendLine("  }")
+    appendLine()
     appendLine("  final override fun createRequest(context: RouteAccessContext): ${id}Request {")
     appendLine("    return ${id}Request(")
     parameters.forEach { parameter ->

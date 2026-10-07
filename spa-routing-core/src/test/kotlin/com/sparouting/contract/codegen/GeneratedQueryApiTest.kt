@@ -124,11 +124,15 @@ class GeneratedQueryApiTest {
       appendLine("    override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allowed")
       appendLine("  },")
       appendLine("  routeAccessHandlers = ${name}RouteAccessHandlers(")
-      application.routes.filter { it.generateAccessHandler }.forEach { route ->
+      application.routes.filter { it.generateAccessHandler }.forEachIndexed { index, route ->
         val routePackage = "generated.${application.id}"
-        appendLine("    object : $routePackage.${route.id}AccessHandler() {")
-        appendLine("      override fun evaluate(request: $routePackage.${route.id}Request): AccessDecision = AccessDecision.Allowed")
-        appendLine("    },")
+        if (index % 2 == 0) {
+          appendLine("    $routePackage.${route.id}AccessHandler { AccessDecision.Allowed },")
+        } else {
+          appendLine("    object : $routePackage.${route.id}AccessHandler() {")
+          appendLine("      override fun evaluate(request: $routePackage.${route.id}Request): AccessDecision = AccessDecision.Allowed")
+          appendLine("    },")
+        }
       }
       appendLine("  ),")
       appendLine("  htmlRenderer = HtmlRenderer { application -> \"<h1>${'$'}{application.name}</h1>\" }")
@@ -137,7 +141,7 @@ class GeneratedQueryApiTest {
   }
 
   @Test
-  fun `generated access handlers compile decode typed requests and reject wrong request types`() = withGeneratedRoutes { output ->
+  fun `generated access handlers support lambdas and subclasses with typed requests`() = withGeneratedRoutes { output ->
     assertFalse(Files.exists(output.resolve("server/accesstest/PublicAccessHandler.kt")))
     assertFalse(Files.exists(output.resolve("server/accesstest/PublicRequest.kt")))
     val sources = Files.walk(output.resolve("server")).use { files ->
@@ -152,17 +156,37 @@ class GeneratedQueryApiTest {
       assertEquals("access verified", loader.loadClass("AccessUsageKt").getMethod("verifyAccess").invoke(null))
     }
 
-    val invalid = output.resolve("WrongAccess.kt")
-    invalid.writeText("""
-      import com.sparouting.contract.AccessDecision
-      import generated.accesstest.*
-      class WrongAccess : PostAccessHandler() {
-        override fun evaluate(request: StartRequest): AccessDecision = AccessDecision.Allowed
+    val failures = mapOf(
+      "WrongAccess" to """
+        class WrongAccess : PostAccessHandler() {
+          override fun evaluate(request: StartRequest): AccessDecision = AccessDecision.Allowed
+        }
+      """.trimIndent(),
+      "WrongLambdaRequest" to """
+        val wrongRequest = PostAccessHandler { request: StartRequest -> AccessDecision.Allowed }
+      """.trimIndent(),
+      "WrongLambdaDecision" to """
+        val wrongDecision = PostAccessHandler { request -> request.postId }
+      """.trimIndent(),
+      "WrongLambdaHandler" to """
+        val wrongHandler = generated.ConfigTestRouteAccessHandlers(
+          post = StartAccessHandler { AccessDecision.Allowed },
+          `class` = generated.configtest.ClassAccessHandler { AccessDecision.Allowed },
+          handlers = generated.configtest.HandlersAccessHandler { AccessDecision.Allowed }
+        )
+      """.trimIndent()
+    ).map { (name, source) ->
+      output.resolve("$name.kt").also {
+        it.writeText("""
+          import com.sparouting.contract.AccessDecision
+          import generated.accesstest.*
+          $source
+        """.trimIndent())
       }
-    """.trimIndent())
-    val (failureResult, errors) = compileKotlin(listOf(invalid), output.resolve("invalid-access"), classes)
+    }
+    val (failureResult, errors) = compileKotlin(failures, output.resolve("invalid-access"), classes)
     assertEquals(ExitCode.COMPILATION_ERROR, failureResult, errors)
-    assertContains(errors, "WrongAccess")
+    failures.forEach { assertContains(errors, it.fileName.toString(), message = errors) }
   }
 
   @Test

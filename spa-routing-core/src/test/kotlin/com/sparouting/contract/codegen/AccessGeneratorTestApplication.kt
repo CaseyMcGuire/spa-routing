@@ -14,6 +14,12 @@ object AccessGeneratorTestApplication : SinglePageApplicationDefinition {
     route("start", "Start", generateAccessHandler = true),
     route("route", "Route", generateAccessHandler = true),
     route("target", "RouteTarget", generateAccessHandler = true),
+    route("companion", "Companion", generateAccessHandler = true),
+    route(
+      "decision", "AccessDecision",
+      queryString = listOf(parameter("q")),
+      generateAccessHandler = true
+    ),
     route(
       "context", "RouteAccessContext",
       queryString = listOf(parameter("q")),

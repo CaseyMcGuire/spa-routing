@@ -70,6 +70,27 @@ val config = BlogApplicationConfig(
 
 This wiring is plain Kotlin and works with manual construction or any DI container.
 
+Generated route access handlers also accept lambdas:
+
+```kotlin
+val handlers = BlogRouteAccessHandlers(
+  post = PostAccessHandler { request ->
+    if (posts.find(request.postId) != null) {
+      AccessDecision.Allowed
+    } else {
+      AccessDecision.Denied(destination = BlogRoutes.NotFound())
+    }
+  },
+  editPost = checkEditPostAccess
+)
+```
+
+The lambda's `request` is inferred as `PostRequest`, including its typed path and
+query-string values and request context. A generated companion factory wraps the
+lambda in the same handler type used by subclasses, so both styles can be mixed
+in the collection. Every gated route still requires its matching handler.
+Regenerate server sources to get these factories.
+
 Spring and Ktor construct the evaluator internally from the supplied configs.
 When writing another adapter, construct one evaluator for all applications and
 reuse it for page requests and navigation checks:

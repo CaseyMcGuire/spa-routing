@@ -10,23 +10,25 @@ fun verifyAccess(): String {
     queryString = mapOf("q" to listOf("hello + 雪"), "tag" to listOf("one", "two"), "extra" to listOf("raw")),
     headers = mapOf("X-User" to listOf("casey"))
   )
-  val post = object : PostAccessHandler() {
-    override fun evaluate(request: PostRequest): AccessDecision {
-      val postId: String = request.postId
-      val q: String = request.queryString.q
-      val tags: List<String> = request.queryString.tag
-      val sort: String? = request.queryString.sort
-      val filter: List<String>? = request.queryString.filter
-      check(postId == "42" && q == "hello + 雪" && tags == listOf("one", "two"))
-      check(sort == null && filter == null)
-      check(request.context.header("x-user") == listOf("casey"))
-      check(request.context.queryString["extra"] == listOf("raw"))
-      return AccessDecision.Denied(destination = Public())
-    }
+  var evaluations = 0
+  val post = PostAccessHandler { request ->
+    evaluations++
+    val postId: String = request.postId
+    val q: String = request.queryString.q
+    val tags: List<String> = request.queryString.tag
+    val sort: String? = request.queryString.sort
+    val filter: List<String>? = request.queryString.filter
+    check(postId == "42" && q == "hello + 雪" && tags == listOf("one", "two"))
+    check(sort == null && filter == null)
+    check(request.context.header("x-user") == listOf("casey"))
+    check(request.context.queryString["extra"] == listOf("raw"))
+    AccessDecision.Denied(destination = Public())
   }
+  check(evaluations == 0)
   check(post.route === Post)
   check(post.evaluateRequest(context) == AccessDecision.Denied(destination = Public()))
   check(post.evaluateRequest(context.copy(queryString = context.queryString + ("sort" to emptyList()))) == AccessDecision.Denied(destination = Public()))
+  check(evaluations == 2)
 
   val start = object : StartAccessHandler() {
     override fun evaluate(request: StartRequest): AccessDecision {
@@ -36,12 +38,10 @@ fun verifyAccess(): String {
   }
   check(start.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allowed)
 
-  val optional = object : OptionalAccessHandler() {
-    override fun evaluate(request: OptionalRequest): AccessDecision {
-      val id: String? = request.id
-      check(id == null)
-      return AccessDecision.Allowed
-    }
+  val optional = OptionalAccessHandler { request ->
+    val id: String? = request.id
+    check(id == null)
+    AccessDecision.Allowed
   }
   check(optional.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allowed)
 
@@ -76,5 +76,15 @@ fun verifyAccess(): String {
   }
   check(contextHandler.route === generated.accesstest.RouteAccessContext)
   check(contextHandler.evaluateRequest(context) == AccessDecision.Allowed)
+
+  val decisionHandler = AccessDecisionAccessHandler { request ->
+    check(request.queryString.q == "hello + 雪")
+    AccessDecision.Allowed
+  }
+  check(decisionHandler.route === generated.accesstest.AccessDecision)
+  check(decisionHandler.evaluateRequest(context) == AccessDecision.Allowed)
+  val companionHandler = CompanionAccessHandler { AccessDecision.Allowed }
+  check(companionHandler.route === generated.accesstest.Companion)
+  check(companionHandler.evaluateRequest(context) == AccessDecision.Allowed)
   return "access verified"
 }
