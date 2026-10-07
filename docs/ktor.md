@@ -7,11 +7,13 @@ choose the server engine, JSON converter, and asset serving.
 
 ## Dependencies
 
+This guide targets unreleased `0.5.0-SNAPSHOT`; see the [local installation instructions](../README.md#install).
+
 The adapter targets Ktor 3.6.0 and JDK 21. For example, using Netty and Jackson:
 
 ```kotlin
 dependencies {
-  implementation("com.sparouting:spa-routing-ktor:0.3.0")
+  implementation("io.github.caseymcguire:spa-routing-ktor:0.5.0-SNAPSHOT")
   implementation(platform("io.ktor:ktor-bom:3.6.0"))
   implementation("io.ktor:ktor-server-netty")
   implementation("io.ktor:ktor-server-content-negotiation")
@@ -30,6 +32,7 @@ as described in the [runtime guide](runtime.md), then pass the configs to the ad
 ```kotlin
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.ktor.singlePageApplicationRoutes
+import com.sparouting.runtime.evaluation.RouteFailureHandler
 import io.ktor.serialization.jackson.jackson
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -37,12 +40,12 @@ import io.ktor.server.http.content.staticResources
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.routing
 
-fun Application.registerApplications(configs: List<SinglePageApplicationConfig>) {
+fun Application.registerApplications(configs: List<SinglePageApplicationConfig>, failureHandler: RouteFailureHandler) {
   install(ContentNegotiation) {
     jackson()
   }
   routing {
-    singlePageApplicationRoutes(configs = configs)
+    singlePageApplicationRoutes(configs = configs, failureHandler = failureHandler)
     staticResources("/bundles", "static/bundles")
   }
 }
@@ -57,30 +60,29 @@ would change URLs without updating generated client URLs or denial destinations.
 
 The evaluator validates access-handler registration at startup and handles request
 validation, application access, route access, and destination resolution. It returns
-a `RouteResult`; the shared HTTP converter maps that result for the adapter. Access handlers
-remain synchronous. The optional
-`invalidRequestStatus` argument defaults to `400` and configures the default
-converter for path and query validation failures on pages and navigation decisions.
+a `RouteResult`. The required `RouteFailureHandler` supplies recovery destinations for
+unknown routes and invalid requests, shared by pages and client navigation. See
+[recovery configuration](runtime.md#configure-recovery-destinations). Handlers remain synchronous.
 
 Install content negotiation with a converter capable of serializing the plain
-Kotlin `RouteHttpResponse` model, such as Jackson. The adapter does not install
+Kotlin `RouteResult` variants, such as Jackson. The adapter does not install
 a converter or add serialization annotations to core/runtime models.
 
 ## Customize HTTP responses
 
 Pass a framework-neutral `RouteHttpResponseConverter` to replace the default
-status/location/reason mapping for both pages and navigation JSON:
+status/location mapping for page responses:
 
 ```kotlin
 singlePageApplicationRoutes(
   configs = configs,
+  failureHandler = failureHandler,
   responseConverter = myResponseConverter
 )
 ```
 
-See [custom HTTP conversion](runtime.md#customize-http-conversion) for an implementation
-that redirects invalid requests. An explicit converter owns its status configuration;
-`invalidRequestStatus` only configures the default.
+See [custom HTTP conversion](runtime.md#customize-http-conversion). Navigation JSON
+serializes the semantic result directly and does not invoke this converter.
 
 ## Configure the decision endpoint
 
@@ -90,6 +92,7 @@ The shared navigation endpoint defaults to `/__spa/route-decision`. Set
 ```kotlin
 singlePageApplicationRoutes(
   configs = configs,
+  failureHandler = failureHandler,
   routeDecisionPath = "/internal/navigation"
 )
 ```
@@ -101,8 +104,8 @@ Page route paths are unaffected.
 ## Page and navigation responses
 
 With the default converter, an allowed request receives HTML from the matching
-config's `htmlRenderer`. A denial produces an HTTP `302` with its destination in a
-`Location` header. Validation failures use the configured invalid-request status.
+config's `htmlRenderer`. Every failure produces an HTTP `302` with its configured
+destination in a `Location` header.
 Unregistered URLs retain Ktor's normal routing behavior.
 
 Rendering requires an `Allowed` result converted to `200` without a location.
@@ -123,8 +126,8 @@ describes the target page outcome:
 
 ```json
 {
-  "statusCode": 302,
-  "location": "/not-found",
+  "type": "denied",
+  "destination": "/not-found",
   "reason": {"code": "post_not_found", "message": "That post could not be found."}
 }
 ```

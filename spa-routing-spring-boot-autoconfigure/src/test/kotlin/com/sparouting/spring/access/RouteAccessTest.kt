@@ -1,5 +1,6 @@
 package com.sparouting.spring.access
 
+import com.sparouting.spring.testsupport.TestNavigationConfiguration
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
@@ -111,7 +112,7 @@ class RouteAccessTest {
         header("X-Permission", "read", "edit")
       }.andExpect {
         status { isOk() }
-        jsonPath("$.statusCode") { value(200) }
+        jsonPath("$.type") { value("allowed") }
       }
       assertThat(applicationRequests).hasSize(2)
       assertThat(applicationRequests[0]).isEqualTo(applicationRequests[1])
@@ -142,8 +143,8 @@ class RouteAccessTest {
         param("parameters.id", "missing")
       }.andExpect {
         status { isOk() }
-        jsonPath("$.statusCode") { value(302) }
-        jsonPath("$.location") { value("/test/missing?from=post+access") }
+        jsonPath("$.type") { value("denied") }
+        jsonPath("$.destination") { value("/test/missing?from=post+access") }
         jsonPath("$.reason.code") { value(postDenialReason.code) }
         jsonPath("$.reason.message") { value(postDenialReason.message) }
       }
@@ -152,17 +153,17 @@ class RouteAccessTest {
 
       mockMvc.get("/test/posts/42") {
         param("view", "one", "two")
-      }.andExpect { status { isBadRequest() } }
+      }.andExpect { status { isFound() } }
       mockMvc.get("/__spa/route-decision") {
         param("applicationId", "test")
         param("routeId", "Post")
         param("parameters.id", "42")
         param("queryString.view", "one", "two")
-      }.andExpect { jsonPath("$.statusCode") { value(400) } }
+      }.andExpect { jsonPath("$.type") { value("invalid_request") } }
       mockMvc.get("/__spa/route-decision") {
         param("applicationId", "test")
         param("routeId", "Post")
-      }.andExpect { jsonPath("$.statusCode") { value(400) } }
+      }.andExpect { jsonPath("$.type") { value("invalid_request") } }
       assertThat(handler.requests).hasSize(4)
       assertThat(applicationRequests).hasSize(4)
 
@@ -197,8 +198,8 @@ class RouteAccessTest {
           param("routeId", "Post")
           param("parameters.id", "42")
         }.andExpect {
-          jsonPath("$.statusCode") { value(302) }
-          jsonPath("$.location") { value("/test/missing") }
+          jsonPath("$.type") { value("denied") }
+          jsonPath("$.destination") { value("/test/missing") }
           jsonPath("$.reason.code") { value(applicationDenialReason.code) }
           jsonPath("$.reason.message") { value(applicationDenialReason.message) }
         }
@@ -209,6 +210,7 @@ class RouteAccessTest {
   private fun runner(config: SinglePageApplicationConfig = config()): WebApplicationContextRunner {
     return WebApplicationContextRunner()
       .withConfiguration(AutoConfigurations.of(RoutingAutoConfiguration::class.java))
+    .withUserConfiguration(TestNavigationConfiguration::class.java)
       .withBean(SinglePageApplicationConfig::class.java, Supplier { config })
   }
 

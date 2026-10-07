@@ -1,7 +1,9 @@
 package com.sparouting.ktor
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
+import com.fasterxml.jackson.databind.JsonNode
+import com.sparouting.runtime.evaluation.DefaultRouteFailureHandler
+import com.sparouting.runtime.evaluation.RouteFailureHandler
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.ApplicationAccessHandler
@@ -61,7 +63,7 @@ class SinglePageApplicationRoutesTest {
       assertEquals(ContentType.Text.Html, page.contentType()?.withoutParameters())
       assertEquals("<h1>${config.id}: ${config.name}</h1>", page.bodyAsText())
       assertEquals(
-        RouteHttpResponse(statusCode = 200),
+        jsonResult(RouteResult.Allowed),
         client.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home").decision()
       )
     }
@@ -91,7 +93,7 @@ class SinglePageApplicationRoutesTest {
       assertContains(page.bodyAsText(), "/assets/${config.bundleName}.bundle.js")
 
       val decision = client.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home")
-      assertEquals(RouteHttpResponse(statusCode = 200), decision.decision())
+      assertEquals(jsonResult(RouteResult.Allowed), decision.decision())
     }
     assertEquals(listOf("one", "one", "two", "two"), requests.map { it.applicationId })
     assertEquals(HttpStatusCode.NotFound, client.get("/unknown").status)
@@ -105,7 +107,7 @@ class SinglePageApplicationRoutesTest {
     }
 
     val decision = client.get("/internal/navigation?applicationId=app&routeId=Home")
-    assertEquals(RouteHttpResponse(statusCode = 200), decision.decision())
+    assertEquals(jsonResult(RouteResult.Allowed), decision.decision())
     assertEquals(
       HttpStatusCode.NotFound,
       client.get("/__spa/route-decision?applicationId=app&routeId=Home").status
@@ -149,7 +151,7 @@ class SinglePageApplicationRoutesTest {
       headers.append("X-Group", "one")
       headers.append("X-Group", "two")
     }
-    assertEquals(RouteHttpResponse(statusCode = 200), decision.decision())
+    assertEquals(jsonResult(RouteResult.Allowed), decision.decision())
     assertEquals(2, requests.size)
     requests.forEach { request ->
       assertEquals("app", request.applicationId)
@@ -163,33 +165,33 @@ class SinglePageApplicationRoutesTest {
   }
 
   @Test
-  fun `validation and unknown routes return the correct HTTP and decision statuses`() = testApplication {
-    val requests = mutableListOf<RouteRequest>()
+  fun `validation and lookup failures always carry a recovery destination`() = testApplication {
     val config = TestConfig(
-      routes = listOf(RouteManifest(
-        path = "/app/users/{id}",
-        id = "User",
-        queryString = listOf(parameter("q"))
-      )),
+      routes = listOf(RouteManifest("/app/users/{id}", "User", queryString = listOf(parameter("q")))),
       htmlRenderer = HtmlRenderer { error("Invalid requests must not render HTML") },
-      evaluateApplication = { request ->
-        requests.add(request)
-        AccessDecision.Allowed
-      }
+      evaluateApplication = { error("Invalid requests must not reach access handlers") }
     )
-    application {
-      installRoutes(listOf(config), invalidRequestStatus = 422)
+    application { installRoutes(listOf(config)) }
+    val http = createClient { followRedirects = false }
+    for (path in listOf("/app/users/1?q=one&q=two", "/app/users/1")) {
+      val page = http.get(path)
+      assertEquals(HttpStatusCode.Found, page.status)
+      assertEquals("/errors/invalid-request", page.headers[HttpHeaders.Location])
+      assertEquals("", page.bodyAsText())
     }
-
-    assertEquals(HttpStatusCode.UnprocessableEntity, client.get("/app/users/1?q=one&q=two").status)
-    assertEquals(HttpStatusCode.UnprocessableEntity, client.get("/app/users/1").status)
     val prefix = "/__spa/route-decision?applicationId=app&routeId=User"
-    assertEquals(422, client.get("$prefix&parameters.id=1&queryString.q=one&queryString.q=two").decision().statusCode)
-    assertEquals(422, client.get("$prefix&parameters.id=1").decision().statusCode)
-    assertEquals(422, client.get("$prefix&queryString.q=one").decision().statusCode)
-    assertEquals(404, client.get("/__spa/route-decision?applicationId=missing&routeId=User").decision().statusCode)
-    assertEquals(404, client.get("/__spa/route-decision?applicationId=app&routeId=missing").decision().statusCode)
-    assertTrue(requests.isEmpty())
+    for (query in listOf("&parameters.id=1&queryString.q=one&queryString.q=two", "&parameters.id=1", "&queryString.q=one")) {
+      val decision = http.get(prefix + query).decision()
+      assertEquals("invalid_request", decision["type"].asText())
+      assertEquals("/errors/invalid-request", decision["destination"].asText())
+      assertEquals("invalid_request", decision["reason"]["code"].asText())
+    }
+    for (query in listOf("applicationId=missing&routeId=User", "applicationId=app&routeId=missing")) {
+      val decision = http.get("/__spa/route-decision?$query").decision()
+      assertEquals("unknown_route", decision["type"].asText())
+      assertEquals("/errors/not-found", decision["destination"].asText())
+      assertEquals("unknown_route", decision["reason"]["code"].asText())
+    }
   }
 
   @Test
@@ -199,15 +201,16 @@ class SinglePageApplicationRoutesTest {
       evaluateApplication = { error("Invalid requests must not reach access handlers") },
       htmlRenderer = HtmlRenderer { error("Only Allowed may render HTML") }
     )
-    application { installRoutes(listOf(config), invalidRequestStatus = 200) }
+    application {
+      installRoutes(listOf(config), responseConverter = RouteHttpResponseConverter { _, _ -> RouteHttpResponse(200) })
+    }
 
     val page = client.get("/app")
     assertEquals(HttpStatusCode.OK, page.status)
     assertEquals("", page.bodyAsText())
-    assertEquals(
-      RouteHttpResponse(statusCode = 200),
-      client.get("/__spa/route-decision?applicationId=app&routeId=Home").decision()
-    )
+    val decision = client.get("/__spa/route-decision?applicationId=app&routeId=Home").decision()
+    assertEquals("invalid_request", decision["type"].asText())
+    assertEquals("/errors/invalid-request", decision["destination"].asText())
   }
 
   @Test
@@ -257,11 +260,10 @@ class SinglePageApplicationRoutesTest {
         }
       }
       assertEquals(
-        RouteHttpResponse(
-          statusCode = 302,
-          location = "/login",
+        jsonResult(RouteResult.Denied(
+          destination = "/login",
           reason = if (authenticated) routeReason else applicationReason
-        ),
+        )),
         decision.decision()
       )
       assertEquals(if (authenticated) 2 else 0, routeChecks.size)
@@ -271,32 +273,24 @@ class SinglePageApplicationRoutesTest {
   }
 
   @Test
-  fun `custom response converter handles failures for both endpoints with caller data`() = testApplication {
+  fun `custom failure handler supplies the same recovery outcome for pages and navigation`() = testApplication {
     val requests = mutableListOf<RouteRequest>()
-    val results = mutableListOf<RouteResult>()
     val reason = DenialReason(code = "invalid_route", message = "Choose a valid route.")
-    val defaults = DefaultRouteHttpResponseConverter()
-    val converter = RouteHttpResponseConverter { request, result ->
-      requests.add(request)
-      results.add(result)
-      when (result) {
-        RouteResult.InvalidRequest -> RouteHttpResponse(
-          statusCode = 303,
-          location = "/home",
-          reason = reason
-        )
-        RouteResult.UnknownRoute -> RouteHttpResponse(statusCode = 410)
-        else -> defaults.convert(request, result)
+    val handler = object : RouteFailureHandler {
+      override fun unknownRoute(request: RouteRequest): AccessDecision.Denied = defaultFailureHandler.unknownRoute(request)
+      override fun invalidRequest(request: RouteRequest): AccessDecision.Denied {
+        requests.add(request)
+        return AccessDecision.Denied(reason = reason, destination = RouteTarget("app", "Home"))
       }
     }
-    val config = TestConfig(
-      routes = listOf(RouteManifest("/app/users/{id}", "User", queryString = listOf(parameter("q"))))
-    )
-    application { installRoutes(listOf(config), responseConverter = converter) }
+    val config = TestConfig(routes = listOf(
+      RouteManifest("/app/users/{id}", "User", queryString = listOf(parameter("q"))),
+      RouteManifest("/home", "Home")
+    ))
+    application { installRoutes(listOf(config), failureHandler = handler) }
     val http = createClient { followRedirects = false }
-
     val page = http.get("/app/users/42?q=one&q=two") { header("X-User", "reader") }
-    assertEquals(HttpStatusCode.SeeOther, page.status)
+    assertEquals(HttpStatusCode.Found, page.status)
     assertEquals("/home", page.headers[HttpHeaders.Location])
     assertEquals("", page.bodyAsText())
     val decision = http.get("/__spa/route-decision") {
@@ -309,7 +303,7 @@ class SinglePageApplicationRoutesTest {
       }
       header("X-User", "reader")
     }
-    assertEquals(RouteHttpResponse(statusCode = 303, location = "/home", reason = reason), decision.decision())
+    assertEquals(jsonResult(RouteResult.InvalidRequest(reason = reason, destination = "/home")), decision.decision())
     assertEquals(2, requests.size)
     requests.forEach { request ->
       assertEquals("app", request.applicationId)
@@ -318,17 +312,7 @@ class SinglePageApplicationRoutesTest {
       assertEquals(mapOf("q" to listOf("one", "two")), request.queryString)
       assertEquals(listOf("reader"), request.header("X-User"))
     }
-    assertEquals(listOf<RouteResult>(RouteResult.InvalidRequest, RouteResult.InvalidRequest), results)
-
-    assertEquals(
-      RouteHttpResponse(statusCode = 303, location = "/home", reason = reason),
-      http.get("/__spa/route-decision?applicationId=app&routeId=User").decision()
-    )
-    assertEquals(
-      RouteHttpResponse(statusCode = 410),
-      http.get("/__spa/route-decision?applicationId=missing&routeId=User").decision()
-    )
-    assertEquals(HttpStatusCode.OK, http.get("/app/users/42?q=valid").status)
+    assertEquals(HttpStatusCode.OK, http.get("/home").status)
   }
 
   @Test
@@ -345,6 +329,10 @@ class SinglePageApplicationRoutesTest {
             response
           })
         }
+        assertEquals(
+          jsonResult(RouteResult.Allowed),
+          client.get("/__spa/route-decision?applicationId=app&routeId=Home").decision()
+        )
         val page = createClient { followRedirects = false }.get("/app")
         assertEquals(response.statusCode, page.status.value)
         assertEquals(response.location, page.headers[HttpHeaders.Location])
@@ -355,30 +343,49 @@ class SinglePageApplicationRoutesTest {
 
   private fun Application.installRoutes(
     configs: List<SinglePageApplicationConfig>,
-    invalidRequestStatus: Int = 400,
+    failureHandler: RouteFailureHandler = defaultFailureHandler,
     routeDecisionPath: String = "/__spa/route-decision",
-    responseConverter: RouteHttpResponseConverter = DefaultRouteHttpResponseConverter(
-      invalidRequestStatus = invalidRequestStatus
-    )
+    responseConverter: RouteHttpResponseConverter = DefaultRouteHttpResponseConverter()
   ) {
     install(ContentNegotiation) { jackson() }
     routing {
       singlePageApplicationRoutes(
-        configs = configs,
+        configs = configs + TestConfig(id = "errors", routes = listOf(
+          RouteManifest("/errors/not-found", "NotFound"), RouteManifest("/errors/invalid-request", "Invalid")
+        )),
         routeDecisionPath = routeDecisionPath,
-        invalidRequestStatus = invalidRequestStatus,
+        failureHandler = failureHandler,
         responseConverter = responseConverter
       )
     }
   }
 
-  private suspend fun HttpResponse.decision(): RouteHttpResponse {
+  private suspend fun HttpResponse.decision(): JsonNode {
     assertEquals(HttpStatusCode.OK, status)
     assertEquals(ContentType.Application.Json, contentType()?.withoutParameters())
     assertEquals("no-store", headers[HttpHeaders.CacheControl])
     assertNull(headers[HttpHeaders.Location])
-    return jacksonObjectMapper().readValue(bodyAsText())
+    val body = jacksonObjectMapper().readTree(bodyAsText())
+    assertTrue(body["type"].asText() in listOf("allowed", "denied", "unknown_route", "invalid_request"))
+    assertTrue(!body.has("statusCode"))
+    assertTrue(!body.has("location"))
+    if (body["type"].asText() == "allowed") {
+      assertTrue(!body.has("destination"))
+      assertTrue(!body.has("reason"))
+    } else {
+      assertTrue(body["destination"].asText().isNotBlank())
+      assertTrue(body["reason"]["code"].asText().isNotBlank())
+      assertTrue(body["reason"]["message"].asText().isNotBlank())
+    }
+    return body
   }
+
+  private fun jsonResult(result: RouteResult): JsonNode = jacksonObjectMapper().valueToTree(result)
+
+  private val defaultFailureHandler = DefaultRouteFailureHandler(
+    unknownRouteDestination = RouteTarget("errors", "NotFound"),
+    invalidRequestDestination = RouteTarget("errors", "Invalid")
+  )
 
   private class TestConfig(
     override val id: String = "app",

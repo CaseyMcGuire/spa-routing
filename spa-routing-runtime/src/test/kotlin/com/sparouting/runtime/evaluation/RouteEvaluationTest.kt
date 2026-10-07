@@ -1,5 +1,8 @@
 package com.sparouting.runtime.evaluation
 
+import com.sparouting.runtime.testsupport.invalidRequestResult
+import com.sparouting.runtime.testsupport.unknownRouteResult
+import com.sparouting.runtime.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
@@ -31,10 +34,10 @@ class RouteEvaluationTest {
   fun `requests are validated before invoking either access handler`() {
     val runtime = Runtime()
     val invalidRequests = listOf(
-      routeRequest.copy(pathParameters = emptyMap()) to RouteResult.InvalidRequest,
-      routeRequest.copy(pathParameters = mapOf("id" to "42", "extra" to "value")) to RouteResult.InvalidRequest,
-      routeRequest.copy(queryString = mapOf("view" to listOf("one", "two"))) to RouteResult.InvalidRequest,
-      routeRequest.copy(routeId = "Unknown") to RouteResult.UnknownRoute
+      routeRequest.copy(pathParameters = emptyMap()) to invalidRequestResult,
+      routeRequest.copy(pathParameters = mapOf("id" to "42", "extra" to "value")) to invalidRequestResult,
+      routeRequest.copy(queryString = mapOf("view" to listOf("one", "two"))) to invalidRequestResult,
+      routeRequest.copy(routeId = "Unknown") to unknownRouteResult
     )
 
     for ((request, expectedResult) in invalidRequests) {
@@ -55,7 +58,7 @@ class RouteEvaluationTest {
         queryString = mapOf("from" to listOf("application"))
       )
     ))
-    val expected = RouteResult.Denied(reason = denialReason, destinationUrl = "/test/missing?from=application")
+    val expected = RouteResult.Denied(reason = denialReason, destination = "/test/missing?from=application")
 
     assertEquals(expected, runtime.evaluator.evaluate(routeRequest))
     assertEquals(1, runtime.applicationRequests.size)
@@ -82,7 +85,7 @@ class RouteEvaluationTest {
   fun `typed denial destinations from handlers are resolved`() {
     val runtime = Runtime()
     val request = routeRequest.copy(pathParameters = mapOf("id" to "missing"))
-    val expected = RouteResult.Denied(reason = denialReason, destinationUrl = "/test/missing?from=post+access")
+    val expected = RouteResult.Denied(reason = denialReason, destination = "/test/missing?from=post+access")
 
     assertEquals(expected, runtime.evaluator.evaluate(request))
   }
@@ -116,7 +119,7 @@ class RouteEvaluationTest {
         )
       }
     }
-    val evaluator = RouteRequestEvaluator(
+    val evaluator = testEvaluator(
       configs = listOf(config.copy(
         applicationAccessHandler = applicationHandler,
         routeAccessHandlers = routeAccessHandlers(handler)

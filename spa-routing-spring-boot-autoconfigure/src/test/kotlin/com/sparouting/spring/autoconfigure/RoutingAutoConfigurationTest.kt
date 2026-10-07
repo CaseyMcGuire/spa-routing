@@ -1,5 +1,13 @@
 package com.sparouting.spring.autoconfigure
 
+import com.sparouting.runtime.evaluation.RouteRequestEvaluator
+import com.sparouting.runtime.evaluation.RouteFailureHandler
+import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteTarget
+import com.sparouting.spring.testsupport.unknownRouteResult
+import com.sparouting.spring.testsupport.testFailureHandler
+import com.sparouting.spring.testsupport.TestNavigationConfiguration
+import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.ApplicationAccessHandler
 import com.sparouting.contract.DenialReason
@@ -7,7 +15,6 @@ import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.parameter
-import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.runtime.evaluation.RouteResult
 import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
 import com.sparouting.runtime.response.RouteHttpResponse
@@ -31,13 +38,14 @@ import org.springframework.web.servlet.function.RouterFunction
 class RoutingAutoConfigurationTest {
   private val contextRunner = WebApplicationContextRunner()
     .withConfiguration(AutoConfigurations.of(RoutingAutoConfiguration::class.java))
+    .withUserConfiguration(TestNavigationConfiguration::class.java)
     .withUserConfiguration(TestRouteConfiguration::class.java)
 
   @Test
   fun `default HTTP beans are created without exposing runtime internals`() {
     contextRunner.run { context ->
       assertThat(context).hasSingleBean(ApplicationAccessHandler::class.java)
-      assertThat(context.getBean(SinglePageApplicationConfig::class.java).applicationAccessHandler)
+      assertThat(context.getBeansOfType(SinglePageApplicationConfig::class.java).values.single { it.id == "test" }.applicationAccessHandler)
         .isSameAs(context.getBean(ApplicationAccessHandler::class.java))
       assertThat(context).doesNotHaveBean("singlePageApplicationRouteRegistry")
       assertThat(context).doesNotHaveBean("routeAccessEvaluator")
@@ -54,17 +62,17 @@ class RoutingAutoConfigurationTest {
   @Test
   fun `an application evaluator bean does not replace built-in route evaluation`() {
     contextRunner
-      .withBean(RouteRequestEvaluator::class.java, Supplier { RouteRequestEvaluator(emptyList()) })
+      .withBean(RouteRequestEvaluator::class.java, Supplier { testEvaluator(emptyList()) })
       .run { context ->
         assertThat(context.getBean(RouteRequestEvaluator::class.java).evaluate(RouteRequest("test", "Home")))
-          .isEqualTo(RouteResult.UnknownRoute)
+          .isEqualTo(unknownRouteResult)
         val mockMvc = MockMvcBuilders.routerFunctions(
           *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
         ).build()
         mockMvc.get("/test/home").andExpect { status { isOk() } }
         mockMvc.get("/__spa/route-decision?applicationId=test&routeId=Home").andExpect {
           status { isOk() }
-          jsonPath("$.statusCode") { value(200) }
+          jsonPath("$.type") { value("allowed") }
         }
       }
   }
@@ -85,6 +93,7 @@ class RoutingAutoConfigurationTest {
     }
     WebApplicationContextRunner()
       .withConfiguration(AutoConfigurations.of(RoutingAutoConfiguration::class.java))
+    .withUserConfiguration(TestNavigationConfiguration::class.java)
       .withBean("firstConfig", SinglePageApplicationConfig::class.java, Supplier { configs[0] })
       .withBean("secondConfig", SinglePageApplicationConfig::class.java, Supplier { configs[1] })
       .run { context ->
@@ -101,7 +110,7 @@ class RoutingAutoConfigurationTest {
           }
           mockMvc.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home").andExpect {
             status { isOk() }
-            jsonPath("$.statusCode") { value(200) }
+            jsonPath("$.type") { value("allowed") }
           }
         }
         assertThat(rendered).containsExactly("one", "two")
@@ -120,38 +129,26 @@ class RoutingAutoConfigurationTest {
   }
 
   @Test
-  fun `custom response converter handles failures for both endpoints with caller data`() {
+  fun `custom failure handler supplies the same recovery outcome for pages and navigation`() {
     val requests = mutableListOf<RouteRequest>()
-    val results = mutableListOf<RouteResult>()
     val reason = DenialReason(code = "invalid_route", message = "Choose a valid route.")
-    val defaults = DefaultRouteHttpResponseConverter()
-    val converter = RouteHttpResponseConverter { request, result ->
-      requests.add(request)
-      results.add(result)
-      when (result) {
-        RouteResult.InvalidRequest -> RouteHttpResponse(
-          statusCode = 303,
-          location = "/test/home",
-          reason = reason
-        )
-        RouteResult.UnknownRoute -> RouteHttpResponse(statusCode = 410)
-        else -> defaults.convert(request, result)
+    val handler = object : RouteFailureHandler {
+      override fun unknownRoute(request: RouteRequest): AccessDecision.Denied = testFailureHandler.unknownRoute(request)
+      override fun invalidRequest(request: RouteRequest): AccessDecision.Denied {
+        requests.add(request)
+        return AccessDecision.Denied(reason = reason, destination = RouteTarget("test", "Home"))
       }
     }
-
-    contextRunner.withBean(RouteHttpResponseConverter::class.java, Supplier { converter }).run { context ->
-      assertThat(context).hasSingleBean(RouteHttpResponseConverter::class.java)
-      assertThat(context).doesNotHaveBean(DefaultRouteHttpResponseConverter::class.java)
-      assertThat(context.getBean(RouteHttpResponseConverter::class.java)).isSameAs(converter)
+    contextRunner.withBean(RouteFailureHandler::class.java, Supplier { handler }).run { context ->
+      assertThat(context).hasSingleBean(RouteFailureHandler::class.java)
       val mockMvc = MockMvcBuilders.routerFunctions(
         *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
       ).build()
-
       mockMvc.get("/test/users/42") {
         param("q", "one", "two")
         header("X-User", "reader")
       }.andExpect {
-        status { isSeeOther() }
+        status { isFound() }
         header { string("Location", "/test/home") }
         content { string("") }
       }
@@ -167,10 +164,12 @@ class RoutingAutoConfigurationTest {
           string("Cache-Control", "no-store")
           doesNotExist("Location")
         }
-        jsonPath("$.statusCode") { value(303) }
-        jsonPath("$.location") { value("/test/home") }
+        jsonPath("$.type") { value("invalid_request") }
+        jsonPath("$.destination") { value("/test/home") }
         jsonPath("$.reason.code") { value(reason.code) }
         jsonPath("$.reason.message") { value(reason.message) }
+        jsonPath("$.statusCode") { doesNotExist() }
+        jsonPath("$.location") { doesNotExist() }
       }
       assertThat(requests).hasSize(2)
       assertThat(requests[0]).isEqualTo(requests[1])
@@ -181,18 +180,12 @@ class RoutingAutoConfigurationTest {
         queryString = mapOf("q" to listOf("one", "two")),
         headers = mapOf("X-User" to listOf("reader"))
       ))
-      assertThat(results).containsExactly(RouteResult.InvalidRequest, RouteResult.InvalidRequest)
-
-      mockMvc.get("/__spa/route-decision?applicationId=test&routeId=User").andExpect {
-        status { isOk() }
-        jsonPath("$.statusCode") { value(303) }
-        jsonPath("$.location") { value("/test/home") }
-      }
       mockMvc.get("/__spa/route-decision?applicationId=missing&routeId=Home").andExpect {
         status { isOk() }
-        jsonPath("$.statusCode") { value(410) }
+        jsonPath("$.type") { value("unknown_route") }
+        jsonPath("$.destination") { value("/errors/not-found") }
+        jsonPath("$.reason.code") { value("unknown_route") }
       }
-      mockMvc.get("/test/home").andExpect { status { isOk() } }
     }
   }
 
@@ -205,6 +198,7 @@ class RoutingAutoConfigurationTest {
       )
       WebApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(RoutingAutoConfiguration::class.java))
+    .withUserConfiguration(TestNavigationConfiguration::class.java)
         .withBean(SinglePageApplicationConfig::class.java, Supplier { config })
         .withBean(RouteHttpResponseConverter::class.java, Supplier {
           RouteHttpResponseConverter { _, result ->
@@ -216,6 +210,12 @@ class RoutingAutoConfigurationTest {
           val mockMvc = MockMvcBuilders.routerFunctions(
             *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
           ).build()
+          mockMvc.get("/__spa/route-decision?applicationId=test&routeId=Home").andExpect {
+            status { isOk() }
+            jsonPath("$.type") { value("allowed") }
+            jsonPath("$.statusCode") { doesNotExist() }
+            jsonPath("$.destination") { doesNotExist() }
+          }
           mockMvc.get("/test").andExpect {
             status { isEqualTo(response.statusCode) }
             content { string("") }
@@ -254,35 +254,24 @@ class RoutingAutoConfigurationTest {
   }
 
   @Test
-  fun `one invalid request status applies to path and query failures across both endpoints`() {
-    contextRunner
-      .withPropertyValues(
-        "spa-routing.server.invalid-request-status=422",
-        "spa-routing.route-decision.path=/internal/spa-route-decision"
-      )
-      .run { context ->
-        val properties = context.getBean(RoutingProperties::class.java)
-        assertThat(properties.server.invalidRequestStatus).isEqualTo(422)
-        assertThat(properties.routeDecision.path).isEqualTo("/internal/spa-route-decision")
-
-        val mockMvc = MockMvcBuilders.routerFunctions(
-          *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
-        ).build()
-        mockMvc.get("/test/users/42?q=one&q=two").andExpect { status { isEqualTo(422) } }
-        mockMvc.get("/internal/spa-route-decision") {
-          param("applicationId", "test")
-          param("routeId", "User")
-          param("parameters.id", "42")
-          param("queryString.q", "one", "two")
-        }.andExpect {
+  fun `configured decision endpoint returns recovery destinations for path and query failures`() {
+    contextRunner.withPropertyValues("spa-routing.route-decision.path=/internal/spa-route-decision").run { context ->
+      val mockMvc = MockMvcBuilders.routerFunctions(
+        *context.getBeansOfType(RouterFunction::class.java).values.toTypedArray()
+      ).build()
+      mockMvc.get("/test/users/42?q=one&q=two").andExpect {
+        status { isFound() }
+        header { string("Location", "/errors/invalid-request") }
+      }
+      for (query in listOf("", "&parameters.id=42&queryString.q=one&queryString.q=two")) {
+        mockMvc.get("/internal/spa-route-decision?applicationId=test&routeId=User$query").andExpect {
           status { isOk() }
-          jsonPath("$.statusCode") { value(422) }
-        }
-        mockMvc.get("/internal/spa-route-decision?applicationId=test&routeId=User").andExpect {
-          status { isOk() }
-          jsonPath("$.statusCode") { value(422) }
+          jsonPath("$.type") { value("invalid_request") }
+          jsonPath("$.destination") { value("/errors/invalid-request") }
+          jsonPath("$.reason.code") { value("invalid_request") }
         }
       }
+    }
   }
 
   @Configuration(proxyBeanMethods = false)

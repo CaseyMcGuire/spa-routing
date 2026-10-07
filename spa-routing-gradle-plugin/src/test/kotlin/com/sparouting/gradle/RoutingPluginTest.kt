@@ -206,7 +206,7 @@ class RoutingPluginTest {
       projectDirectory.resolve("build.gradle.kts"),
       """
       plugins {
-        id("com.sparouting.spa-routing")
+        id("io.github.caseymcguire.spa-routing")
       }
 
       spaRouting {

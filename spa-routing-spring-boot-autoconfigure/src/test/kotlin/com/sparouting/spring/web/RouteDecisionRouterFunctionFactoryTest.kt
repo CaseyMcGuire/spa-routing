@@ -1,12 +1,11 @@
 package com.sparouting.spring.web
 
+import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.RouteRequest
-import com.sparouting.runtime.evaluation.RouteRequestEvaluator
-import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -32,8 +31,8 @@ class RouteDecisionRouterFunctionFactoryTest {
       }.andExpect {
         status { isOk() }
         header { string("Cache-Control", "no-store") }
-        jsonPath("$.statusCode") { value(200) }
-        jsonPath("$.location") { doesNotExist() }
+        jsonPath("$.type") { value("allowed") }
+        jsonPath("$.destination") { doesNotExist() }
         jsonPath("$.reason") { doesNotExist() }
       }
     }
@@ -52,8 +51,8 @@ class RouteDecisionRouterFunctionFactoryTest {
     }.andExpect {
       status { isOk() }
       header { string("Cache-Control", "no-store") }
-      jsonPath("$.statusCode") { value(302) }
-      jsonPath("$.location") { value("/test/login") }
+      jsonPath("$.type") { value("denied") }
+      jsonPath("$.destination") { value("/test/login") }
       jsonPath("$.reason.code") { value(denialReason.code) }
       jsonPath("$.reason.message") { value(denialReason.message) }
     }
@@ -72,15 +71,14 @@ class RouteDecisionRouterFunctionFactoryTest {
       header("X-User", "casey")
     }.andExpect {
       status { isOk() }
-      jsonPath("$.statusCode") { value(200) }
-      jsonPath("$.location") { doesNotExist() }
+      jsonPath("$.type") { value("allowed") }
+      jsonPath("$.destination") { doesNotExist() }
     }
   }
 
   @Test
-  fun `route decision returns configured status in body for missing params`() {
+  fun `route decision supplies recovery destination for missing params`() {
     val properties = RoutingProperties()
-    properties.server.invalidRequestStatus = 422
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))),
       properties = properties
@@ -91,7 +89,10 @@ class RouteDecisionRouterFunctionFactoryTest {
       param("routeId", "UserDetail")
     }.andExpect {
       status { isOk() }
-      jsonPath("$.statusCode") { value(422) }
+      jsonPath("$.type") { value("invalid_request") }
+      jsonPath("$.destination") { value("/errors/invalid-request") }
+      jsonPath("$.reason.code") { value("invalid_request") }
+      jsonPath("$.statusCode") { doesNotExist() }
     }
   }
 
@@ -112,7 +113,7 @@ class RouteDecisionRouterFunctionFactoryTest {
       param("queryString.tab", "billing")
     }.andExpect {
       status { isOk() }
-      jsonPath("$.statusCode") { value(200) }
+      jsonPath("$.type") { value("allowed") }
     }
   }
 
@@ -130,7 +131,7 @@ class RouteDecisionRouterFunctionFactoryTest {
       param("routeId", "Home")
     }.andExpect {
       status { isOk() }
-      jsonPath("$.statusCode") { value(200) }
+      jsonPath("$.type") { value("allowed") }
     }
   }
 
@@ -149,13 +150,10 @@ class RouteDecisionRouterFunctionFactoryTest {
   ): MockMvc {
     return MockMvcBuilders.routerFunctions(
       RouteDecisionRouterFunctionFactory(
-        evaluator = RouteRequestEvaluator(
+        evaluator = testEvaluator(
           configs = listOf(config.copy(applicationAccessHandler = applicationAccessHandler(evaluateApplication)))
         ),
-        properties = properties,
-        responseConverter = DefaultRouteHttpResponseConverter(
-          invalidRequestStatus = properties.server.invalidRequestStatus
-        )
+        properties = properties
       ).routes()
     ).build()
   }

@@ -2,19 +2,41 @@ package com.sparouting.runtime.evaluation
 
 import com.sparouting.contract.DenialReason
 
-/** Route evaluation outcome before an adapter maps it to a page response or navigation payload. */
+/** Navigation outcome shared by page responses and the client decision endpoint. */
 sealed interface RouteResult {
-  data object Allowed : RouteResult
+  val type: String
+
+  data object Allowed : RouteResult {
+    override val type: String = "allowed"
+  }
+
+  /** Every unsuccessful navigation supplies a validated, encoded destination and a reason. */
+  sealed interface Failure : RouteResult {
+    val destination: String
+    val reason: DenialReason
+  }
 
   /** A navigation denial with a validated and encoded alternative destination URL. */
   data class Denied(
-    val reason: DenialReason,
-    val destinationUrl: String
-  ) : RouteResult
+    override val reason: DenialReason,
+    override val destination: String
+  ) : Failure {
+    override val type: String = "denied"
+  }
 
   /** The requested application or route ID is not registered. */
-  data object UnknownRoute : RouteResult
+  data class UnknownRoute(
+    override val reason: DenialReason,
+    override val destination: String
+  ) : Failure {
+    override val type: String = "unknown_route"
+  }
 
   /** Path or declared query parameters do not satisfy the registered route's contract. */
-  data object InvalidRequest : RouteResult
+  data class InvalidRequest(
+    override val reason: DenialReason,
+    override val destination: String
+  ) : Failure {
+    override val type: String = "invalid_request"
+  }
 }

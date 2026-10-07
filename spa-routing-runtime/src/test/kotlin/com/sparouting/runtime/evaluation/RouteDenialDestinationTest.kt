@@ -1,5 +1,6 @@
 package com.sparouting.runtime.evaluation
 
+import com.sparouting.runtime.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
@@ -19,7 +20,7 @@ class RouteDenialDestinationTest {
     for (id in listOf("user-42", "0042", "550e8400-e29b-41d4-a716-446655440000")) {
       val response = evaluateDenial(RouteTarget("test", "UserDetail", mapOf("id" to id)))
 
-      assertEquals(RouteResult.Denied(reason = denialReason, destinationUrl = "/test/users/$id"), response)
+      assertEquals(RouteResult.Denied(reason = denialReason, destination = "/test/users/$id"), response)
     }
   }
 
@@ -51,7 +52,7 @@ class RouteDenialDestinationTest {
       routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))
     )
     val handler = applicationAccessHandler { AccessDecision.Denied(reason = denialReason, destination = target) }
-    return RouteRequestEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(
+    return testEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(
       RouteRequest("test", "UserDetail", mapOf("id" to "42"))
     )
   }

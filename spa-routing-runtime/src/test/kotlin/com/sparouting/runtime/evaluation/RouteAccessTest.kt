@@ -1,5 +1,7 @@
 package com.sparouting.runtime.evaluation
 
+import com.sparouting.runtime.testsupport.unknownRouteResult
+import com.sparouting.runtime.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
@@ -54,7 +56,7 @@ class RouteAccessTest {
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertEquals(RouteResult.Denied(reason = denialReason, destinationUrl = "/other/login"), decision)
+    assertEquals(RouteResult.Denied(reason = denialReason, destination = "/other/login"), decision)
   }
 
   @Test
@@ -64,7 +66,7 @@ class RouteAccessTest {
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertEquals(RouteResult.Denied(reason = denialReason, destinationUrl = "/other/login"), decision)
+    assertEquals(RouteResult.Denied(reason = denialReason, destination = "/other/login"), decision)
   }
 
   @Test
@@ -72,14 +74,14 @@ class RouteAccessTest {
     val denial = AccessDecision.Denied(reason = denialReason, destination = destination)
     val publicConfig = TestSinglePageApplicationConfig(id = "public", routes = listOf(RouteManifest("/public/route", "Route")))
     val privateConfig = TestSinglePageApplicationConfig(id = "private", routes = listOf(RouteManifest("/private/route", "Route")))
-    val evaluator = RouteRequestEvaluator(
+    val evaluator = testEvaluator(
       listOf(publicConfig, privateConfig.copy(applicationAccessHandler = applicationAccessHandler { denial }), destinationConfig)
     )
 
     assertEquals(RouteResult.Allowed, evaluator.evaluate(
       testRequest().copy(applicationId = "public")
     ))
-    assertEquals(RouteResult.Denied(reason = denialReason, destinationUrl = "/other/login"), evaluator.evaluate(testRequest().copy(applicationId = "private")))
+    assertEquals(RouteResult.Denied(reason = denialReason, destination = "/other/login"), evaluator.evaluate(testRequest().copy(applicationId = "private")))
   }
 
   @Test
@@ -89,7 +91,7 @@ class RouteAccessTest {
     }
 
     for (request in listOf(testRequest().copy(applicationId = "unknown"), testRequest().copy(routeId = "Unknown"))) {
-      assertEquals(RouteResult.UnknownRoute, evaluator.evaluate(request))
+      assertEquals(unknownRouteResult, evaluator.evaluate(request))
     }
   }
 
@@ -105,7 +107,7 @@ class RouteAccessTest {
 
       override fun evaluate(request: RouteAccessContext): AccessDecision = evaluateRoute(request)
     }
-    return RouteRequestEvaluator(
+    return testEvaluator(
       configs = listOf(config.copy(
         applicationAccessHandler = applicationAccessHandler(evaluateApplication),
         routeAccessHandlers = routeAccessHandlers(handler)

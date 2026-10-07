@@ -23,7 +23,7 @@ internal suspend fun RoutingCall.respondPage(
   }
 }
 
-internal suspend fun RoutingCall.respondRouteDecision(httpResponse: RouteHttpResponse) {
+internal suspend fun RoutingCall.respondRouteDecision(result: RouteResult) {
   response.headers.append(HttpHeaders.CacheControl, "no-store")
-  respond(HttpStatusCode.OK, httpResponse)
+  respond(HttpStatusCode.OK, result)
 }

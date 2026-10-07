@@ -23,7 +23,7 @@ fun RouteHttpResponse.toServerResponse(
   }
 }
 
-internal fun RouteHttpResponse.toRouteDecisionResponse(): ServerResponse {
+internal fun RouteResult.toRouteDecisionResponse(): ServerResponse {
   return ServerResponse.ok()
     .contentType(MediaType.APPLICATION_JSON)
     .header(HttpHeaders.CACHE_CONTROL, "no-store")

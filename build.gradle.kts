@@ -9,6 +9,6 @@ extra["springFrameworkVersion"] = "7.0.7"
 extra["ktorVersion"] = "3.6.0"
 
 allprojects {
-  group = "com.sparouting"
-  version = "0.3.0"
+  group = "io.github.caseymcguire"
+  version = "0.5.0-SNAPSHOT"
 }

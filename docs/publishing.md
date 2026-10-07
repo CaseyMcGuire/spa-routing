@@ -2,12 +2,15 @@
 
 This project publishes these public artifacts:
 
-- Core artifact: `com.sparouting:spa-routing-core`
-- Shared runtime: `com.sparouting:spa-routing-runtime`
-- Ktor adapter: `com.sparouting:spa-routing-ktor`
-- Gradle plugin: `com.sparouting.spa-routing`
-- Spring Boot auto-configuration: `com.sparouting:spa-routing-spring-boot-autoconfigure`
-- Spring Boot starter: `com.sparouting:spa-routing-spring-boot-starter`
+- Core artifact: `io.github.caseymcguire:spa-routing-core`
+- Shared runtime: `io.github.caseymcguire:spa-routing-runtime`
+- Ktor adapter: `io.github.caseymcguire:spa-routing-ktor`
+- Gradle plugin: `io.github.caseymcguire.spa-routing`
+- Spring Boot auto-configuration: `io.github.caseymcguire:spa-routing-spring-boot-autoconfigure`
+- Spring Boot starter: `io.github.caseymcguire:spa-routing-spring-boot-starter`
+
+Publishing coordinates use the existing `io.github.caseymcguire` namespace.
+Kotlin packages use `com.sparouting` independently of the Maven group.
 
 ## Credentials
 

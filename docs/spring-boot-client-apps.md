@@ -23,12 +23,14 @@ Your application still owns:
 
 ## Add Dependencies
 
+This guide targets unreleased `0.5.0-SNAPSHOT`; see the [local installation instructions](../README.md#install).
+
 Add the Spring Boot starter to the Spring application that will serve the SPA
 routes:
 
 ```kotlin
 dependencies {
-  implementation("com.sparouting:spa-routing-spring-boot-starter:0.3.0")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0-SNAPSHOT")
 }
 ```
 
@@ -71,7 +73,7 @@ Apply the Gradle plugin to generate configs, route builders, and access handlers
 
 ```kotlin
 plugins {
-  id("com.sparouting.spa-routing") version "0.3.0"
+  id("io.github.caseymcguire.spa-routing") version "0.5.0-SNAPSHOT"
 }
 
 spaRouting {
@@ -135,12 +137,21 @@ package com.example.web
 
 import com.example.generated.spa.routes.AccountApplicationConfig
 import com.example.generated.spa.routes.AccountRouteAccessHandlers
+import com.example.generated.spa.routes.AccountRoutes
+import com.sparouting.runtime.evaluation.DefaultRouteFailureHandler
+import com.sparouting.runtime.evaluation.RouteFailureHandler
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration(proxyBeanMethods = false)
 class RoutesConfiguration {
+  @Bean
+  fun routeFailureHandler(): RouteFailureHandler = DefaultRouteFailureHandler(
+    unknownRouteDestination = AccountRoutes.NotFound(),
+    invalidRequestDestination = AccountRoutes.Error()
+  )
+
   @Bean
   fun accountConfig(applicationAccessHandler: CheckAccountAccess): AccountApplicationConfig =
     AccountApplicationConfig(
@@ -151,6 +162,7 @@ class RoutesConfiguration {
 }
 ```
 
+Declare `NotFound` and `Error` recovery routes in the application definition.
 This example has no gated routes. When a route declares `generateAccessHandler = true`,
 its typed handler becomes a required constructor argument in `AccountRouteAccessHandlers`.
 Supply the implementations through constructor injection as shown below for the blog.
@@ -171,8 +183,8 @@ If the source definition has prefix `account` and declares
 GET /account/users/{id}
 ```
 
-The route only matches `GET`. Invalid path parameter values return
-`spa-routing.server.invalid-request-status`, which defaults to `400`.
+The route only matches `GET`. Invalid requests use the recovery destination chosen
+by the required `RouteFailureHandler` bean.
 
 ## Application Access
 
@@ -446,8 +458,8 @@ reject empty required lists at runtime. Path and query-string keys may share a
 name. Duplicate names and colliding generated identifiers are rejected.
 
 Validation runs before application and route access handlers on both page loads and route
-decisions. Invalid query strings use `spa-routing.server.invalid-request-status`
-(default `400`); invalid typed denial destinations throw `IllegalArgumentException`.
+decisions. Invalid query strings use the configured recovery destination;
+invalid typed denial or recovery destinations throw `IllegalArgumentException`.
 Extra incoming keys such as `utm_source` are accepted and remain in the raw
 request map. Routes without declarations keep accepting arbitrary query strings.
 
@@ -517,7 +529,6 @@ be injected into your config factory like any other application dependency.
 spa-routing:
   server:
     enabled: true
-    invalid-request-status: 400
   route-decision:
     enabled: true
     path: /__spa/route-decision
@@ -543,19 +554,22 @@ valid. The route decision is in the JSON body:
 
 ```json
 {
-  "statusCode": 302,
-  "location": "/login"
+  "type": "denied",
+  "destination": "/login",
+  "reason": {"code": "authentication_required", "message": "Sign in to continue."}
 }
 ```
 
 Response bodies use this shape:
 
 ```ts
-type RouteDecision = {
-  statusCode: number;
-  location?: string | null;
-  reason?: { code: string; message: string } | null;
-};
+type RouteDecision =
+  | { type: "allowed" }
+  | {
+      type: "denied" | "unknown_route" | "invalid_request";
+      destination: string;
+      reason: { code: string; message: string };
+    };
 ```
 
 `Cache-Control: no-store` is applied because route decisions commonly depend on
@@ -598,11 +612,13 @@ app-specific navigation behavior can read them instead of hardcoding strings:
 ```ts
 import { AccountRoutes } from "./__generated__/routes/AccountRoutes";
 
-type RouteDecision = {
-  statusCode: number;
-  location?: string | null;
-  reason?: { code: string; message: string } | null;
-};
+type RouteDecision =
+  | { type: "allowed" }
+  | {
+      type: "denied" | "unknown_route" | "invalid_request";
+      destination: string;
+      reason: { code: string; message: string };
+    };
 
 async function decideRoute(
   route: { applicationId: string; routeId: string },
@@ -630,12 +646,10 @@ async function decideRoute(
 // decideRoute(AccountRoutes.UserSearch, { id: "123" }, { q: ["hello"], tag: ["a", "b"] });
 ```
 
-Default decision statuses match what the MVC route would use:
-
-- `200`: navigation is allowed
-- `302` with `location` and `reason`: navigation denied with an alternative destination
-- configured `spa-routing.server.invalid-request-status`: invalid path or declared query-string parameters (`InvalidRequest`)
-- `404`: unregistered application or route ID (`UnknownRoute`)
+Continue navigation for `allowed`; otherwise navigate to the returned `destination`.
+All three failure types carry a required reason and destination. The default page
+converter renders allowed pages and redirects failures to that same destination.
+The decision endpoint returns no embedded HTTP status or `location` field.
 
 For custom GraphQL or REST APIs, construct a `RouteRequestEvaluator` from your
 configs. The starter's evaluator is private and is not exposed as a Spring bean:
@@ -644,11 +658,13 @@ configs. The starter's evaluator is private and is not exposed as a Spring bean:
 import com.sparouting.contract.RouteRequest
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.evaluation.RouteRequestEvaluator
+import com.sparouting.runtime.evaluation.RouteFailureHandler
 
 class RouteDecisionHandler(
-  configs: List<SinglePageApplicationConfig>
+  configs: List<SinglePageApplicationConfig>,
+  failureHandler: RouteFailureHandler
 ) {
-  private val evaluator = RouteRequestEvaluator(configs)
+  private val evaluator = RouteRequestEvaluator(configs, failureHandler)
 
   fun evaluateAccountRoute(
     routeId: String,
@@ -668,7 +684,7 @@ class RouteDecisionHandler(
 ```
 
 The custom handler above returns `RouteResult`. Map that result to your API's response format;
-the built-in navigation endpoint maps it to `RouteHttpResponse(statusCode, location, reason)`.
+the built-in navigation endpoint serializes the result directly.
 
 ## Replace Starter Beans
 
@@ -687,17 +703,14 @@ fun routeHttpResponseConverter(): RouteHttpResponseConverter = MyRouteHttpRespon
 ```
 
 `RouteRequestFactory` is the replaceable page request converter. A
-`RouteHttpResponseConverter` bean replaces the default HTTP mapping for both pages
-and navigation JSON. It receives the same `RouteRequest` used for evaluation,
-plus the resulting `RouteResult`. See [custom HTTP conversion](runtime.md#customize-http-conversion)
-for an implementation that redirects invalid requests.
+`RouteHttpResponseConverter` bean replaces page HTTP mapping only; navigation JSON
+always exposes the semantic result. The converter receives the original request and
+resolved result. See [HTTP conversion](runtime.md#customize-http-conversion).
 
-`DefaultRouteHttpResponseConverter` uses `spa-routing.server.invalid-request-status`.
-A replacement converter owns its status settings. Only an `Allowed` result mapped
-to `200` without a location renders HTML, through the config's `htmlRenderer`.
-
-Runtime registration and evaluation are owned by the starter. Configure access
-through application and route handlers, and HTTP mapping through the response converter.
+Recovery destinations and reasons belong in `RouteFailureHandler`, which runs for
+both entry points. The default HTTP converter renders allowed pages and sends every
+failure to its resolved destination with a `302`. Only `Allowed` mapped to `200`
+without a location renders HTML.
 
 ## Migration Checklist
 
@@ -709,4 +722,5 @@ For an existing Spring app that copied SPA routing code locally:
 4. Replace copied registry, evaluator, request adapter, and response classes with the starter.
 5. Construct the generated route-handler collection with every gated handler, and pass it, the application handler, and a core `HtmlRenderer` to the generated `<ApplicationName>ApplicationConfig`. Expose that instance as a bean.
 6. Use `HtmlDocumentRenderer(...)` for the default shell or supply your own renderer returning an HTML string.
-7. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteRequestEvaluator` from a custom GraphQL or REST endpoint.
+7. Supply a `RouteFailureHandler` bean with typed fallback destinations for unknown routes and invalid requests.
+8. Call the built-in route decision endpoint from client navigation guards, or keep using `RouteRequestEvaluator` from a custom GraphQL or REST endpoint.

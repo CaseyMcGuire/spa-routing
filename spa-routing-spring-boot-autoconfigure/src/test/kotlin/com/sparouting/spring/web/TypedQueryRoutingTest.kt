@@ -1,5 +1,7 @@
 package com.sparouting.spring.web
 
+import com.sparouting.spring.testsupport.invalidRequestResult
+import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
@@ -8,7 +10,6 @@ import com.sparouting.contract.RouteManifest
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.evaluation.RouteResult
-import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.DefaultRouteRequestFactory
@@ -62,24 +63,15 @@ class TypedQueryRoutingTest {
       valid + mapOf("foo" to listOf("a", "b")),
       valid + mapOf("baz" to listOf("a", "b"))
     )) {
-      assertPageAndDecision(query, 400)
+      assertPageAndDecision(query, 302)
     }
-    assertTrue(requests.isEmpty())
-  }
-
-  @Test
-  fun `invalid request status applies to query errors on both endpoints`() {
-    val properties = RoutingProperties().apply {
-      server.invalidRequestStatus = 422
-    }
-    assertPageAndDecision(valid - "foo", 422, properties)
     assertTrue(requests.isEmpty())
   }
 
   @Test
   fun `evaluator rejects empty required lists and permits empty optional lists`() {
-    val evaluator = RouteRequestEvaluator(configs)
-    assertEquals(RouteResult.InvalidRequest, evaluator.evaluate(RouteRequest(
+    val evaluator = testEvaluator(configs)
+    assertEquals(invalidRequestResult, evaluator.evaluate(RouteRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
     )))
     assertEquals(RouteResult.Allowed, evaluator.evaluate(RouteRequest(
@@ -96,7 +88,7 @@ class TypedQueryRoutingTest {
     assertEquals(
       RouteResult.Denied(
         reason = denialReason,
-        destinationUrl = "/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra"
+        destination = "/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra"
       ),
       result
     )
@@ -115,7 +107,7 @@ class TypedQueryRoutingTest {
 
   private fun evaluateDenial(target: RouteTarget): RouteResult {
     val handler = applicationAccessHandler { AccessDecision.Denied(reason = denialReason, destination = target) }
-    return RouteRequestEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(RouteRequest(
+    return testEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
       pathParameters = mapOf("id" to "123"),
@@ -128,10 +120,8 @@ class TypedQueryRoutingTest {
     expectedStatus: Int,
     properties: RoutingProperties = RoutingProperties()
   ) {
-    val evaluator = RouteRequestEvaluator(configs)
-    val responseConverter = DefaultRouteHttpResponseConverter(
-      invalidRequestStatus = properties.server.invalidRequestStatus
-    )
+    val evaluator = testEvaluator(configs)
+    val responseConverter = DefaultRouteHttpResponseConverter()
     val mockMvc = MockMvcBuilders.routerFunctions(
       SpringRouterFunctionFactory(
         routeConfigs = configs,
@@ -141,8 +131,7 @@ class TypedQueryRoutingTest {
       ).routes(),
       RouteDecisionRouterFunctionFactory(
         evaluator = evaluator,
-        properties = properties,
-        responseConverter = responseConverter
+        properties = properties
       ).routes()
     ).build()
     mockMvc.get("/test/users/123") {
@@ -155,7 +144,11 @@ class TypedQueryRoutingTest {
       query.forEach { (name, values) -> param("queryString.$name", *values.toTypedArray()) }
     }.andExpect {
       status { isOk() }
-      jsonPath("$.statusCode") { value(expectedStatus) }
+      jsonPath("$.type") { value(if (expectedStatus == 200) "allowed" else "invalid_request") }
+      jsonPath("$.statusCode") { doesNotExist() }
+      if (expectedStatus != 200) {
+        jsonPath("$.destination") { value("/errors/invalid-request") }
+      }
     }
   }
 }

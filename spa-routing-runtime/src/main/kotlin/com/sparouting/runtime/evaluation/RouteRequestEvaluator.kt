@@ -14,7 +14,8 @@ import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
  * HTTP response mapping belongs to the framework adapter.
  */
 class RouteRequestEvaluator(
-  configs: List<SinglePageApplicationConfig>
+  configs: List<SinglePageApplicationConfig>,
+  private val failureHandler: RouteFailureHandler
 ) {
   private val routeRegistry = SinglePageApplicationRouteRegistry(configs)
 
@@ -23,20 +24,23 @@ class RouteRequestEvaluator(
     val match = routeRegistry.findByApplicationAndRouteId(
       applicationId = request.applicationId,
       routeId = request.routeId
-    ) ?: return RouteResult.UnknownRoute
+    ) ?: return failureHandler.unknownRoute(request).let { failure ->
+      RouteResult.UnknownRoute(reason = failure.reason, destination = resolveDestination(failure.destination))
+    }
 
     if (
       !match.route.hasValidParameterValues(request.pathParameters) ||
       !match.route.hasValidQueryStringValues(request.queryString)
     ) {
-      return RouteResult.InvalidRequest
+      val failure = failureHandler.invalidRequest(request)
+      return RouteResult.InvalidRequest(reason = failure.reason, destination = resolveDestination(failure.destination))
     }
 
     return when (val decision = evaluateAccess(match, request)) {
       AccessDecision.Allowed -> RouteResult.Allowed
       is AccessDecision.Denied -> RouteResult.Denied(
         reason = decision.reason,
-        destinationUrl = resolveDestination(decision.destination)
+        destination = resolveDestination(decision.destination)
       )
     }
   }

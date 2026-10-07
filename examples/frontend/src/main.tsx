@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router/dom";
-import { createSpaRouter, createSpaRouteAuthorization, spaRouteContext } from "@spa-kit/react-router";
+import { createSpaRouter } from "@spa-kit/react-router";
+import { authorizeRoute } from "./authorizeRoute";
 import BlogLayout from "./components/BlogLayout";
 import MessagePage from "./components/MessagePage";
 import PostListPage from "./pages/PostListPage";
@@ -15,11 +16,6 @@ import "./blog.css";
 const errorElement = <BlogLayout><RouteErrorPage /></BlogLayout>;
 const hydrateFallbackElement = <BlogLayout><p role="status">Loading…</p></BlogLayout>;
 const pageOptions = { errorElement, hydrateFallbackElement };
-
-const authorize = createSpaRouteAuthorization({
-  redirectMode: "router",
-  onError: { type: "redirect", location: BlogRoutes.Error() },
-});
 
 const router = createSpaRouter(BlogRoutes, {
   Index: {
@@ -59,18 +55,7 @@ const router = createSpaRouter(BlogRoutes, {
     ),
   },
 }, {
-  sharedMiddleware: [async (args, next) => {
-    const identity = args.context.get(spaRouteContext);
-    const route = Object.values(BlogRoutes).find((route) => (
-      route.applicationId === identity?.applicationId && route.routeId === identity?.routeId
-    ));
-    // CheckBlogAccess always allows access, so only handler routes need a check.
-    if (route?.hasAccessHandler === false) {
-      await next();
-      return;
-    }
-    await authorize(args, next);
-  }],
+  sharedMiddleware: [authorizeRoute],
 });
 
 const root = document.getElementById("root");

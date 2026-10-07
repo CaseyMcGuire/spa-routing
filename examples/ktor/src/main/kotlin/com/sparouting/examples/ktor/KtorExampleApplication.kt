@@ -6,6 +6,8 @@ import com.sparouting.examples.blog.CheckEditPostAccess
 import com.sparouting.examples.blog.CheckPostAccess
 import com.sparouting.examples.blog.InvalidPostException
 import com.sparouting.examples.generated.routes.BlogApplicationConfig
+import com.sparouting.examples.generated.routes.BlogRoutes
+import com.sparouting.runtime.evaluation.DefaultRouteFailureHandler
 import com.sparouting.examples.generated.routes.BlogRouteAccessHandlers
 import com.sparouting.ktor.singlePageApplicationRoutes
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
@@ -49,7 +51,13 @@ fun Application.blogModule() {
 
   routing {
     blogApiRoutes(posts)
-    singlePageApplicationRoutes(configs = listOf(config))
+    singlePageApplicationRoutes(
+      configs = listOf(config),
+      failureHandler = DefaultRouteFailureHandler(
+        unknownRouteDestination = BlogRoutes.NotFound(),
+        invalidRequestDestination = BlogRoutes.Error()
+      )
+    )
     staticResources("/bundles", "static/bundles")
   }
 }

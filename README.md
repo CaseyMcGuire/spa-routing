@@ -33,15 +33,19 @@ Open [http://localhost:8080/](http://localhost:8080/) for Spring or
 
 ## Install
 
+These examples target the unreleased `0.5.0-SNAPSHOT` API. Build it with
+`./gradlew publishToMavenLocal` and add `mavenLocal()` to your dependency and
+plugin repositories. The latest published release is `0.4.0`.
+
 For Gradle route generation:
 
 ```kotlin
 plugins {
-  id("com.sparouting.spa-routing") version "0.3.0"
+  id("io.github.caseymcguire.spa-routing") version "0.5.0-SNAPSHOT"
 }
 
 dependencies {
-  implementation("com.sparouting:spa-routing-core:0.3.0")
+  implementation("io.github.caseymcguire:spa-routing-core:0.5.0-SNAPSHOT")
 }
 ```
 
@@ -53,7 +57,7 @@ For Spring Boot route serving:
 
 ```kotlin
 dependencies {
-  implementation("com.sparouting:spa-routing-spring-boot-starter:0.3.0")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0-SNAPSHOT")
 }
 ```
 
@@ -83,7 +87,9 @@ object AccountApplication : SinglePageApplicationDefinition {
   override val appRootPath = "src/main/web-frontend/apps/account"
   override val routes = listOf(
     route("settings", "Settings"),
-    route("users/{id}", "UserDetail")
+    route("users/{id}", "UserDetail"),
+    route("not-found", "NotFound"),
+    route("error", "Error")
   )
 }
 ```
@@ -311,6 +317,9 @@ A public application with no gated routes can be wired as follows:
 import com.example.generated.spa.routes.AccountApplicationConfig
 import com.example.generated.spa.routes.AccountApplicationAccessHandler
 import com.example.generated.spa.routes.AccountRouteAccessHandlers
+import com.example.generated.spa.routes.AccountRoutes
+import com.sparouting.runtime.evaluation.DefaultRouteFailureHandler
+import com.sparouting.runtime.evaluation.RouteFailureHandler
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
@@ -320,6 +329,12 @@ import org.springframework.stereotype.Component
 
 @Configuration(proxyBeanMethods = false)
 class RoutesConfiguration {
+  @Bean
+  fun routeFailureHandler(): RouteFailureHandler = DefaultRouteFailureHandler(
+    unknownRouteDestination = AccountRoutes.NotFound(),
+    invalidRequestDestination = AccountRoutes.Error()
+  )
+
   @Bean
   fun accountConfig(applicationAccessHandler: CheckAccountAccess): AccountApplicationConfig =
     AccountApplicationConfig(
@@ -383,10 +398,14 @@ const params = new URLSearchParams({
 });
 
 const response = await fetch(`/__spa/route-decision?${params}`);
-const decision = await response.json() as {
-  statusCode: number;
-  location?: string | null;
-};
+type RouteDecision =
+  | { type: "allowed" }
+  | {
+      type: "denied" | "unknown_route" | "invalid_request";
+      destination: string;
+      reason: { code: string; message: string };
+    };
+const decision = await response.json() as RouteDecision;
 ```
 
 Useful Spring properties:
@@ -395,21 +414,24 @@ Useful Spring properties:
 spa-routing:
   server:
     enabled: true
-    invalid-request-status: 400
   route-decision:
     enabled: true
     path: /__spa/route-decision
 ```
 
 Override the `RouteRequestFactory` bean to customize page request conversion.
-Override `RouteHttpResponseConverter` to customize status, location, and reason for
-both pages and navigation checks; Ktor accepts it as `responseConverter`.
+Supply a `RouteFailureHandler` to choose recovery destinations for unknown routes
+and invalid requests. Its choices apply to both page loads and client navigation.
+Override `RouteHttpResponseConverter` for page HTTP mapping only; Ktor accepts it
+as `responseConverter`. Navigation JSON contains a semantic `type` and a required
+`destination` and `reason` on every failure.
 See [custom HTTP conversion](docs/runtime.md#customize-http-conversion).
 Configure rendering and asset options through each config's `htmlRenderer`.
 
 The adapters construct a private `RouteRequestEvaluator` from application configs
-and pass its `RouteResult` through the shared HTTP converter. Configure access through application
-and route handlers; registration stays internal.
+and serialize its `RouteResult` for navigation checks. Page loads pass the result
+through the HTTP converter. Configure access through application and route handlers;
+registration stays internal.
 
 ## Development
 

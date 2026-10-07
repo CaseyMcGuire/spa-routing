@@ -9,7 +9,6 @@ class RoutingProperties {
 
   class Server {
     var enabled: Boolean = true
-    var invalidRequestStatus: Int = 400
   }
 
   class RouteDecision {

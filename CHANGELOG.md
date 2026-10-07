@@ -4,6 +4,41 @@
 
 ### Breaking changes
 
+- **Navigation responses carry semantic outcomes and recovery destinations.** The
+  decision endpoint now serializes `RouteResult` as `{ "type": "allowed" }` or a
+  failure with `type` (`denied`, `unknown_route`, or `invalid_request`), required
+  `destination`, and required `reason: { code, message }`. Embedded `statusCode`
+  and `location` fields are removed. The HTTP envelope remains `200` with
+  `Cache-Control: no-store`. Clients must handle the new discriminator and follow
+  the destination for every failure.
+
+  `UnknownRoute` and `InvalidRequest` are now data classes carrying reasons and
+  destinations; `Denied.destinationUrl` is renamed to `destination`. All three
+  implement `RouteResult.Failure`. `AccessDecision` is unchanged.
+
+  `RouteRequestEvaluator` requires a framework-neutral `RouteFailureHandler`,
+  supplied as a bean to Spring or as Ktor's `failureHandler` argument. Its
+  `unknownRoute(request)` and `invalidRequest(request)` methods return
+  `AccessDecision.Denied` with typed recovery targets. `DefaultRouteFailureHandler`
+  accepts explicit `unknownRouteDestination` and `invalidRequestDestination`
+  targets. The evaluator validates and resolves those targets for both entry
+  points, preserving the failure type and reason. Unknown application IDs use
+  the same handler; native framework URL misses retain framework behavior.
+
+  HTTP conversion now applies only to pages. The default converter redirects
+  every failure to its destination with `302`; `RouteHttpResponse` contains only
+  `statusCode` and `location`. `invalidRequestStatus` and Spring's
+  `spa-routing.server.invalid-request-status` are removed. Configure recovery
+  in the shared failure handler and page transport through the HTTP converter.
+
+  The blog examples configure Not Found and Error recovery routes. Their frontend
+  uses middleware for the new JSON format because `@spa-kit/react-router` 0.2.0's
+  built-in authorization helper expects the previous HTTP-shaped payload.
+
+## 0.4.0 (2026-10-06)
+
+### Breaking changes
+
 - **Route lookup and request validation have distinct, simpler results.**
   `RouteResult.UnknownRoute` replaces `NotFound` and means the requested application
   or route ID is not registered. `RouteResult.InvalidRequest` replaces both
@@ -167,11 +202,10 @@
   unchanged. The decision endpoint still accepts `parameters.*` query keys and
   returns the same JSON response.
 
-- **Publishing IDs now use `com.sparouting`.** Maven artifacts move from
-  `io.github.caseymcguire:<artifact>` to `com.sparouting:<artifact>`, with the
-  artifact names unchanged. The Gradle plugin ID changes from
-  `io.github.caseymcguire.spa-routing` to `com.sparouting.spa-routing`.
-  Update dependency coordinates and plugin declarations when upgrading.
+- **Publishing coordinates retain the existing namespace.** Maven artifacts use
+  `io.github.caseymcguire:<artifact>` and the Gradle plugin ID remains
+  `io.github.caseymcguire.spa-routing`. Kotlin packages use `com.sparouting`
+  independently of these publishing coordinates.
 
 - **All Kotlin packages now use `com.sparouting`.** Update imports from
   `io.github.caseymcguire.sparouting.runtime`, `.spring`, and `.gradle` to

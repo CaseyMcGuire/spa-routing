@@ -1,14 +1,15 @@
 package com.sparouting.spring.web
 
+import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.SinglePageApplicationConfig
-import com.sparouting.runtime.evaluation.RouteRequestEvaluator
 import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
-import com.sparouting.spring.autoconfigure.RoutingProperties
+import com.sparouting.runtime.response.RouteHttpResponseConverter
+import com.sparouting.runtime.response.RouteHttpResponse
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -129,8 +130,8 @@ class SpringRouterFunctionFactoryTest {
     )
 
     for (statusCode in listOf(400, 200)) {
-      val properties = RoutingProperties().apply { server.invalidRequestStatus = statusCode }
-      mockMvc(config, properties).get("/test").andExpect {
+      val converter = RouteHttpResponseConverter { _, _ -> RouteHttpResponse(statusCode = statusCode) }
+      mockMvc(config, converter).get("/test").andExpect {
         status { isEqualTo(statusCode) }
         content { string("") }
       }
@@ -139,16 +140,14 @@ class SpringRouterFunctionFactoryTest {
 
   private fun mockMvc(
     config: SinglePageApplicationConfig,
-    properties: RoutingProperties = RoutingProperties()
+    responseConverter: RouteHttpResponseConverter = DefaultRouteHttpResponseConverter()
   ): MockMvc {
     return MockMvcBuilders.routerFunctions(
       SpringRouterFunctionFactory(
         routeConfigs = listOf(config),
-        evaluator = RouteRequestEvaluator(listOf(config)),
+        evaluator = testEvaluator(listOf(config)),
         requestFactory = DefaultRouteRequestFactory(),
-        responseConverter = DefaultRouteHttpResponseConverter(
-          invalidRequestStatus = properties.server.invalidRequestStatus
-        )
+        responseConverter = responseConverter
       ).routes()
     ).build()
   }

@@ -1,5 +1,8 @@
 package com.sparouting.runtime.evaluation
 
+import com.sparouting.runtime.testsupport.invalidRequestResult
+import com.sparouting.runtime.testsupport.unknownRouteResult
+import com.sparouting.runtime.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
@@ -26,17 +29,17 @@ class RouteRequestEvaluatorTest {
     }
   }
   private val configs = listOf(config.copy(applicationAccessHandler = applicationHandler))
-  private val evaluator = RouteRequestEvaluator(configs)
+  private val evaluator = testEvaluator(configs)
 
   @Test
   fun `invalid configs fail during evaluator construction`() {
     val duplicate = assertFailsWith<IllegalArgumentException> {
-      RouteRequestEvaluator(configs + configs)
+      testEvaluator(configs + configs)
     }
     assertContains(duplicate.message.orEmpty(), "Duplicate single page application IDs")
 
     val missingHandler = assertFailsWith<IllegalArgumentException> {
-      RouteRequestEvaluator(listOf(config.copy(
+      testEvaluator(listOf(config.copy(
         routes = listOf(RouteManifest("/test/private", "Private", hasAccessHandler = true))
       )))
     }
@@ -45,13 +48,13 @@ class RouteRequestEvaluatorTest {
 
   @Test
   fun `unknown app or route returns unknown route`() {
-    assertEquals(RouteResult.UnknownRoute, evaluator.evaluate(RouteRequest("missing", "UserDetail")))
-    assertEquals(RouteResult.UnknownRoute, evaluator.evaluate(RouteRequest("test", "Unknown")))
+    assertEquals(unknownRouteResult, evaluator.evaluate(RouteRequest("missing", "UserDetail")))
+    assertEquals(unknownRouteResult, evaluator.evaluate(RouteRequest("test", "Unknown")))
   }
 
   @Test
   fun `missing required params returns invalid request`() {
-    assertEquals(RouteResult.InvalidRequest, evaluator.evaluate(RouteRequest("test", "UserDetail")))
+    assertEquals(invalidRequestResult, evaluator.evaluate(RouteRequest("test", "UserDetail")))
   }
 
   @Test
@@ -60,7 +63,7 @@ class RouteRequestEvaluatorTest {
       RouteRequest("test", "UserDetail", mapOf("id" to "user-42", "unknown" to "value"))
     )
 
-    assertEquals(RouteResult.InvalidRequest, response)
+    assertEquals(invalidRequestResult, response)
   }
 
   @Test
@@ -70,7 +73,7 @@ class RouteRequestEvaluatorTest {
       requests.add(request)
       AccessDecision.Allowed
     }
-    val evaluator = RouteRequestEvaluator(listOf(config.copy(applicationAccessHandler = handler)))
+    val evaluator = testEvaluator(listOf(config.copy(applicationAccessHandler = handler)))
 
     val response = evaluator.evaluate(RouteRequest(
       applicationId = "test",
@@ -96,7 +99,7 @@ class RouteRequestEvaluatorTest {
       applicationsChecked.add(request.applicationId)
       AccessDecision.Denied(reason = denialReason, destination = RouteTarget("public", "Index"))
     }
-    val evaluator = RouteRequestEvaluator(listOf(
+    val evaluator = testEvaluator(listOf(
       publicConfig.copy(applicationAccessHandler = publicHandler),
       privateConfig.copy(applicationAccessHandler = privateHandler)
     ))
@@ -105,7 +108,7 @@ class RouteRequestEvaluatorTest {
       val expected = if (applicationId == "public") {
         RouteResult.Allowed
       } else {
-        RouteResult.Denied(reason = denialReason, destinationUrl = "/public")
+        RouteResult.Denied(reason = denialReason, destination = "/public")
       }
       assertEquals(expected, evaluator.evaluate(RouteRequest(applicationId, "Index")))
     }
@@ -114,7 +117,7 @@ class RouteRequestEvaluatorTest {
 
   @Test
   fun `evaluator preserves application denial reasons and resolves destinations`() {
-    val expected = RouteResult.Denied(reason = denialReason, destinationUrl = "/test/login")
+    val expected = RouteResult.Denied(reason = denialReason, destination = "/test/login")
     val parameters = mapOf("id" to "42")
 
     assertEquals(expected, evaluator.evaluate(RouteRequest(

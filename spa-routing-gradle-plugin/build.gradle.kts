@@ -32,7 +32,7 @@ gradlePlugin {
 
   plugins {
     create("spaRouting") {
-      id = "com.sparouting.spa-routing"
+      id = "io.github.caseymcguire.spa-routing"
       implementationClass = "com.sparouting.gradle.RoutingPlugin"
       displayName = "SPA Routing"
       description = "Adds configurable SPA route generation tasks."

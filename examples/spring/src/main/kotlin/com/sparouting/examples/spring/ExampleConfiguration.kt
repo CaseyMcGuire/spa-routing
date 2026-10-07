@@ -5,6 +5,9 @@ import com.sparouting.examples.blog.CheckBlogAccess
 import com.sparouting.examples.blog.CheckEditPostAccess
 import com.sparouting.examples.blog.CheckPostAccess
 import com.sparouting.examples.generated.routes.BlogApplicationConfig
+import com.sparouting.examples.generated.routes.BlogRoutes
+import com.sparouting.runtime.evaluation.DefaultRouteFailureHandler
+import com.sparouting.runtime.evaluation.RouteFailureHandler
 import com.sparouting.examples.generated.routes.BlogRouteAccessHandlers
 import com.sparouting.examples.generated.routes.blog.EditPostAccessHandler
 import com.sparouting.examples.generated.routes.blog.PostAccessHandler
@@ -14,6 +17,12 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration(proxyBeanMethods = false)
 class ExampleConfiguration {
+  @Bean
+  fun routeFailureHandler(): RouteFailureHandler = DefaultRouteFailureHandler(
+    unknownRouteDestination = BlogRoutes.NotFound(),
+    invalidRequestDestination = BlogRoutes.Error()
+  )
+
   @Bean
   fun blogPostService(): BlogPostService = BlogPostService()
 
