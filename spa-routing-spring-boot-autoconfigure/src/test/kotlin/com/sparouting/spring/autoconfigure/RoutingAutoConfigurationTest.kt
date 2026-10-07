@@ -10,7 +10,6 @@ import com.sparouting.spring.testsupport.TestNavigationConfiguration
 import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.ApplicationAccessHandler
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.RouteRequest
@@ -131,12 +130,11 @@ class RoutingAutoConfigurationTest {
   @Test
   fun `custom failure handler supplies the same recovery outcome for pages and navigation`() {
     val requests = mutableListOf<RouteRequest>()
-    val reason = DenialReason(code = "invalid_route", message = "Choose a valid route.")
     val handler = object : RouteFailureHandler {
       override fun unknownRoute(request: RouteRequest): AccessDecision.Denied = testFailureHandler.unknownRoute(request)
       override fun invalidRequest(request: RouteRequest): AccessDecision.Denied {
         requests.add(request)
-        return AccessDecision.Denied(reason = reason, destination = RouteTarget("test", "Home"))
+        return AccessDecision.Denied(destination = RouteTarget("test", "Home"))
       }
     }
     contextRunner.withBean(RouteFailureHandler::class.java, Supplier { handler }).run { context ->
@@ -166,8 +164,7 @@ class RoutingAutoConfigurationTest {
         }
         jsonPath("$.type") { value("invalid_request") }
         jsonPath("$.destination") { value("/test/home") }
-        jsonPath("$.reason.code") { value(reason.code) }
-        jsonPath("$.reason.message") { value(reason.message) }
+        jsonPath("$.reason") { doesNotExist() }
         jsonPath("$.statusCode") { doesNotExist() }
         jsonPath("$.location") { doesNotExist() }
       }
@@ -184,7 +181,7 @@ class RoutingAutoConfigurationTest {
         status { isOk() }
         jsonPath("$.type") { value("unknown_route") }
         jsonPath("$.destination") { value("/errors/not-found") }
-        jsonPath("$.reason.code") { value("unknown_route") }
+        jsonPath("$.reason") { doesNotExist() }
       }
     }
   }
@@ -268,7 +265,7 @@ class RoutingAutoConfigurationTest {
           status { isOk() }
           jsonPath("$.type") { value("invalid_request") }
           jsonPath("$.destination") { value("/errors/invalid-request") }
-          jsonPath("$.reason.code") { value("invalid_request") }
+          jsonPath("$.reason") { doesNotExist() }
         }
       }
     }

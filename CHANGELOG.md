@@ -6,15 +6,17 @@
 
 - **Navigation responses carry semantic outcomes and recovery destinations.** The
   decision endpoint now serializes `RouteResult` as `{ "type": "allowed" }` or a
-  failure with `type` (`denied`, `unknown_route`, or `invalid_request`), required
-  `destination`, and required `reason: { code, message }`. Embedded `statusCode`
-  and `location` fields are removed. The HTTP envelope remains `200` with
+  failure with `type` (`denied`, `unknown_route`, or `invalid_request`) and required
+  `destination`. Embedded `statusCode`, `location`, and `reason` fields are removed.
+  The HTTP envelope remains `200` with
   `Cache-Control: no-store`. Clients must handle the new discriminator and follow
   the destination for every failure.
 
-  `UnknownRoute` and `InvalidRequest` are now data classes carrying reasons and
+  `UnknownRoute` and `InvalidRequest` are now data classes carrying
   destinations; `Denied.destinationUrl` is renamed to `destination`. All three
-  implement `RouteResult.Failure`. `AccessDecision` is unchanged.
+  implement `RouteResult.Failure`. `AccessDecision.Denied` now takes only a typed
+  `destination`, and `DenialReason` is removed. Remove reason arguments from access
+  handlers and failure handlers; destination pages own user-facing explanations.
 
   `RouteRequestEvaluator` requires a framework-neutral `RouteFailureHandler`,
   supplied as a bean to Spring or as Ktor's `failureHandler` argument. Its
@@ -22,7 +24,7 @@
   `AccessDecision.Denied` with typed recovery targets. `DefaultRouteFailureHandler`
   accepts explicit `unknownRouteDestination` and `invalidRequestDestination`
   targets. The evaluator validates and resolves those targets for both entry
-  points, preserving the failure type and reason. Unknown application IDs use
+  points, preserving the failure type. Unknown application IDs use
   the same handler; native framework URL misses retain framework behavior.
 
   HTTP conversion now applies only to pages. The default converter redirects

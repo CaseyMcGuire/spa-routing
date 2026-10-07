@@ -127,8 +127,7 @@ describes the target page outcome:
 ```json
 {
   "type": "denied",
-  "destination": "/not-found",
-  "reason": {"code": "post_not_found", "message": "That post could not be found."}
+  "destination": "/not-found"
 }
 ```
 

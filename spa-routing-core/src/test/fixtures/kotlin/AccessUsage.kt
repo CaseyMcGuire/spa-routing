@@ -1,10 +1,8 @@
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteAccessContext
 import generated.accesstest.*
 
 fun verifyAccess(): String {
-  val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
   val context = RouteAccessContext(
     method = "GET",
     path = "/access/posts/42",
@@ -23,12 +21,12 @@ fun verifyAccess(): String {
       check(sort == null && filter == null)
       check(request.context.header("x-user") == listOf("casey"))
       check(request.context.queryString["extra"] == listOf("raw"))
-      return AccessDecision.Denied(reason = denialReason, destination = Public())
+      return AccessDecision.Denied(destination = Public())
     }
   }
   check(post.route === Post)
-  check(post.evaluateRequest(context) == AccessDecision.Denied(reason = denialReason, destination = Public()))
-  check(post.evaluateRequest(context.copy(queryString = context.queryString + ("sort" to emptyList()))) == AccessDecision.Denied(reason = denialReason, destination = Public()))
+  check(post.evaluateRequest(context) == AccessDecision.Denied(destination = Public()))
+  check(post.evaluateRequest(context.copy(queryString = context.queryString + ("sort" to emptyList()))) == AccessDecision.Denied(destination = Public()))
 
   val start = object : StartAccessHandler() {
     override fun evaluate(request: StartRequest): AccessDecision {
@@ -65,11 +63,11 @@ fun verifyAccess(): String {
   // Route IDs may also be names of the library's core types.
   val routeHandler = object : generated.accesstest.RouteAccessHandler() {
     override fun evaluate(request: generated.accesstest.RouteRequest): AccessDecision {
-      return AccessDecision.Denied(reason = denialReason, destination = generated.accesstest.RouteTarget())
+      return AccessDecision.Denied(destination = generated.accesstest.RouteTarget())
     }
   }
   check(routeHandler.route === generated.accesstest.Route)
-  check(routeHandler.evaluateRequest(context) == AccessDecision.Denied(reason = denialReason, destination = generated.accesstest.RouteTarget()))
+  check(routeHandler.evaluateRequest(context) == AccessDecision.Denied(destination = generated.accesstest.RouteTarget()))
   val contextHandler = object : RouteAccessContextAccessHandler() {
     override fun evaluate(request: RouteAccessContextRequest): AccessDecision {
       check(request.queryString.q == "hello + 雪")

@@ -351,7 +351,7 @@ class CheckAccountAccess : AccountApplicationAccessHandler() {
 ```
 
 The application handler must return `AccessDecision.Allowed` before the matching
-route handler runs. Either handler can return `AccessDecision.Denied(reason, destination)`.
+route handler runs. Either handler can return `AccessDecision.Denied(destination)`.
 Unflagged routes are allowed after the application check succeeds.
 `AccountApplicationAccessHandler` extends
 `ApplicationAccessHandler<AccountApplicationConfig>` and takes no config instance.
@@ -370,10 +370,8 @@ Both levels share the same decision type. For example:
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 
 AccessDecision.Denied(
-  reason = DenialReason(code = "profile_required", message = "Complete your profile to continue."),
   destination = AccountRoutes.UserDetail(id = "123")
 )
 ```
@@ -403,7 +401,6 @@ type RouteDecision =
   | {
       type: "denied" | "unknown_route" | "invalid_request";
       destination: string;
-      reason: { code: string; message: string };
     };
 const decision = await response.json() as RouteDecision;
 ```
@@ -424,7 +421,7 @@ Supply a `RouteFailureHandler` to choose recovery destinations for unknown route
 and invalid requests. Its choices apply to both page loads and client navigation.
 Override `RouteHttpResponseConverter` for page HTTP mapping only; Ktor accepts it
 as `responseConverter`. Navigation JSON contains a semantic `type` and a required
-`destination` and `reason` on every failure.
+`destination` on every failure.
 See [custom HTTP conversion](docs/runtime.md#customize-http-conversion).
 Configure rendering and asset options through each config's `htmlRenderer`.
 

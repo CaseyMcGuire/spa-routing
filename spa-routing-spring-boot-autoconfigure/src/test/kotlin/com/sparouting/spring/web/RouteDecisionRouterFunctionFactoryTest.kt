@@ -2,7 +2,6 @@ package com.sparouting.spring.web
 
 import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.RouteRequest
@@ -13,8 +12,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-
-private val denialReason = DenialReason(code = "authentication_required", message = "Sign in to continue.")
 
 class RouteDecisionRouterFunctionFactoryTest {
   @Test
@@ -53,8 +50,7 @@ class RouteDecisionRouterFunctionFactoryTest {
       header { string("Cache-Control", "no-store") }
       jsonPath("$.type") { value("denied") }
       jsonPath("$.destination") { value("/test/login") }
-      jsonPath("$.reason.code") { value(denialReason.code) }
-      jsonPath("$.reason.message") { value(denialReason.message) }
+      jsonPath("$.reason") { doesNotExist() }
     }
   }
 
@@ -91,7 +87,7 @@ class RouteDecisionRouterFunctionFactoryTest {
       status { isOk() }
       jsonPath("$.type") { value("invalid_request") }
       jsonPath("$.destination") { value("/errors/invalid-request") }
-      jsonPath("$.reason.code") { value("invalid_request") }
+      jsonPath("$.reason") { doesNotExist() }
       jsonPath("$.statusCode") { doesNotExist() }
     }
   }
@@ -137,7 +133,7 @@ class RouteDecisionRouterFunctionFactoryTest {
 
   private fun requireUserHeader(request: RouteRequest): AccessDecision {
     return if (request.header("X-User").isEmpty()) {
-      AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
+      AccessDecision.Denied(destination = RouteTarget("test", "Login"))
     } else {
       AccessDecision.Allowed
     }

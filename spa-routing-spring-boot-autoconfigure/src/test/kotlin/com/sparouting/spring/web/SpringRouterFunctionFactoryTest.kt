@@ -2,7 +2,6 @@ package com.sparouting.spring.web
 
 import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
@@ -19,8 +18,6 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-
-private val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
 
 class SpringRouterFunctionFactoryTest {
   @Test
@@ -56,7 +53,7 @@ class SpringRouterFunctionFactoryTest {
       TestSinglePageApplicationConfig(
         routes = listOf(RouteManifest("/test/admin", "Admin"), RouteManifest("/test/login", "Login")),
         applicationAccessHandler = applicationAccessHandler {
-          AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
+          AccessDecision.Denied(destination = RouteTarget("test", "Login"))
         }
       )
     )
@@ -74,7 +71,7 @@ class SpringRouterFunctionFactoryTest {
       TestSinglePageApplicationConfig(
         routes = listOf(RouteManifest("/test/settings", "Settings"), RouteManifest("/test/login", "Login")),
         applicationAccessHandler = applicationAccessHandler {
-          AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
+          AccessDecision.Denied(destination = RouteTarget("test", "Login"))
         }
       )
     )
@@ -109,7 +106,7 @@ class SpringRouterFunctionFactoryTest {
     val config = TestSinglePageApplicationConfig(
       routes = listOf(RouteManifest("/test", "Index"), RouteManifest("/test/login", "Login")),
       applicationAccessHandler = applicationAccessHandler {
-        AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
+        AccessDecision.Denied(destination = RouteTarget("test", "Login"))
       },
       htmlRenderer = HtmlRenderer {
         rendered = true

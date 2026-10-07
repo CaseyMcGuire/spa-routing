@@ -4,9 +4,8 @@ package com.sparouting.contract
 sealed interface AccessDecision {
   data object Allowed : AccessDecision
 
-  /** Denies the requested navigation and supplies a reason and alternative destination. */
+  /** Denies the requested navigation and supplies an alternative destination. */
   data class Denied(
-    val reason: DenialReason,
     val destination: RouteTarget
   ) : AccessDecision
 }

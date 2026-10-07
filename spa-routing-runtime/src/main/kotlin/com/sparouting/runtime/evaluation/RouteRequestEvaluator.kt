@@ -25,7 +25,7 @@ class RouteRequestEvaluator(
       applicationId = request.applicationId,
       routeId = request.routeId
     ) ?: return failureHandler.unknownRoute(request).let { failure ->
-      RouteResult.UnknownRoute(reason = failure.reason, destination = resolveDestination(failure.destination))
+      RouteResult.UnknownRoute(destination = resolveDestination(failure.destination))
     }
 
     if (
@@ -33,13 +33,12 @@ class RouteRequestEvaluator(
       !match.route.hasValidQueryStringValues(request.queryString)
     ) {
       val failure = failureHandler.invalidRequest(request)
-      return RouteResult.InvalidRequest(reason = failure.reason, destination = resolveDestination(failure.destination))
+      return RouteResult.InvalidRequest(destination = resolveDestination(failure.destination))
     }
 
     return when (val decision = evaluateAccess(match, request)) {
       AccessDecision.Allowed -> RouteResult.Allowed
       is AccessDecision.Denied -> RouteResult.Denied(
-        reason = decision.reason,
         destination = resolveDestination(decision.destination)
       )
     }

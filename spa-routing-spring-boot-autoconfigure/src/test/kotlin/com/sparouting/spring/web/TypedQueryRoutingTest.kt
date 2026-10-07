@@ -3,7 +3,6 @@ package com.sparouting.spring.web
 import com.sparouting.spring.testsupport.invalidRequestResult
 import com.sparouting.spring.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
@@ -20,8 +19,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-
-private val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
 
 class TypedQueryRoutingTest {
   private val requests = mutableListOf<RouteRequest>()
@@ -87,7 +84,6 @@ class TypedQueryRoutingTest {
     ))
     assertEquals(
       RouteResult.Denied(
-        reason = denialReason,
         destination = "/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra"
       ),
       result
@@ -106,7 +102,7 @@ class TypedQueryRoutingTest {
   }
 
   private fun evaluateDenial(target: RouteTarget): RouteResult {
-    val handler = applicationAccessHandler { AccessDecision.Denied(reason = denialReason, destination = target) }
+    val handler = applicationAccessHandler { AccessDecision.Denied(destination = target) }
     return testEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",

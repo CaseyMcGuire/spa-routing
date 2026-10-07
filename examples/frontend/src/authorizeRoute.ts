@@ -7,17 +7,17 @@ type NavigationResult =
   | {
       type: "denied" | "unknown_route" | "invalid_request";
       destination: string;
-      reason: { code: string; message: string };
     };
 
 function isNavigationResult(value: unknown): value is NavigationResult {
-  if (typeof value !== "object" || value === null || !("type" in value)) return false;
-  if (value.type === "allowed") return true;
+  if (typeof value !== "object" || value === null || !("type" in value)) {
+    return false;
+  }
+  if (value.type === "allowed") {
+    return true;
+  }
   return (value.type === "denied" || value.type === "unknown_route" || value.type === "invalid_request")
-    && "destination" in value && typeof value.destination === "string" && value.destination.trim().length > 0
-    && "reason" in value && typeof value.reason === "object" && value.reason !== null
-    && "code" in value.reason && typeof value.reason.code === "string"
-    && "message" in value.reason && typeof value.reason.message === "string";
+    && "destination" in value && typeof value.destination === "string" && value.destination.trim().length > 0;
 }
 
 // The installed spa-kit authorization helper uses the pre-0.5 HTTP-shaped payload.

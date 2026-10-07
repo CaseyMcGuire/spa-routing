@@ -1,6 +1,5 @@
 package com.sparouting.runtime.testsupport
 
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.SinglePageApplicationConfig
@@ -20,12 +19,10 @@ internal val testFailureHandler = DefaultRouteFailureHandler(
 )
 
 internal val unknownRouteResult = RouteResult.UnknownRoute(
-  reason = DenialReason(code = "unknown_route", message = "That page does not exist."),
   destination = "/errors/not-found"
 )
 
 internal val invalidRequestResult = RouteResult.InvalidRequest(
-  reason = DenialReason(code = "invalid_request", message = "That address is invalid."),
   destination = "/errors/invalid-request"
 )
 

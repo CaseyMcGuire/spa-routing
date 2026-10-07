@@ -4,7 +4,6 @@ import com.sparouting.runtime.testsupport.invalidRequestResult
 import com.sparouting.runtime.testsupport.unknownRouteResult
 import com.sparouting.runtime.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
@@ -18,8 +17,6 @@ import com.sparouting.runtime.testsupport.TestSinglePageApplicationConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
-
-private val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
 
 class RouteEvaluationTest {
   private val routeRequest = RouteRequest(
@@ -51,14 +48,13 @@ class RouteEvaluationTest {
   @Test
   fun `application denial stops route access evaluation`() {
     val runtime = Runtime(AccessDecision.Denied(
-      reason = denialReason,
       destination = RouteTarget(
         applicationId = "test",
         routeId = "Missing",
         queryString = mapOf("from" to listOf("application"))
       )
     ))
-    val expected = RouteResult.Denied(reason = denialReason, destination = "/test/missing?from=application")
+    val expected = RouteResult.Denied(destination = "/test/missing?from=application")
 
     assertEquals(expected, runtime.evaluator.evaluate(routeRequest))
     assertEquals(1, runtime.applicationRequests.size)
@@ -85,7 +81,7 @@ class RouteEvaluationTest {
   fun `typed denial destinations from handlers are resolved`() {
     val runtime = Runtime()
     val request = routeRequest.copy(pathParameters = mapOf("id" to "missing"))
-    val expected = RouteResult.Denied(reason = denialReason, destination = "/test/missing?from=post+access")
+    val expected = RouteResult.Denied(destination = "/test/missing?from=post+access")
 
     assertEquals(expected, runtime.evaluator.evaluate(request))
   }
@@ -110,7 +106,6 @@ class RouteEvaluationTest {
           return AccessDecision.Allowed
         }
         return AccessDecision.Denied(
-          reason = denialReason,
           destination = RouteTarget(
             applicationId = "test",
             routeId = "Missing",

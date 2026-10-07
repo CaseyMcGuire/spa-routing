@@ -95,9 +95,8 @@ Customize access through the handlers supplied in each application config.
 
 Application handlers receive the framework-neutral `RouteRequest`. Typed route
 handlers receive their generated request models. Both return core's `AccessDecision`:
-`Allowed` permits navigation, while `Denied(reason, destination)` supplies a
-`DenialReason(code, message)` and typed `RouteTarget`. Applications define the reason
-codes and user-facing messages. Neither handler has a skip result or an ordered rule chain.
+`Allowed` permits navigation, while `Denied(destination)` supplies a typed
+`RouteTarget`. Neither handler has a skip result or an ordered rule chain.
 
 ## Adapt requests and responses
 
@@ -118,18 +117,17 @@ values for navigation and redirects.
 The evaluator looks up the route once, validates path and declared query values,
 then runs the application and route access checks in order. Invalid input stops
 before either handler. An application denial stops the route check. Typed
-denial destinations are validated and resolved to URLs by the evaluator, preserving
-the supplied reason.
+denial destinations are validated and resolved to URLs by the evaluator.
 
 Evaluation returns `com.sparouting.runtime.evaluation.RouteResult`, with a `type`
-discriminator. Every failure carries a required `destination` URL and `reason`:
+discriminator. Every failure carries a required `destination` URL:
 
 | Result | JSON `type` | Default page response |
 | --- | --- | --- |
 | `Allowed` | `allowed` | `200` with rendered HTML |
-| `Denied(reason, destination)` | `denied` | `302` to the destination |
-| `UnknownRoute(reason, destination)` | `unknown_route` | `302` to the destination |
-| `InvalidRequest(reason, destination)` | `invalid_request` | `302` to the destination |
+| `Denied(destination)` | `denied` | `302` to the destination |
+| `UnknownRoute(destination)` | `unknown_route` | `302` to the destination |
+| `InvalidRequest(destination)` | `invalid_request` | `302` to the destination |
 
 `UnknownRoute` means the requested application or route ID is not registered.
 `InvalidRequest` means path or declared query parameters violate the route's contract.
@@ -137,19 +135,18 @@ Resource existence remains an application concern.
 
 Navigation endpoints serialize this result directly inside HTTP `200`, with
 `Cache-Control: no-store`. Allowed responses contain only `{"type":"allowed"}`.
-Every failure includes a reason and destination, with no `statusCode` or `location`:
+Every failure includes a destination, with no `statusCode`, `location`, or `reason`:
 
 ```json
 {
   "type": "unknown_route",
-  "destination": "/not-found",
-  "reason": {"code": "unknown_route", "message": "That page does not exist."}
+  "destination": "/not-found"
 }
 ```
 
-Clients continue for `allowed` and navigate to `destination` otherwise. The failure
-type and reason remain available for application-specific messaging. A page redirect
-carries the destination in its `Location` header; it does not transport the reason.
+Clients continue for `allowed` and navigate to `destination` otherwise. The
+destination page owns any user-facing explanation. A page redirect carries the
+destination in its `Location` header.
 
 ## Configure recovery destinations
 
@@ -158,7 +155,7 @@ a Spring bean or Ktor's required `failureHandler` argument. It also handles unkn
 application IDs, so it is independent of any one application config.
 
 `DefaultRouteFailureHandler(unknownRouteDestination, invalidRequestDestination)`
-accepts typed `RouteTarget` values and provides standard reason codes/messages.
+accepts typed `RouteTarget` values.
 Implement `unknownRoute(request)` and `invalidRequest(request)` to customize recovery
 using the original IDs, path/query values, and actual headers. Both methods return
 `AccessDecision.Denied`; the evaluator preserves the original failure type and resolves

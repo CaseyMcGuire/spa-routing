@@ -3,7 +3,6 @@ package com.sparouting.runtime.evaluation
 import com.sparouting.runtime.testsupport.unknownRouteResult
 import com.sparouting.runtime.testsupport.testEvaluator
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
@@ -16,8 +15,6 @@ import com.sparouting.runtime.testsupport.routeAccessHandlers
 import com.sparouting.runtime.testsupport.testRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-
-private val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
 
 class RouteAccessTest {
   private val destination = RouteTarget(applicationId = "other", routeId = "Login")
@@ -49,29 +46,29 @@ class RouteAccessTest {
 
   @Test
   fun `application denial prevents route access evaluation`() {
-    val denial = AccessDecision.Denied(reason = denialReason, destination = destination)
+    val denial = AccessDecision.Denied(destination = destination)
     val evaluator = evaluator({ denial }) {
       error("Route handler must not run after application rejection")
     }
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertEquals(RouteResult.Denied(reason = denialReason, destination = "/other/login"), decision)
+    assertEquals(RouteResult.Denied(destination = "/other/login"), decision)
   }
 
   @Test
   fun `route denial is returned after the application allows access`() {
-    val denial = AccessDecision.Denied(reason = denialReason, destination = destination)
+    val denial = AccessDecision.Denied(destination = destination)
     val evaluator = evaluator { denial }
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertEquals(RouteResult.Denied(reason = denialReason, destination = "/other/login"), decision)
+    assertEquals(RouteResult.Denied(destination = "/other/login"), decision)
   }
 
   @Test
   fun `unflagged routes use their own application handler even when route IDs match`() {
-    val denial = AccessDecision.Denied(reason = denialReason, destination = destination)
+    val denial = AccessDecision.Denied(destination = destination)
     val publicConfig = TestSinglePageApplicationConfig(id = "public", routes = listOf(RouteManifest("/public/route", "Route")))
     val privateConfig = TestSinglePageApplicationConfig(id = "private", routes = listOf(RouteManifest("/private/route", "Route")))
     val evaluator = testEvaluator(
@@ -81,7 +78,7 @@ class RouteAccessTest {
     assertEquals(RouteResult.Allowed, evaluator.evaluate(
       testRequest().copy(applicationId = "public")
     ))
-    assertEquals(RouteResult.Denied(reason = denialReason, destination = "/other/login"), evaluator.evaluate(testRequest().copy(applicationId = "private")))
+    assertEquals(RouteResult.Denied(destination = "/other/login"), evaluator.evaluate(testRequest().copy(applicationId = "private")))
   }
 
   @Test

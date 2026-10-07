@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.sparouting.runtime.evaluation.DefaultRouteFailureHandler
 import com.sparouting.runtime.evaluation.RouteFailureHandler
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.ApplicationAccessHandler
 import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteAccessContext
@@ -184,13 +183,11 @@ class SinglePageApplicationRoutesTest {
       val decision = http.get(prefix + query).decision()
       assertEquals("invalid_request", decision["type"].asText())
       assertEquals("/errors/invalid-request", decision["destination"].asText())
-      assertEquals("invalid_request", decision["reason"]["code"].asText())
     }
     for (query in listOf("applicationId=missing&routeId=User", "applicationId=app&routeId=missing")) {
       val decision = http.get("/__spa/route-decision?$query").decision()
       assertEquals("unknown_route", decision["type"].asText())
       assertEquals("/errors/not-found", decision["destination"].asText())
-      assertEquals("unknown_route", decision["reason"]["code"].asText())
     }
   }
 
@@ -214,10 +211,8 @@ class SinglePageApplicationRoutesTest {
   }
 
   @Test
-  fun `application and route denials become page redirects and navigation JSON with reasons`() = testApplication {
+  fun `application and route denials become page redirects and navigation destinations`() = testApplication {
     val routeChecks = mutableListOf<RouteAccessContext>()
-    val applicationReason = DenialReason(code = "authentication_required", message = "Sign in to continue.")
-    val routeReason = DenialReason(code = "route_access_required", message = "You cannot view this route.")
     val loginTarget = RouteTarget(applicationId = "login", routeId = "Home")
     val handler = object : RouteAccessHandler<RouteAccessContext>(
       com.sparouting.contract.Route(applicationId = "app", routeId = "Private")
@@ -226,7 +221,7 @@ class SinglePageApplicationRoutesTest {
 
       override fun evaluate(request: RouteAccessContext): AccessDecision {
         routeChecks.add(request)
-        return AccessDecision.Denied(reason = routeReason, destination = loginTarget)
+        return AccessDecision.Denied(destination = loginTarget)
       }
     }
     val config = TestConfig(
@@ -235,7 +230,7 @@ class SinglePageApplicationRoutesTest {
       htmlRenderer = HtmlRenderer { error("Denied pages must not render HTML") },
       evaluateApplication = { request ->
         if (request.header("X-User").isEmpty()) {
-          AccessDecision.Denied(reason = applicationReason, destination = loginTarget)
+          AccessDecision.Denied(destination = loginTarget)
         } else {
           AccessDecision.Allowed
         }
@@ -260,10 +255,7 @@ class SinglePageApplicationRoutesTest {
         }
       }
       assertEquals(
-        jsonResult(RouteResult.Denied(
-          destination = "/login",
-          reason = if (authenticated) routeReason else applicationReason
-        )),
+        jsonResult(RouteResult.Denied(destination = "/login")),
         decision.decision()
       )
       assertEquals(if (authenticated) 2 else 0, routeChecks.size)
@@ -275,12 +267,11 @@ class SinglePageApplicationRoutesTest {
   @Test
   fun `custom failure handler supplies the same recovery outcome for pages and navigation`() = testApplication {
     val requests = mutableListOf<RouteRequest>()
-    val reason = DenialReason(code = "invalid_route", message = "Choose a valid route.")
     val handler = object : RouteFailureHandler {
       override fun unknownRoute(request: RouteRequest): AccessDecision.Denied = defaultFailureHandler.unknownRoute(request)
       override fun invalidRequest(request: RouteRequest): AccessDecision.Denied {
         requests.add(request)
-        return AccessDecision.Denied(reason = reason, destination = RouteTarget("app", "Home"))
+        return AccessDecision.Denied(destination = RouteTarget("app", "Home"))
       }
     }
     val config = TestConfig(routes = listOf(
@@ -303,7 +294,7 @@ class SinglePageApplicationRoutesTest {
       }
       header("X-User", "reader")
     }
-    assertEquals(jsonResult(RouteResult.InvalidRequest(reason = reason, destination = "/home")), decision.decision())
+    assertEquals(jsonResult(RouteResult.InvalidRequest(destination = "/home")), decision.decision())
     assertEquals(2, requests.size)
     requests.forEach { request ->
       assertEquals("app", request.applicationId)
@@ -369,13 +360,11 @@ class SinglePageApplicationRoutesTest {
     assertTrue(body["type"].asText() in listOf("allowed", "denied", "unknown_route", "invalid_request"))
     assertTrue(!body.has("statusCode"))
     assertTrue(!body.has("location"))
+    assertTrue(!body.has("reason"))
     if (body["type"].asText() == "allowed") {
       assertTrue(!body.has("destination"))
-      assertTrue(!body.has("reason"))
     } else {
       assertTrue(body["destination"].asText().isNotBlank())
-      assertTrue(body["reason"]["code"].asText().isNotBlank())
-      assertTrue(body["reason"]["message"].asText().isNotBlank())
     }
     return body
   }

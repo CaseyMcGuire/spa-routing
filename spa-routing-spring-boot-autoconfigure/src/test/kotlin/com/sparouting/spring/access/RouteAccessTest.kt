@@ -2,7 +2,6 @@ package com.sparouting.spring.access
 
 import com.sparouting.spring.testsupport.TestNavigationConfiguration
 import com.sparouting.contract.AccessDecision
-import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
@@ -24,9 +23,6 @@ import org.springframework.boot.test.context.runner.WebApplicationContextRunner
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.servlet.function.RouterFunction
-
-private val applicationDenialReason = DenialReason(code = "application_access_required", message = "You cannot view this app.")
-private val postDenialReason = DenialReason(code = "post_not_found", message = "That post could not be found.")
 
 class RouteAccessTest {
   @Test
@@ -145,8 +141,7 @@ class RouteAccessTest {
         status { isOk() }
         jsonPath("$.type") { value("denied") }
         jsonPath("$.destination") { value("/test/missing?from=post+access") }
-        jsonPath("$.reason.code") { value(postDenialReason.code) }
-        jsonPath("$.reason.message") { value(postDenialReason.message) }
+        jsonPath("$.reason") { doesNotExist() }
       }
       assertThat(handler.requests).hasSize(4)
       assertThat(applicationRequests).hasSize(4)
@@ -178,7 +173,7 @@ class RouteAccessTest {
     val handler = PostAccessHandler()
     val config = config()
     val applicationHandler = applicationAccessHandler {
-      AccessDecision.Denied(reason = applicationDenialReason, destination = RouteTarget("test", "Missing"))
+      AccessDecision.Denied(destination = RouteTarget("test", "Missing"))
     }
     runner(config.copy(
       applicationAccessHandler = applicationHandler,
@@ -200,8 +195,7 @@ class RouteAccessTest {
         }.andExpect {
           jsonPath("$.type") { value("denied") }
           jsonPath("$.destination") { value("/test/missing") }
-          jsonPath("$.reason.code") { value(applicationDenialReason.code) }
-          jsonPath("$.reason.message") { value(applicationDenialReason.message) }
+          jsonPath("$.reason") { doesNotExist() }
         }
         assertThat(handler.requests).isEmpty()
       }
@@ -236,7 +230,6 @@ class RouteAccessTest {
         return AccessDecision.Allowed
       }
       return AccessDecision.Denied(
-        reason = postDenialReason,
         destination = RouteTarget(
           applicationId = "test",
           routeId = "Missing",
