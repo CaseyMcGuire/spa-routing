@@ -54,8 +54,8 @@ internal fun generateClientRoutes() {
       appendLine("type RouteMetadata = { applicationId: string; routeId: string; hasAccessHandler: boolean };")
       appendLine()
       appendLine(ROUTE_PARSER)
-      appendLine("function routeWithoutParams(path: string, metadata: RouteMetadata) {")
-      appendLine("  return Object.assign(() => path, { path, ...metadata, parse: createRouteParser<{}, {}>([], []) });")
+      appendLine("function routeWithoutParams<const TMetadata extends RouteMetadata>(path: string, metadata: TMetadata) {")
+      appendLine("  return Object.assign(() => path, { path, ...metadata, parse: createRouteParser<{}, {}, readonly [TMetadata[\"applicationId\"], TMetadata[\"routeId\"]]>([], []) });")
       appendLine("}")
       appendLine()
       if (typescriptObjectEntries.any { it.parameters.isNotEmpty() }) {
@@ -63,8 +63,8 @@ internal fun generateClientRoutes() {
         appendLine("  return encodeURIComponent(value);")
         appendLine("}")
         appendLine()
-        appendLine("function route<TParams extends object>(path: string, buildPath: (params: TParams) => string, metadata: RouteMetadata, parameters: readonly PathDeclaration[]) {")
-        appendLine("  return Object.assign(buildPath, { path, ...metadata, parse: createRouteParser<TParams, {}>(parameters, []) });")
+        appendLine("function route<TParams extends object, const TMetadata extends RouteMetadata>(path: string, buildPath: (params: TParams) => string, metadata: TMetadata, parameters: readonly PathDeclaration[]) {")
+        appendLine("  return Object.assign(buildPath, { path, ...metadata, parse: createRouteParser<TParams, {}, readonly [TMetadata[\"applicationId\"], TMetadata[\"routeId\"]]>(parameters, []) });")
         appendLine("}")
         appendLine()
       }
@@ -87,6 +87,11 @@ internal fun generateClientRoutes() {
       appendLine("} as const;")
       appendLine()
       appendLine("export type $typeName = keyof typeof $objectName;")
+      typescriptObjectEntries.forEach { route ->
+        appendLine()
+        appendLine("/** Parsed context for ${route.key}; use this type on preload parameters. */")
+        appendLine("export type ${route.key}Context = NonNullable<ReturnType<typeof $objectName.${route.key}.parse>>;")
+      }
     }
   }.toMap()
 
@@ -137,7 +142,8 @@ private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
       appendLine("    {")
       appendLine("      path: \"${path.toTypeScriptString()}\", ...${toTypeScriptRouteMetadata()},")
       appendLine("      queryString: (search: URLSearchParams) => readQueryString(search, Object.values(${key}QueryStringKey)),")
-      appendLine("      parse: createRouteParser<${parameters.toTypeScriptParameterObject()}, ${key}QueryString>([$pathDeclarations], [$declarations])")
+      val identity = "readonly [\"${applicationId.toTypeScriptString()}\", \"${key.toTypeScriptString()}\"]"
+      appendLine("      parse: createRouteParser<${parameters.toTypeScriptParameterObject()}, ${key}QueryString, $identity>([$pathDeclarations], [$declarations])")
       appendLine("    }")
       appendLine("  ),")
     }
@@ -231,12 +237,21 @@ private val ROUTE_PARSER = """
   type PathDeclaration = { name: string; optional: boolean };
   type QueryStringDeclaration = { name: string; optional: boolean; repeated: boolean };
 
-  function createRouteParser<TParams extends object, TQueryString extends object>(
+  // Compile-time identity only: contexts still contain just params and queryString at runtime.
+  declare const routeContextBrand: unique symbol;
+  /** Shared parser result; application code normally uses the generated per-route context aliases. */
+  export type ParsedRouteValues<TParams extends object, TQueryString extends object, TIdentity extends readonly [string, string]> = {
+    params: TParams;
+    queryString: TQueryString;
+    readonly [routeContextBrand]: TIdentity;
+  };
+
+  function createRouteParser<TParams extends object, TQueryString extends object, TIdentity extends readonly [string, string]>(
     parameters: readonly PathDeclaration[], queryStringDeclarations: readonly QueryStringDeclaration[]
   ) {
     // Path values have already been decoded by the router. Invalid declared values return null.
     return (params: Readonly<Record<string, string | undefined>>, search: URLSearchParams):
-      { params: TParams; queryString: TQueryString } | null => {
+      ParsedRouteValues<TParams, TQueryString, TIdentity> | null => {
       const parsedParams: Record<string, string> = Object.create(null);
       const queryString: Record<string, string | readonly string[]> = Object.create(null);
       for (const { name, optional } of parameters) {
@@ -265,8 +280,8 @@ private val ROUTE_PARSER = """
           queryString[name] = repeated ? values : values[0];
         }
       }
-      // The generator supplies matching declarations and types for each route.
-      return { params: parsedParams as TParams, queryString: queryString as TQueryString };
+      // Validation establishes the generated route's types and opaque identity.
+      return { params: parsedParams, queryString } as ParsedRouteValues<TParams, TQueryString, TIdentity>;
     };
   }
 

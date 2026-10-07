@@ -23,14 +23,14 @@ Your application still owns:
 
 ## Add Dependencies
 
-This guide targets unreleased `0.5.0-SNAPSHOT`; see the [local installation instructions](../README.md#install).
+This guide targets `0.5.0`; see the [installation instructions](../README.md#install).
 
 Add the Spring Boot starter to the Spring application that will serve the SPA
 routes:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0-SNAPSHOT")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0")
 }
 ```
 
@@ -73,7 +73,7 @@ Apply the Gradle plugin to generate configs, route builders, and access handlers
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.5.0-SNAPSHOT"
+  id("io.github.caseymcguire.spa-routing") version "0.5.0"
 }
 
 spaRouting {

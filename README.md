@@ -33,19 +33,17 @@ Open [http://localhost:8080/](http://localhost:8080/) for Spring or
 
 ## Install
 
-These examples target the unreleased `0.5.0-SNAPSHOT` API. Build it with
-`./gradlew publishToMavenLocal` and add `mavenLocal()` to your dependency and
-plugin repositories. The latest published release is `0.4.0`.
+Use version `0.5.0` from Maven Central and the Gradle Plugin Portal.
 
 For Gradle route generation:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.5.0-SNAPSHOT"
+  id("io.github.caseymcguire.spa-routing") version "0.5.0"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.5.0-SNAPSHOT")
+  implementation("io.github.caseymcguire:spa-routing-core:0.5.0")
 }
 ```
 
@@ -57,7 +55,7 @@ For Spring Boot route serving:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0-SNAPSHOT")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0")
 }
 ```
 
@@ -191,14 +189,35 @@ request a route decision only for routes with extra checks when the application
 gate is public. Application access is configured separately on the server;
 apps that need that check on each navigation must still call the endpoint.
 
-A consumer-defined `createSpaRouter` can infer each `render(params, queryString)`
-callback's arguments from the route's parser return type:
+Each route also exports a short context type derived from its parser:
 
 ```ts
-type ViewData = NonNullable<ReturnType<typeof WikiRoutes.View.parse>>;
-// ViewData["params"] is { wikiId: string }
-// ViewData["queryString"] is { tab?: string } when tab is declared optional
+import type { ViewContext } from "./__generated__/routes/WikiRoutes";
+
+// Generated:
+// export type ViewContext = NonNullable<ReturnType<typeof WikiRoutes.View.parse>>;
+
+function preloadView({ params, queryString }: ViewContext) {
+  return loadWikiPage(params.wikiId, queryString.tab);
+}
 ```
+
+Context types preserve required and optional path/query values, including readonly
+arrays for repeated query parameters. They also carry an opaque, compile-time
+application and route identity: another route's context is rejected even if its
+parameter shapes match. Obtain context values through the route's parser; the
+brand adds no runtime properties or framework dependencies.
+
+When configuring a router with sibling `preload` and `render` callbacks, annotate
+the preload's context parameter with the generated type. This lets TypeScript
+infer the returned resource before typing the renderer. The resource return type
+does not need an annotation. A callback that takes no parameters needs no context
+annotation. TypeScript alone does not require an explicit annotation when a
+parameter can be contextually inferred; applications can enforce that convention
+with a focused ESLint rule.
+
+Router adapters should derive their context from the full non-null parser return
+type. Picking only `params` and `queryString` drops its compile-time identity.
 
 ## Configure Generation
 

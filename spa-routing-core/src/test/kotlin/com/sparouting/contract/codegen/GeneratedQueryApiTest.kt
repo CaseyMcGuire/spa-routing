@@ -211,6 +211,42 @@ class GeneratedQueryApiTest {
     verifyTypeScript(output, "route-object-api", "route objects verified")
   }
 
+  @Test
+  fun `generated context aliases preserve parser types and route identity`() = withGeneratedRoutes { output ->
+    verifyTypeScript(output, "route-context-api", "route contexts verified")
+    runProcess(listOf(
+      "node", System.getProperty("test.typescript.compiler"),
+      "--strict", "--declaration", "--emitDeclarationOnly",
+      "--target", "ES2020", "--module", "commonjs",
+      "--outDir", output.resolve("declarations").toString(),
+      output.resolve("client/route-context-api.ts").toString()
+    ))
+  }
+
+  @Test
+  fun `prototype application signatures infer independent route preloads`() = withGeneratedRoutes { output ->
+    val source = Path.of("src/test/typescript/preloading")
+    val destination = output.resolve("client/preloading")
+    Files.createDirectories(destination)
+    Files.list(source).use { files ->
+      files.filter { it.toString().endsWith(".ts") || it.toString().endsWith(".tsx") }.forEach {
+        Files.copy(it, destination.resolve(it.fileName))
+      }
+    }
+    val fixtures = listOf("annotated-contexts.tsx", "inference.tsx", "edge-cases.ts", "limitations.tsx")
+      .map { destination.resolve(it).toString() }
+    // Both settings are relevant to optional callbacks and omitted preloads.
+    for (exactOptionalProperties in listOf("true", "false")) {
+      runProcess(listOf(
+        "node", System.getProperty("test.typescript.compiler"),
+        "--strict", "--noEmit",
+        "--exactOptionalPropertyTypes", exactOptionalProperties,
+        "--target", "ES2022", "--module", "ESNext", "--moduleResolution", "bundler",
+        "--jsx", "preserve"
+      ) + fixtures)
+    }
+  }
+
   private fun verifyTypeScript(output: Path, fixture: String, expectedOutput: String) {
     val client = output.resolve("client")
     Files.copy(Path.of("src/test/typescript/$fixture.ts"), client.resolve("$fixture.ts"))

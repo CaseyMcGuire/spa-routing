@@ -1,8 +1,22 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 (2026-10-07)
+
+### Added
+
+- Generated TypeScript route modules export a `<RouteId>Context` alias for every
+  route, derived from its parser. Use these short names to annotate preload inputs
+  while preserving exact path and query-string types and inferred resource results.
 
 ### Breaking changes
+
+- **Generated parser results carry compile-time route identity.** Contexts from
+  different routes or applications are no longer interchangeable, including when
+  their parameter shapes match. Context values should come from the route parser;
+  manually constructed `{ params, queryString }` objects do not carry the opaque
+  identity. Router adapters must preserve the full non-null parser return type
+  instead of picking only its two public fields. Runtime values, URL builders,
+  parsing validation, and access-handler metadata keep their existing behavior.
 
 - **Navigation responses carry semantic outcomes and recovery destinations.** The
   decision endpoint now serializes `RouteResult` as `{ "type": "allowed" }` or a
