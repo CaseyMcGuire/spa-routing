@@ -54,7 +54,7 @@ class GeneratedQueryApiTest {
       assertEquals("Config Test", root.name)
       assertEquals("custom-assets", root.bundleName)
       assertEquals("<h1>Config Test</h1>", root.htmlRenderer.render(root))
-      assertEquals(AccessDecision.Allow, root.applicationAccessHandler.evaluate(RouteRequest("configtest", "Post")))
+      assertEquals(AccessDecision.Allowed, root.applicationAccessHandler.evaluate(RouteRequest("configtest", "Post")))
       assertEquals(listOf("Post", "Class", "Handlers"), root.routeAccessHandlers.handlers.map { it.route.routeId })
       assertEquals("/", root.routes.single { it.id == "Index" }.path)
       val post = root.routes.single { it.id == "Post" }
@@ -97,10 +97,10 @@ class GeneratedQueryApiTest {
           import com.sparouting.contract.ApplicationAccessHandler
           import com.sparouting.contract.RouteAccessHandlers
           private class ${name}CheckClass : ClassAccessHandler() {
-            override fun evaluate(request: ClassRequest): AccessDecision = AccessDecision.Allow
+            override fun evaluate(request: ClassRequest): AccessDecision = AccessDecision.Allowed
           }
           private class ${name}CheckHandlers : HandlersAccessHandler() {
-            override fun evaluate(request: HandlersRequest): AccessDecision = AccessDecision.Allow
+            override fun evaluate(request: HandlersRequest): AccessDecision = AccessDecision.Allowed
           }
           fun $name() { ${expression.replace("CheckClass", "${name}CheckClass").replace("CheckHandlers", "${name}CheckHandlers")} }
         """.trimIndent())
@@ -121,13 +121,13 @@ class GeneratedQueryApiTest {
       val name = application.name.replace("\\s+".toRegex(), "")
       appendLine("fun create${name}ApplicationConfig(): ${name}ApplicationConfig = ${name}ApplicationConfig(")
       appendLine("  applicationAccessHandler = object : ${name}ApplicationAccessHandler() {")
-      appendLine("    override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow")
+      appendLine("    override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allowed")
       appendLine("  },")
       appendLine("  routeAccessHandlers = ${name}RouteAccessHandlers(")
       application.routes.filter { it.generateAccessHandler }.forEach { route ->
         val routePackage = "generated.${application.id}"
         appendLine("    object : $routePackage.${route.id}AccessHandler() {")
-        appendLine("      override fun evaluate(request: $routePackage.${route.id}Request): AccessDecision = AccessDecision.Allow")
+        appendLine("      override fun evaluate(request: $routePackage.${route.id}Request): AccessDecision = AccessDecision.Allowed")
         appendLine("    },")
       }
       appendLine("  ),")
@@ -157,7 +157,7 @@ class GeneratedQueryApiTest {
       import com.sparouting.contract.AccessDecision
       import generated.accesstest.*
       class WrongAccess : PostAccessHandler() {
-        override fun evaluate(request: StartRequest): AccessDecision = AccessDecision.Allow
+        override fun evaluate(request: StartRequest): AccessDecision = AccessDecision.Allowed
       }
     """.trimIndent())
     val (failureResult, errors) = compileKotlin(listOf(invalid), output.resolve("invalid-access"), classes)

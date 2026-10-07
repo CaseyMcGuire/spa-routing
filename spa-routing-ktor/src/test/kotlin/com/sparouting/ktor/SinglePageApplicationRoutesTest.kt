@@ -3,6 +3,7 @@ package com.sparouting.ktor
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 import com.sparouting.contract.ApplicationAccessHandler
 import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteAccessContext
@@ -14,7 +15,10 @@ import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.contract.parameter
 import com.sparouting.runtime.rendering.HtmlDocumentRenderer
-import com.sparouting.runtime.response.RouteDecisionResponse
+import com.sparouting.runtime.evaluation.RouteResult
+import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
+import com.sparouting.runtime.response.RouteHttpResponse
+import com.sparouting.runtime.response.RouteHttpResponseConverter
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
@@ -57,7 +61,7 @@ class SinglePageApplicationRoutesTest {
       assertEquals(ContentType.Text.Html, page.contentType()?.withoutParameters())
       assertEquals("<h1>${config.id}: ${config.name}</h1>", page.bodyAsText())
       assertEquals(
-        RouteDecisionResponse(statusCode = 200),
+        RouteHttpResponse(statusCode = 200),
         client.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home").decision()
       )
     }
@@ -73,7 +77,7 @@ class SinglePageApplicationRoutesTest {
         routes = listOf(RouteManifest(path = "/$id", id = "Home")),
         evaluateApplication = { request ->
           requests.add(request)
-          AccessDecision.Allow
+          AccessDecision.Allowed
         }
       )
     }
@@ -87,7 +91,7 @@ class SinglePageApplicationRoutesTest {
       assertContains(page.bodyAsText(), "/assets/${config.bundleName}.bundle.js")
 
       val decision = client.get("/__spa/route-decision?applicationId=${config.id}&routeId=Home")
-      assertEquals(RouteDecisionResponse(statusCode = 200), decision.decision())
+      assertEquals(RouteHttpResponse(statusCode = 200), decision.decision())
     }
     assertEquals(listOf("one", "one", "two", "two"), requests.map { it.applicationId })
     assertEquals(HttpStatusCode.NotFound, client.get("/unknown").status)
@@ -101,7 +105,7 @@ class SinglePageApplicationRoutesTest {
     }
 
     val decision = client.get("/internal/navigation?applicationId=app&routeId=Home")
-    assertEquals(RouteDecisionResponse(statusCode = 200), decision.decision())
+    assertEquals(RouteHttpResponse(statusCode = 200), decision.decision())
     assertEquals(
       HttpStatusCode.NotFound,
       client.get("/__spa/route-decision?applicationId=app&routeId=Home").status
@@ -120,7 +124,7 @@ class SinglePageApplicationRoutesTest {
       )),
       evaluateApplication = { request ->
         requests.add(request)
-        AccessDecision.Allow
+        AccessDecision.Allowed
       }
     )
     application { installRoutes(listOf(config)) }
@@ -145,7 +149,7 @@ class SinglePageApplicationRoutesTest {
       headers.append("X-Group", "one")
       headers.append("X-Group", "two")
     }
-    assertEquals(RouteDecisionResponse(statusCode = 200), decision.decision())
+    assertEquals(RouteHttpResponse(statusCode = 200), decision.decision())
     assertEquals(2, requests.size)
     requests.forEach { request ->
       assertEquals("app", request.applicationId)
@@ -170,11 +174,11 @@ class SinglePageApplicationRoutesTest {
       htmlRenderer = HtmlRenderer { error("Invalid requests must not render HTML") },
       evaluateApplication = { request ->
         requests.add(request)
-        AccessDecision.Allow
+        AccessDecision.Allowed
       }
     )
     application {
-      installRoutes(listOf(config), invalidQueryStringStatus = 422, invalidPathParameterStatus = 409)
+      installRoutes(listOf(config), invalidRequestStatus = 422)
     }
 
     assertEquals(HttpStatusCode.UnprocessableEntity, client.get("/app/users/1?q=one&q=two").status)
@@ -182,7 +186,7 @@ class SinglePageApplicationRoutesTest {
     val prefix = "/__spa/route-decision?applicationId=app&routeId=User"
     assertEquals(422, client.get("$prefix&parameters.id=1&queryString.q=one&queryString.q=two").decision().statusCode)
     assertEquals(422, client.get("$prefix&parameters.id=1").decision().statusCode)
-    assertEquals(409, client.get("$prefix&queryString.q=one").decision().statusCode)
+    assertEquals(422, client.get("$prefix&queryString.q=one").decision().statusCode)
     assertEquals(404, client.get("/__spa/route-decision?applicationId=missing&routeId=User").decision().statusCode)
     assertEquals(404, client.get("/__spa/route-decision?applicationId=app&routeId=missing").decision().statusCode)
     assertTrue(requests.isEmpty())
@@ -195,20 +199,22 @@ class SinglePageApplicationRoutesTest {
       evaluateApplication = { error("Invalid requests must not reach access handlers") },
       htmlRenderer = HtmlRenderer { error("Only Allowed may render HTML") }
     )
-    application { installRoutes(listOf(config), invalidQueryStringStatus = 200) }
+    application { installRoutes(listOf(config), invalidRequestStatus = 200) }
 
     val page = client.get("/app")
     assertEquals(HttpStatusCode.OK, page.status)
     assertEquals("", page.bodyAsText())
     assertEquals(
-      RouteDecisionResponse(statusCode = 200),
+      RouteHttpResponse(statusCode = 200),
       client.get("/__spa/route-decision?applicationId=app&routeId=Home").decision()
     )
   }
 
   @Test
-  fun `application and route redirects become page redirects and navigation JSON`() = testApplication {
+  fun `application and route denials become page redirects and navigation JSON with reasons`() = testApplication {
     val routeChecks = mutableListOf<RouteAccessContext>()
+    val applicationReason = DenialReason(code = "authentication_required", message = "Sign in to continue.")
+    val routeReason = DenialReason(code = "route_access_required", message = "You cannot view this route.")
     val loginTarget = RouteTarget(applicationId = "login", routeId = "Home")
     val handler = object : RouteAccessHandler<RouteAccessContext>(
       com.sparouting.contract.Route(applicationId = "app", routeId = "Private")
@@ -217,18 +223,18 @@ class SinglePageApplicationRoutesTest {
 
       override fun evaluate(request: RouteAccessContext): AccessDecision {
         routeChecks.add(request)
-        return AccessDecision.Redirect(loginTarget)
+        return AccessDecision.Denied(reason = routeReason, destination = loginTarget)
       }
     }
     val config = TestConfig(
       routes = listOf(RouteManifest(path = "/app/private", id = "Private", hasAccessHandler = true)),
       handlers = listOf(handler),
-      htmlRenderer = HtmlRenderer { error("Redirects must not render HTML") },
+      htmlRenderer = HtmlRenderer { error("Denied pages must not render HTML") },
       evaluateApplication = { request ->
         if (request.header("X-User").isEmpty()) {
-          AccessDecision.Redirect(loginTarget)
+          AccessDecision.Denied(reason = applicationReason, destination = loginTarget)
         } else {
-          AccessDecision.Allow
+          AccessDecision.Allowed
         }
       }
     )
@@ -250,31 +256,123 @@ class SinglePageApplicationRoutesTest {
           header("X-User", "reader")
         }
       }
-      assertEquals(RouteDecisionResponse(statusCode = 302, location = "/login"), decision.decision())
+      assertEquals(
+        RouteHttpResponse(
+          statusCode = 302,
+          location = "/login",
+          reason = if (authenticated) routeReason else applicationReason
+        ),
+        decision.decision()
+      )
       assertEquals(if (authenticated) 2 else 0, routeChecks.size)
     }
     assertEquals(routeChecks[0].path, routeChecks[1].path)
     assertEquals("/app/private", routeChecks[0].path)
   }
 
+  @Test
+  fun `custom response converter handles failures for both endpoints with caller data`() = testApplication {
+    val requests = mutableListOf<RouteRequest>()
+    val results = mutableListOf<RouteResult>()
+    val reason = DenialReason(code = "invalid_route", message = "Choose a valid route.")
+    val defaults = DefaultRouteHttpResponseConverter()
+    val converter = RouteHttpResponseConverter { request, result ->
+      requests.add(request)
+      results.add(result)
+      when (result) {
+        RouteResult.InvalidRequest -> RouteHttpResponse(
+          statusCode = 303,
+          location = "/home",
+          reason = reason
+        )
+        RouteResult.UnknownRoute -> RouteHttpResponse(statusCode = 410)
+        else -> defaults.convert(request, result)
+      }
+    }
+    val config = TestConfig(
+      routes = listOf(RouteManifest("/app/users/{id}", "User", queryString = listOf(parameter("q"))))
+    )
+    application { installRoutes(listOf(config), responseConverter = converter) }
+    val http = createClient { followRedirects = false }
+
+    val page = http.get("/app/users/42?q=one&q=two") { header("X-User", "reader") }
+    assertEquals(HttpStatusCode.SeeOther, page.status)
+    assertEquals("/home", page.headers[HttpHeaders.Location])
+    assertEquals("", page.bodyAsText())
+    val decision = http.get("/__spa/route-decision") {
+      url {
+        parameters.append("applicationId", "app")
+        parameters.append("routeId", "User")
+        parameters.append("parameters.id", "42")
+        parameters.append("queryString.q", "one")
+        parameters.append("queryString.q", "two")
+      }
+      header("X-User", "reader")
+    }
+    assertEquals(RouteHttpResponse(statusCode = 303, location = "/home", reason = reason), decision.decision())
+    assertEquals(2, requests.size)
+    requests.forEach { request ->
+      assertEquals("app", request.applicationId)
+      assertEquals("User", request.routeId)
+      assertEquals(mapOf("id" to "42"), request.pathParameters)
+      assertEquals(mapOf("q" to listOf("one", "two")), request.queryString)
+      assertEquals(listOf("reader"), request.header("X-User"))
+    }
+    assertEquals(listOf<RouteResult>(RouteResult.InvalidRequest, RouteResult.InvalidRequest), results)
+
+    assertEquals(
+      RouteHttpResponse(statusCode = 303, location = "/home", reason = reason),
+      http.get("/__spa/route-decision?applicationId=app&routeId=User").decision()
+    )
+    assertEquals(
+      RouteHttpResponse(statusCode = 410),
+      http.get("/__spa/route-decision?applicationId=missing&routeId=User").decision()
+    )
+    assertEquals(HttpStatusCode.OK, http.get("/app/users/42?q=valid").status)
+  }
+
+  @Test
+  fun `custom responses suppress HTML when an allowed route is mapped to a redirect or error`() {
+    for (response in listOf(RouteHttpResponse(303, "/elsewhere"), RouteHttpResponse(403))) {
+      testApplication {
+        val config = TestConfig(
+          routes = listOf(RouteManifest("/app", "Home")),
+          htmlRenderer = HtmlRenderer { error("Overridden responses must not render HTML") }
+        )
+        application {
+          installRoutes(listOf(config), responseConverter = RouteHttpResponseConverter { _, result ->
+            assertEquals(RouteResult.Allowed, result)
+            response
+          })
+        }
+        val page = createClient { followRedirects = false }.get("/app")
+        assertEquals(response.statusCode, page.status.value)
+        assertEquals(response.location, page.headers[HttpHeaders.Location])
+        assertEquals("", page.bodyAsText())
+      }
+    }
+  }
+
   private fun Application.installRoutes(
     configs: List<SinglePageApplicationConfig>,
-    invalidQueryStringStatus: Int = 400,
-    invalidPathParameterStatus: Int = 400,
-    routeDecisionPath: String = "/__spa/route-decision"
+    invalidRequestStatus: Int = 400,
+    routeDecisionPath: String = "/__spa/route-decision",
+    responseConverter: RouteHttpResponseConverter = DefaultRouteHttpResponseConverter(
+      invalidRequestStatus = invalidRequestStatus
+    )
   ) {
     install(ContentNegotiation) { jackson() }
     routing {
       singlePageApplicationRoutes(
         configs = configs,
         routeDecisionPath = routeDecisionPath,
-        invalidPathParameterStatus = invalidPathParameterStatus,
-        invalidQueryStringStatus = invalidQueryStringStatus
+        invalidRequestStatus = invalidRequestStatus,
+        responseConverter = responseConverter
       )
     }
   }
 
-  private suspend fun HttpResponse.decision(): RouteDecisionResponse {
+  private suspend fun HttpResponse.decision(): RouteHttpResponse {
     assertEquals(HttpStatusCode.OK, status)
     assertEquals(ContentType.Application.Json, contentType()?.withoutParameters())
     assertEquals("no-store", headers[HttpHeaders.CacheControl])
@@ -290,7 +388,7 @@ class SinglePageApplicationRoutesTest {
       bundleBasePath = "/assets",
       globalStylesheet = null
     ),
-    evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
+    evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allowed }
   ) : SinglePageApplicationConfig {
     override val name: String = "Application $id"
     override val bundleName: String = id

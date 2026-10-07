@@ -1,8 +1,10 @@
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteAccessContext
 import generated.accesstest.*
 
 fun verifyAccess(): String {
+  val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
   val context = RouteAccessContext(
     method = "GET",
     path = "/access/posts/42",
@@ -21,29 +23,29 @@ fun verifyAccess(): String {
       check(sort == null && filter == null)
       check(request.context.header("x-user") == listOf("casey"))
       check(request.context.queryString["extra"] == listOf("raw"))
-      return AccessDecision.Redirect(Public())
+      return AccessDecision.Denied(reason = denialReason, destination = Public())
     }
   }
   check(post.route === Post)
-  check(post.evaluateRequest(context) == AccessDecision.Redirect(Public()))
-  check(post.evaluateRequest(context.copy(queryString = context.queryString + ("sort" to emptyList()))) == AccessDecision.Redirect(Public()))
+  check(post.evaluateRequest(context) == AccessDecision.Denied(reason = denialReason, destination = Public()))
+  check(post.evaluateRequest(context.copy(queryString = context.queryString + ("sort" to emptyList()))) == AccessDecision.Denied(reason = denialReason, destination = Public()))
 
   val start = object : StartAccessHandler() {
     override fun evaluate(request: StartRequest): AccessDecision {
       check(request.context.method == "GET")
-      return AccessDecision.Allow
+      return AccessDecision.Allowed
     }
   }
-  check(start.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allow)
+  check(start.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allowed)
 
   val optional = object : OptionalAccessHandler() {
     override fun evaluate(request: OptionalRequest): AccessDecision {
       val id: String? = request.id
       check(id == null)
-      return AccessDecision.Allow
+      return AccessDecision.Allowed
     }
   }
-  check(optional.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allow)
+  check(optional.evaluateRequest(context.copy(pathParameters = emptyMap())) == AccessDecision.Allowed)
 
   val names = object : NamesAccessHandler() {
     override fun evaluate(request: NamesRequest): AccessDecision {
@@ -52,29 +54,29 @@ fun verifyAccess(): String {
       check(request.`class` == "path keyword")
       check(request.queryString_.`class` == "query keyword")
       check(request.context_.header("X-USER") == listOf("casey"))
-      return AccessDecision.Allow
+      return AccessDecision.Allowed
     }
   }
   check(names.evaluateRequest(context.copy(
     pathParameters = mapOf("context" to "path context", "queryString" to "path query", "class" to "path keyword"),
     queryString = mapOf("class" to listOf("query keyword"))
-  )) == AccessDecision.Allow)
+  )) == AccessDecision.Allowed)
 
   // Route IDs may also be names of the library's core types.
   val routeHandler = object : generated.accesstest.RouteAccessHandler() {
     override fun evaluate(request: generated.accesstest.RouteRequest): AccessDecision {
-      return AccessDecision.Redirect(generated.accesstest.RouteTarget())
+      return AccessDecision.Denied(reason = denialReason, destination = generated.accesstest.RouteTarget())
     }
   }
   check(routeHandler.route === generated.accesstest.Route)
-  check(routeHandler.evaluateRequest(context) == AccessDecision.Redirect(generated.accesstest.RouteTarget()))
+  check(routeHandler.evaluateRequest(context) == AccessDecision.Denied(reason = denialReason, destination = generated.accesstest.RouteTarget()))
   val contextHandler = object : RouteAccessContextAccessHandler() {
     override fun evaluate(request: RouteAccessContextRequest): AccessDecision {
       check(request.queryString.q == "hello + 雪")
-      return AccessDecision.Allow
+      return AccessDecision.Allowed
     }
   }
   check(contextHandler.route === generated.accesstest.RouteAccessContext)
-  check(contextHandler.evaluateRequest(context) == AccessDecision.Allow)
+  check(contextHandler.evaluateRequest(context) == AccessDecision.Allowed)
   return "access verified"
 }

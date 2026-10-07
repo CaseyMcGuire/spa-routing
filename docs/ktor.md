@@ -53,18 +53,34 @@ shared evaluator for all supplied configs. Route metadata already contains full 
 including application prefixes. The extension passes these patterns to Ktor's
 `get` function and reads decoded values from `call.pathParameters`. Keep patterns
 compatible with Ktor's path syntax; mounting the extension beneath another path
-would change URLs without updating generated client URLs or redirect targets.
+would change URLs without updating generated client URLs or denial destinations.
 
 The evaluator validates access-handler registration at startup and handles request
-validation, application access, route access, and redirect resolution. It returns
-a `RouteResult`; the adapter maps that result to HTTP responses. Access handlers
+validation, application access, route access, and destination resolution. It returns
+a `RouteResult`; the shared HTTP converter maps that result for the adapter. Access handlers
 remain synchronous. The optional
-`invalidPathParameterStatus` and `invalidQueryStringStatus` arguments both default
-to `400` and apply to page requests and navigation decisions.
+`invalidRequestStatus` argument defaults to `400` and configures the default
+converter for path and query validation failures on pages and navigation decisions.
 
 Install content negotiation with a converter capable of serializing the plain
-Kotlin `RouteDecisionResponse` model, such as Jackson. The adapter does not install
+Kotlin `RouteHttpResponse` model, such as Jackson. The adapter does not install
 a converter or add serialization annotations to core/runtime models.
+
+## Customize HTTP responses
+
+Pass a framework-neutral `RouteHttpResponseConverter` to replace the default
+status/location/reason mapping for both pages and navigation JSON:
+
+```kotlin
+singlePageApplicationRoutes(
+  configs = configs,
+  responseConverter = myResponseConverter
+)
+```
+
+See [custom HTTP conversion](runtime.md#customize-http-conversion) for an implementation
+that redirects invalid requests. An explicit converter owns its status configuration;
+`invalidRequestStatus` only configures the default.
 
 ## Configure the decision endpoint
 
@@ -84,9 +100,13 @@ Page route paths are unaffected.
 
 ## Page and navigation responses
 
-For generated page paths, an allowed request receives HTML from the matching
-config's `htmlRenderer`. Other results become HTTP statuses and, for redirects,
-a `Location` header. Unregistered URLs retain Ktor's normal routing behavior.
+With the default converter, an allowed request receives HTML from the matching
+config's `htmlRenderer`. A denial produces an HTTP `302` with its destination in a
+`Location` header. Validation failures use the configured invalid-request status.
+Unregistered URLs retain Ktor's normal routing behavior.
+
+Rendering requires an `Allowed` result converted to `200` without a location.
+Custom redirects/errors skip HTML; invalid or denied requests never render it.
 
 Client navigation uses `GET` at the configured decision path, defaulting to
 `/__spa/route-decision`, with the same wire format as Spring:
@@ -102,7 +122,11 @@ The endpoint returns HTTP `200` with `Cache-Control: no-store`. Its JSON body
 describes the target page outcome:
 
 ```json
-{"statusCode":302,"location":"/not-found"}
+{
+  "statusCode": 302,
+  "location": "/not-found",
+  "reason": {"code": "post_not_found", "message": "That post could not be found."}
+}
 ```
 
 Page loads and navigation decisions both pass actual request headers to

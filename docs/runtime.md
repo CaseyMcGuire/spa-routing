@@ -7,7 +7,7 @@ Its public types live under `com.sparouting.runtime`.
 | Module | Responsibility |
 | --- | --- |
 | `spa-routing-core` | Authoring definitions, route and application contracts, request models, access handler contracts, and generators |
-| `spa-routing-runtime` | Route registry, handler registration validation, application and route access checks, redirect resolution, and HTML document generation |
+| `spa-routing-runtime` | Route registry, handler registration validation, application and route access checks, destination resolution, HTTP metadata conversion, and HTML document generation |
 | `spa-routing-ktor` | Ktor route registration, request conversion, and HTTP/JSON responses |
 | `spa-routing-spring-boot-autoconfigure` | Bean discovery, properties, MVC route registration, request conversion, HTTP/JSON responses, and HTML delivery |
 | `spa-routing-spring-boot-starter` | Dependencies for Spring Boot applications |
@@ -49,7 +49,7 @@ import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteRequest
 
 class CheckBlogAccess : BlogApplicationAccessHandler() {
-  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
+  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allowed
 }
 ```
 
@@ -89,8 +89,10 @@ handlers. The registry is an internal implementation detail.
 Customize access through the handlers supplied in each application config.
 
 Application handlers receive the framework-neutral `RouteRequest`. Typed route
-handlers receive their generated request models. Both return core's
-`AccessDecision`; neither has a skip result or an ordered rule chain.
+handlers receive their generated request models. Both return core's `AccessDecision`:
+`Allowed` permits navigation, while `Denied(reason, destination)` supplies a
+`DenialReason(code, message)` and typed `RouteTarget`. Applications define the reason
+codes and user-facing messages. Neither handler has a skip result or an ordered rule chain.
 
 ## Adapt requests and responses
 
@@ -110,31 +112,78 @@ values for navigation and redirects.
 
 The evaluator looks up the route once, validates path and declared query values,
 then runs the application and route access checks in order. Invalid input stops
-before either handler. An application redirect stops the route check. Typed
-redirects are validated and resolved to URLs by the evaluator.
+before either handler. An application denial stops the route check. Typed
+denial destinations are validated and resolved to URLs by the evaluator, preserving
+the supplied reason.
 
 Evaluation returns `com.sparouting.runtime.evaluation.RouteResult`, with no HTTP
-status codes. Each adapter maps it explicitly:
+status codes. Both adapters use `DefaultRouteHttpResponseConverter` to map it:
 
 | Result | Page response |
 | --- | --- |
 | `Allowed` | `200` with the config's rendered HTML |
-| `Redirect(url)` | `302` with a `Location` header |
-| `NotFound` | `404` |
-| `InvalidPathParameters` | Configured path-validation status, default `400` |
-| `InvalidQueryString` | Configured query-validation status, default `400` |
+| `Denied(reason, destinationUrl)` | `302` with the destination in a `Location` header |
+| `UnknownRoute` | `404` |
+| `InvalidRequest` | Configured invalid-request status, default `400` |
 
-Validation status settings belong to the adapters. Only `Allowed` renders HTML,
-even if a validation status is configured as `200`.
+`UnknownRoute` means the requested application or route ID is not registered.
+`InvalidRequest` means a registered route received path or declared query parameters
+that do not satisfy its contract. Whether a resource such as a blog post exists is
+an application concern, handled separately from route registration.
 
-For navigation checks, the adapter maps the result to the shared JSON payload
-`RouteDecisionResponse(statusCode, location)` in `com.sparouting.runtime.response`.
-The endpoint itself returns HTTP `200` and `Cache-Control: no-store`. The payload
-describes the target page's status and redirect; it is not the evaluator's return type.
+The adapters pass their `invalidRequestStatus` setting to the default converter.
+HTML renders only when the original result is `Allowed` and the converted response
+has status `200` and no location. Mapping an invalid or denied request to `200`
+does not make it render; mapping an allowed request to a redirect or error skips rendering.
+
+The converter returns `RouteHttpResponse(statusCode, location, reason)` in
+`com.sparouting.runtime.response`. Page adapters apply its status and location;
+navigation endpoints serialize it as JSON inside HTTP `200` with `Cache-Control: no-store`. The payload
+includes the denial reason and alternative location when access is denied. By default,
+`reason` is null for allowed requests and validation/lookup failures. A page redirect carries
+the destination in its `Location` header; it does not automatically deliver the reason
+to the destination page.
 
 An adapter also owns URL matching, decoding, request authentication context,
 and HTTP serialization. Application access handlers that use a framework's security
 context will need an equivalent implementation when moving frameworks.
+
+## Customize HTTP conversion
+
+Implement `RouteHttpResponseConverter` to customize status, location, and reason.
+The same converter receives the evaluated `RouteRequest` and `RouteResult` for
+page loads and navigation checks. It can inspect application/route IDs, path/query
+values, and actual headers, including when evaluation returns `UnknownRoute`.
+
+If your application has a recovery page, it can opt into redirecting invalid requests
+while delegating other outcomes. The default response remains `400`:
+
+```kotlin
+import com.sparouting.contract.DenialReason
+import com.sparouting.runtime.evaluation.RouteResult
+import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
+import com.sparouting.runtime.response.RouteHttpResponse
+import com.sparouting.runtime.response.RouteHttpResponseConverter
+
+val defaults = DefaultRouteHttpResponseConverter()
+val converter = RouteHttpResponseConverter { request, result ->
+  when (result) {
+    RouteResult.InvalidRequest -> RouteHttpResponse(
+      statusCode = 302,
+      location = "/bad-request",
+      reason = DenialReason(code = "invalid_route", message = "That address is invalid.")
+    )
+    else -> defaults.convert(request, result)
+  }
+}
+```
+
+Supply a `RouteHttpResponseConverter` bean in Spring, or pass `responseConverter`
+to Ktor's `singlePageApplicationRoutes`. A custom converter owns its status settings;
+Spring's `spa-routing.server.invalid-request-status` property and Ktor's
+`invalidRequestStatus` argument configure the default converter.
+The converter is framework-neutral and does not change generated application configs.
+It controls HTTP metadata; HTML stays with each application's `htmlRenderer`.
 
 ## Configure HTML rendering
 
@@ -142,7 +191,7 @@ context will need an equivalent implementation when moving frameworks.
 `render(application: SinglePageApplicationConfig): String`. Supply it through the
 generated config's required `htmlRenderer` constructor argument. Both adapters
 use that application's renderer only for allowed page loads; navigation checks,
-redirects, and validation errors do not render HTML.
+denials, and validation errors do not render HTML.
 
 The runtime's `HtmlDocumentRenderer` implements this interface and escapes
 application metadata and asset URLs. Configure its asset options at construction:

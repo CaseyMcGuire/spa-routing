@@ -2,7 +2,7 @@ package com.sparouting.ktor
 
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.evaluation.RouteResult
-import com.sparouting.runtime.response.RouteDecisionResponse
+import com.sparouting.runtime.response.RouteHttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -13,33 +13,17 @@ import io.ktor.server.routing.RoutingCall
 internal suspend fun RoutingCall.respondPage(
   result: RouteResult,
   application: SinglePageApplicationConfig,
-  invalidPathParameterStatus: Int,
-  invalidQueryStringStatus: Int
+  httpResponse: RouteHttpResponse
 ) {
-  when (result) {
-    RouteResult.Allowed -> respondText(application.htmlRenderer.render(application), ContentType.Text.Html)
-    is RouteResult.Redirect -> {
-      response.headers.append(HttpHeaders.Location, result.url)
-      respond(HttpStatusCode.Found)
-    }
-    RouteResult.NotFound -> respond(HttpStatusCode.NotFound)
-    RouteResult.InvalidPathParameters -> respond(HttpStatusCode.fromValue(invalidPathParameterStatus))
-    RouteResult.InvalidQueryString -> respond(HttpStatusCode.fromValue(invalidQueryStringStatus))
+  httpResponse.location?.let { response.headers.append(HttpHeaders.Location, it) }
+  if (result == RouteResult.Allowed && httpResponse.statusCode == 200 && httpResponse.location == null) {
+    respondText(application.htmlRenderer.render(application), ContentType.Text.Html)
+  } else {
+    respond(HttpStatusCode.fromValue(httpResponse.statusCode))
   }
 }
 
-internal suspend fun RoutingCall.respondRouteDecision(
-  result: RouteResult,
-  invalidPathParameterStatus: Int,
-  invalidQueryStringStatus: Int
-) {
-  val body = when (result) {
-    RouteResult.Allowed -> RouteDecisionResponse(statusCode = 200)
-    is RouteResult.Redirect -> RouteDecisionResponse(statusCode = 302, location = result.url)
-    RouteResult.NotFound -> RouteDecisionResponse(statusCode = 404)
-    RouteResult.InvalidPathParameters -> RouteDecisionResponse(statusCode = invalidPathParameterStatus)
-    RouteResult.InvalidQueryString -> RouteDecisionResponse(statusCode = invalidQueryStringStatus)
-  }
+internal suspend fun RoutingCall.respondRouteDecision(httpResponse: RouteHttpResponse) {
   response.headers.append(HttpHeaders.CacheControl, "no-store")
-  respond(body)
+  respond(HttpStatusCode.OK, httpResponse)
 }

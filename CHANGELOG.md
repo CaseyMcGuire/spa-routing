@@ -4,6 +4,55 @@
 
 ### Breaking changes
 
+- **Route lookup and request validation have distinct, simpler results.**
+  `RouteResult.UnknownRoute` replaces `NotFound` and means the requested application
+  or route ID is not registered. `RouteResult.InvalidRequest` replaces both
+  `InvalidPathParameters` and `InvalidQueryString`. It covers path or declared query
+  parameters that do not satisfy a known route's contract; validation still precedes
+  both access checks. Resource existence remains an application concern.
+
+  `DefaultRouteHttpResponseConverter` maps `UnknownRoute` to `404` and `InvalidRequest`
+  to one configurable status, default `400`. Replace the separate path/query status
+  settings with `invalidRequestStatus` in the default converter and Ktor registration,
+  or `spa-routing.server.invalid-request-status` in Spring. Update custom converter
+  branches to use the new results. The former result names and settings are removed.
+
+- **HTTP conversion is shared and replaceable.** Both adapters use the framework-neutral
+  `runtime.response.RouteHttpResponseConverter.convert(RouteRequest, RouteResult)`.
+  Its `DefaultRouteHttpResponseConverter` preserves the existing mappings and
+  validation status settings. Supply a Spring converter bean or Ktor's
+  `responseConverter` argument to customize status, location, and reason for both
+  page requests and navigation checks, including invalid and unknown routes.
+  An explicit converter owns its configuration; the existing Spring properties
+  and Ktor status arguments configure only the default converter.
+
+  The converter returns `RouteHttpResponse(statusCode, location, reason)`, replacing
+  `RouteDecisionResponse`. Navigation JSON retains those fields, its HTTP `200`
+  envelope, and `Cache-Control: no-store`. HTML renders only for an `Allowed` result
+  mapped to `200` without a location; custom redirects and errors suppress rendering.
+  Evaluation still returns `RouteResult`, independently of HTTP conversion.
+
+  Spring router factories now require `responseConverter`; the page factory no
+  longer accepts routing properties. `toServerResponse` now receives converted
+  `RouteHttpResponse` metadata, the original result, and the application config.
+  Generated application configs and access-handler contracts are unchanged.
+
+- **Access decisions describe navigation permission and include denial reasons.**
+  `AccessDecision.Allowed` replaces `Allow`. `AccessDecision.Denied(reason, destination)`
+  replaces `Redirect(destination)` and requires a core `DenialReason(code, message)`
+  alongside the typed `RouteTarget`. Applications define both the reason code and
+  user-facing message. Update application and route handlers; no compatibility
+  aliases are provided.
+
+  The evaluator returns `RouteResult.Denied(reason, destinationUrl)` instead of
+  `RouteResult.Redirect(url)`, preserving the reason while validating and resolving
+  the destination. Application denials still stop route access evaluation.
+  Spring and Ktor map denied page requests to HTTP `302` responses. Navigation JSON
+  retains `statusCode` and `location` and adds a nullable `reason` object with `code`
+  and `message`; it is populated for denials. Page redirects do not transport the
+  reason to the destination page. Validation and lookup failure results and their
+  configured statuses are unchanged.
+
 - **Route evaluation returns semantic results; adapters own HTTP mapping.**
   `runtime.evaluation.RouteRequestEvaluator(configs)` replaces `RouteResponseService`
   and the internal `RouteAccessEvaluator`. It validates the request, runs application

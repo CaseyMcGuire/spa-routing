@@ -3,7 +3,7 @@ package com.sparouting.spring.web
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.evaluation.RouteRequestEvaluator
-import com.sparouting.spring.autoconfigure.RoutingProperties
+import com.sparouting.runtime.response.RouteHttpResponseConverter
 import com.sparouting.spring.request.RouteRequestFactory
 import com.sparouting.spring.response.toServerResponse
 import org.springframework.web.servlet.function.RouterFunction
@@ -15,7 +15,7 @@ class SpringRouterFunctionFactory(
   private val routeConfigs: List<SinglePageApplicationConfig>,
   private val evaluator: RouteRequestEvaluator,
   private val requestFactory: RouteRequestFactory,
-  private val properties: RoutingProperties
+  private val responseConverter: RouteHttpResponseConverter
 ) {
   fun routes(): RouterFunction<ServerResponse> {
     return router {
@@ -34,7 +34,8 @@ class SpringRouterFunctionFactory(
     route: RouteManifest,
     request: ServerRequest
   ): ServerResponse {
-    val result = evaluator.evaluate(requestFactory.create(request, config, route))
-    return result.toServerResponse(config, properties)
+    val routeRequest = requestFactory.create(request, config, route)
+    val result = evaluator.evaluate(routeRequest)
+    return responseConverter.convert(routeRequest, result).toServerResponse(result, config)
   }
 }

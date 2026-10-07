@@ -9,7 +9,7 @@ import com.sparouting.runtime.config.SinglePageApplicationRouteRegistration
 import com.sparouting.runtime.config.SinglePageApplicationRouteRegistry
 
 /**
- * Validates requests, evaluates access, and resolves redirects for pages and client navigation.
+ * Validates requests, evaluates access, and resolves denial destinations for pages and client navigation.
  * Builds and validates registrations from [configs] once during construction.
  * HTTP response mapping belongs to the framework adapter.
  */
@@ -23,19 +23,21 @@ class RouteRequestEvaluator(
     val match = routeRegistry.findByApplicationAndRouteId(
       applicationId = request.applicationId,
       routeId = request.routeId
-    ) ?: return RouteResult.NotFound
+    ) ?: return RouteResult.UnknownRoute
 
-    if (!match.route.hasValidParameterValues(request.pathParameters)) {
-      return RouteResult.InvalidPathParameters
-    }
-
-    if (!match.route.hasValidQueryStringValues(request.queryString)) {
-      return RouteResult.InvalidQueryString
+    if (
+      !match.route.hasValidParameterValues(request.pathParameters) ||
+      !match.route.hasValidQueryStringValues(request.queryString)
+    ) {
+      return RouteResult.InvalidRequest
     }
 
     return when (val decision = evaluateAccess(match, request)) {
-      AccessDecision.Allow -> RouteResult.Allowed
-      is AccessDecision.Redirect -> resolveRedirect(decision.destination)
+      AccessDecision.Allowed -> RouteResult.Allowed
+      is AccessDecision.Denied -> RouteResult.Denied(
+        reason = decision.reason,
+        destinationUrl = resolveDestination(decision.destination)
+      )
     }
   }
 
@@ -44,11 +46,11 @@ class RouteRequestEvaluator(
     request: RouteRequest
   ): AccessDecision {
     val applicationDecision = registration.applicationAccessHandler.evaluate(request)
-    if (applicationDecision != AccessDecision.Allow) {
+    if (applicationDecision != AccessDecision.Allowed) {
       return applicationDecision
     }
 
-    val handler = registration.routeAccessHandler ?: return AccessDecision.Allow
+    val handler = registration.routeAccessHandler ?: return AccessDecision.Allowed
     return handler.evaluateRequest(
       RouteAccessContext(
         method = "GET",
@@ -60,7 +62,7 @@ class RouteRequestEvaluator(
     )
   }
 
-  private fun resolveRedirect(target: RouteTarget): RouteResult.Redirect {
+  private fun resolveDestination(target: RouteTarget): String {
     val match = routeRegistry.findByApplicationAndRouteId(target.applicationId, target.routeId)
       ?: throw IllegalStateException("Unknown SPA route target: ${target.applicationId}:${target.routeId}")
 
@@ -70,6 +72,6 @@ class RouteRequestEvaluator(
 
     val path = match.route.resolvePath(target.parameters)
     val query = match.route.resolveQueryString(target.queryString)
-    return RouteResult.Redirect(if (query.isEmpty()) path else "$path?$query")
+    return if (query.isEmpty()) path else "$path?$query"
   }
 }

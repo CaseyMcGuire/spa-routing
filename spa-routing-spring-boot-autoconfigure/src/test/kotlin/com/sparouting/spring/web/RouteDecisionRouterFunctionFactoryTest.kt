@@ -1,10 +1,12 @@
 package com.sparouting.spring.web
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.evaluation.RouteRequestEvaluator
+import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -12,6 +14,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+
+private val denialReason = DenialReason(code = "authentication_required", message = "Sign in to continue.")
 
 class RouteDecisionRouterFunctionFactoryTest {
   @Test
@@ -30,6 +34,7 @@ class RouteDecisionRouterFunctionFactoryTest {
         header { string("Cache-Control", "no-store") }
         jsonPath("$.statusCode") { value(200) }
         jsonPath("$.location") { doesNotExist() }
+        jsonPath("$.reason") { doesNotExist() }
       }
     }
   }
@@ -49,6 +54,8 @@ class RouteDecisionRouterFunctionFactoryTest {
       header { string("Cache-Control", "no-store") }
       jsonPath("$.statusCode") { value(302) }
       jsonPath("$.location") { value("/test/login") }
+      jsonPath("$.reason.code") { value(denialReason.code) }
+      jsonPath("$.reason.message") { value(denialReason.message) }
     }
   }
 
@@ -73,7 +80,7 @@ class RouteDecisionRouterFunctionFactoryTest {
   @Test
   fun `route decision returns configured status in body for missing params`() {
     val properties = RoutingProperties()
-    properties.server.invalidPathParameterStatus = 422
+    properties.server.invalidRequestStatus = 422
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))),
       properties = properties
@@ -94,7 +101,7 @@ class RouteDecisionRouterFunctionFactoryTest {
       TestSinglePageApplicationConfig(routes = listOf(RouteManifest("/test/users/{id}", "UserDetail"))),
       evaluateApplication = { request ->
         kotlin.test.assertEquals("billing", request.queryStringValue("tab"))
-        AccessDecision.Allow
+        AccessDecision.Allowed
       }
     )
 
@@ -129,23 +136,26 @@ class RouteDecisionRouterFunctionFactoryTest {
 
   private fun requireUserHeader(request: RouteRequest): AccessDecision {
     return if (request.header("X-User").isEmpty()) {
-      AccessDecision.Redirect(RouteTarget("test", "Login"))
+      AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
     } else {
-      AccessDecision.Allow
+      AccessDecision.Allowed
     }
   }
 
   private fun mockMvc(
     config: TestSinglePageApplicationConfig,
     properties: RoutingProperties = RoutingProperties(),
-    evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
+    evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allowed }
   ): MockMvc {
     return MockMvcBuilders.routerFunctions(
       RouteDecisionRouterFunctionFactory(
         evaluator = RouteRequestEvaluator(
           configs = listOf(config.copy(applicationAccessHandler = applicationAccessHandler(evaluateApplication)))
         ),
-        properties = properties
+        properties = properties,
+        responseConverter = DefaultRouteHttpResponseConverter(
+          invalidRequestStatus = properties.server.invalidRequestStatus
+        )
       ).routes()
     ).build()
   }

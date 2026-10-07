@@ -21,7 +21,7 @@ internal data class TestSinglePageApplicationConfig(
 ) : SinglePageApplicationConfig
 
 internal fun applicationAccessHandler(
-  evaluateAccess: (RouteRequest) -> AccessDecision = { AccessDecision.Allow }
+  evaluateAccess: (RouteRequest) -> AccessDecision = { AccessDecision.Allowed }
 ): ApplicationAccessHandler<TestSinglePageApplicationConfig> {
   return object : ApplicationAccessHandler<TestSinglePageApplicationConfig>() {
     override fun evaluate(request: RouteRequest): AccessDecision = evaluateAccess(request)

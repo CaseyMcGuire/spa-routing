@@ -1,8 +1,12 @@
 package com.sparouting.contract
 
-/** Shared outcome of application-level and route-level access checks. */
+/** Whether navigation may proceed after an application-level or route-level access check. */
 sealed interface AccessDecision {
-  data object Allow : AccessDecision
+  data object Allowed : AccessDecision
 
-  data class Redirect(val destination: RouteTarget) : AccessDecision
+  /** Denies the requested navigation and supplies a reason and alternative destination. */
+  data class Denied(
+    val reason: DenialReason,
+    val destination: RouteTarget
+  ) : AccessDecision
 }

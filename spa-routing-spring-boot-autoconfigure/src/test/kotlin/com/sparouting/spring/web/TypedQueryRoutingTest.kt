@@ -1,6 +1,7 @@
 package com.sparouting.spring.web
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.parameter
 import com.sparouting.contract.RouteManifest
@@ -8,6 +9,7 @@ import com.sparouting.spring.testsupport.applicationAccessHandler
 import com.sparouting.contract.RouteRequest
 import com.sparouting.runtime.evaluation.RouteResult
 import com.sparouting.runtime.evaluation.RouteRequestEvaluator
+import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.TestSinglePageApplicationConfig
@@ -18,6 +20,8 @@ import kotlin.test.assertTrue
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
+private val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
+
 class TypedQueryRoutingTest {
   private val requests = mutableListOf<RouteRequest>()
   private val config = TestSinglePageApplicationConfig(routes = listOf(
@@ -27,7 +31,7 @@ class TypedQueryRoutingTest {
   ))
   private val handler = applicationAccessHandler { request ->
     requests.add(request)
-    AccessDecision.Allow
+    AccessDecision.Allowed
   }
   private val configs = listOf(config.copy(applicationAccessHandler = handler))
   private val valid = linkedMapOf("foo" to listOf("a b+&=雪"), "tag" to listOf("x/y", "é"))
@@ -64,10 +68,9 @@ class TypedQueryRoutingTest {
   }
 
   @Test
-  fun `query error status is independently configurable for both endpoints`() {
+  fun `invalid request status applies to query errors on both endpoints`() {
     val properties = RoutingProperties().apply {
-      server.invalidPathParameterStatus = 409
-      server.invalidQueryStringStatus = 422
+      server.invalidRequestStatus = 422
     }
     assertPageAndDecision(valid - "foo", 422, properties)
     assertTrue(requests.isEmpty())
@@ -76,7 +79,7 @@ class TypedQueryRoutingTest {
   @Test
   fun `evaluator rejects empty required lists and permits empty optional lists`() {
     val evaluator = RouteRequestEvaluator(configs)
-    assertEquals(RouteResult.InvalidQueryString, evaluator.evaluate(RouteRequest(
+    assertEquals(RouteResult.InvalidRequest, evaluator.evaluate(RouteRequest(
       "test", "UserDetail", mapOf("id" to "123"), queryString = valid + mapOf("tag" to emptyList())
     )))
     assertEquals(RouteResult.Allowed, evaluator.evaluate(RouteRequest(
@@ -85,30 +88,33 @@ class TypedQueryRoutingTest {
   }
 
   @Test
-  fun `typed redirects encode declared and extra query parameters`() {
-    val result = redirect(RouteTarget(
+  fun `typed denial destinations encode declared and extra query parameters`() {
+    val result = evaluateDenial(RouteTarget(
       "test", "UserDetail", mapOf("id" to "123"),
       queryString = valid + mapOf("baz" to listOf(""), "utm_source" to listOf("extra"))
     ))
     assertEquals(
-      RouteResult.Redirect("/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra"),
+      RouteResult.Denied(
+        reason = denialReason,
+        destinationUrl = "/test/users/123?foo=a+b%2B%26%3D%E9%9B%AA&tag=x%2Fy&tag=%C3%A9&baz=&utm_source=extra"
+      ),
       result
     )
   }
 
   @Test
-  fun `typed redirects reject invalid query cardinality`() {
+  fun `typed denial destinations reject invalid query cardinality`() {
     for (query in listOf(valid - "foo", valid + mapOf("tag" to emptyList()), valid + mapOf("foo" to listOf("a", "b")))) {
       assertFailsWith<IllegalArgumentException> {
-        redirect(RouteTarget(
+        evaluateDenial(RouteTarget(
           "test", "UserDetail", mapOf("id" to "123"), queryString = query
         ))
       }
     }
   }
 
-  private fun redirect(target: RouteTarget): RouteResult {
-    val handler = applicationAccessHandler { AccessDecision.Redirect(target) }
+  private fun evaluateDenial(target: RouteTarget): RouteResult {
+    val handler = applicationAccessHandler { AccessDecision.Denied(reason = denialReason, destination = target) }
     return RouteRequestEvaluator(listOf(config.copy(applicationAccessHandler = handler))).evaluate(RouteRequest(
       applicationId = "test",
       routeId = "UserDetail",
@@ -123,16 +129,20 @@ class TypedQueryRoutingTest {
     properties: RoutingProperties = RoutingProperties()
   ) {
     val evaluator = RouteRequestEvaluator(configs)
+    val responseConverter = DefaultRouteHttpResponseConverter(
+      invalidRequestStatus = properties.server.invalidRequestStatus
+    )
     val mockMvc = MockMvcBuilders.routerFunctions(
       SpringRouterFunctionFactory(
         routeConfigs = configs,
         evaluator = evaluator,
         requestFactory = DefaultRouteRequestFactory(),
-        properties = properties
+        responseConverter = responseConverter
       ).routes(),
       RouteDecisionRouterFunctionFactory(
         evaluator = evaluator,
-        properties = properties
+        properties = properties,
+        responseConverter = responseConverter
       ).routes()
     ).build()
     mockMvc.get("/test/users/123") {

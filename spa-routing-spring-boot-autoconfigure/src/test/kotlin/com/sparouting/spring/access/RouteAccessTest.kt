@@ -1,6 +1,7 @@
 package com.sparouting.spring.access
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
@@ -22,6 +23,9 @@ import org.springframework.boot.test.context.runner.WebApplicationContextRunner
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.servlet.function.RouterFunction
+
+private val applicationDenialReason = DenialReason(code = "application_access_required", message = "You cannot view this app.")
+private val postDenialReason = DenialReason(code = "post_not_found", message = "That post could not be found.")
 
 class RouteAccessTest {
   @Test
@@ -82,7 +86,7 @@ class RouteAccessTest {
     val applicationRequests = mutableListOf<RouteRequest>()
     val applicationHandler = applicationAccessHandler { request ->
       applicationRequests.add(request)
-      AccessDecision.Allow
+      AccessDecision.Allowed
     }
     runner(config.copy(
       applicationAccessHandler = applicationHandler,
@@ -140,6 +144,8 @@ class RouteAccessTest {
         status { isOk() }
         jsonPath("$.statusCode") { value(302) }
         jsonPath("$.location") { value("/test/missing?from=post+access") }
+        jsonPath("$.reason.code") { value(postDenialReason.code) }
+        jsonPath("$.reason.message") { value(postDenialReason.message) }
       }
       assertThat(handler.requests).hasSize(4)
       assertThat(applicationRequests).hasSize(4)
@@ -167,10 +173,12 @@ class RouteAccessTest {
   }
 
   @Test
-  fun `application redirect prevents route checks for page and navigation requests`() {
+  fun `application denial prevents route checks for page and navigation requests`() {
     val handler = PostAccessHandler()
     val config = config()
-    val applicationHandler = applicationAccessHandler { AccessDecision.Redirect(RouteTarget("test", "Missing")) }
+    val applicationHandler = applicationAccessHandler {
+      AccessDecision.Denied(reason = applicationDenialReason, destination = RouteTarget("test", "Missing"))
+    }
     runner(config.copy(
       applicationAccessHandler = applicationHandler,
       routeAccessHandlers = routeAccessHandlers(handler)
@@ -191,6 +199,8 @@ class RouteAccessTest {
         }.andExpect {
           jsonPath("$.statusCode") { value(302) }
           jsonPath("$.location") { value("/test/missing") }
+          jsonPath("$.reason.code") { value(applicationDenialReason.code) }
+          jsonPath("$.reason.message") { value(applicationDenialReason.message) }
         }
         assertThat(handler.requests).isEmpty()
       }
@@ -221,13 +231,16 @@ class RouteAccessTest {
     override fun evaluate(request: PostRequest): AccessDecision {
       requests.add(request)
       if (request.id == "42") {
-        return AccessDecision.Allow
+        return AccessDecision.Allowed
       }
-      return AccessDecision.Redirect(RouteTarget(
-        applicationId = "test",
-        routeId = "Missing",
-        queryString = mapOf("from" to listOf("post access"))
-      ))
+      return AccessDecision.Denied(
+        reason = postDenialReason,
+        destination = RouteTarget(
+          applicationId = "test",
+          routeId = "Missing",
+          queryString = mapOf("from" to listOf("post access"))
+        )
+      )
     }
   }
 }

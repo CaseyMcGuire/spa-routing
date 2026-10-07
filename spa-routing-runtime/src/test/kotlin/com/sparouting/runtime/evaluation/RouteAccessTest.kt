@@ -1,6 +1,7 @@
 package com.sparouting.runtime.evaluation
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 import com.sparouting.contract.Route
 import com.sparouting.contract.RouteAccessContext
 import com.sparouting.contract.RouteAccessHandler
@@ -13,6 +14,8 @@ import com.sparouting.runtime.testsupport.routeAccessHandlers
 import com.sparouting.runtime.testsupport.testRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+
+private val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
 
 class RouteAccessTest {
   private val destination = RouteTarget(applicationId = "other", routeId = "Login")
@@ -27,13 +30,13 @@ class RouteAccessTest {
     val applicationHandler = { request: RouteRequest ->
       assertEquals(testRequest(), request)
       calls.add("application")
-      AccessDecision.Allow
+      AccessDecision.Allowed
     }
     val evaluator = evaluator(applicationHandler) { context ->
       assertEquals("/test/route", context.path)
       assertEquals("GET", context.method)
       calls.add("route")
-      AccessDecision.Allow
+      AccessDecision.Allowed
     }
 
     val decision = evaluator.evaluate(testRequest())
@@ -43,40 +46,40 @@ class RouteAccessTest {
   }
 
   @Test
-  fun `application redirect prevents route access evaluation`() {
-    val redirect = AccessDecision.Redirect(destination)
-    val evaluator = evaluator({ redirect }) {
+  fun `application denial prevents route access evaluation`() {
+    val denial = AccessDecision.Denied(reason = denialReason, destination = destination)
+    val evaluator = evaluator({ denial }) {
       error("Route handler must not run after application rejection")
     }
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertEquals(RouteResult.Redirect("/other/login"), decision)
+    assertEquals(RouteResult.Denied(reason = denialReason, destinationUrl = "/other/login"), decision)
   }
 
   @Test
-  fun `route redirect is returned after the application allows access`() {
-    val redirect = AccessDecision.Redirect(destination)
-    val evaluator = evaluator { redirect }
+  fun `route denial is returned after the application allows access`() {
+    val denial = AccessDecision.Denied(reason = denialReason, destination = destination)
+    val evaluator = evaluator { denial }
 
     val decision = evaluator.evaluate(testRequest())
 
-    assertEquals(RouteResult.Redirect("/other/login"), decision)
+    assertEquals(RouteResult.Denied(reason = denialReason, destinationUrl = "/other/login"), decision)
   }
 
   @Test
   fun `unflagged routes use their own application handler even when route IDs match`() {
-    val redirect = AccessDecision.Redirect(destination)
+    val denial = AccessDecision.Denied(reason = denialReason, destination = destination)
     val publicConfig = TestSinglePageApplicationConfig(id = "public", routes = listOf(RouteManifest("/public/route", "Route")))
     val privateConfig = TestSinglePageApplicationConfig(id = "private", routes = listOf(RouteManifest("/private/route", "Route")))
     val evaluator = RouteRequestEvaluator(
-      listOf(publicConfig, privateConfig.copy(applicationAccessHandler = applicationAccessHandler { redirect }), destinationConfig)
+      listOf(publicConfig, privateConfig.copy(applicationAccessHandler = applicationAccessHandler { denial }), destinationConfig)
     )
 
     assertEquals(RouteResult.Allowed, evaluator.evaluate(
       testRequest().copy(applicationId = "public")
     ))
-    assertEquals(RouteResult.Redirect("/other/login"), evaluator.evaluate(testRequest().copy(applicationId = "private")))
+    assertEquals(RouteResult.Denied(reason = denialReason, destinationUrl = "/other/login"), evaluator.evaluate(testRequest().copy(applicationId = "private")))
   }
 
   @Test
@@ -86,12 +89,12 @@ class RouteAccessTest {
     }
 
     for (request in listOf(testRequest().copy(applicationId = "unknown"), testRequest().copy(routeId = "Unknown"))) {
-      assertEquals(RouteResult.NotFound, evaluator.evaluate(request))
+      assertEquals(RouteResult.UnknownRoute, evaluator.evaluate(request))
     }
   }
 
   private fun evaluator(
-    evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allow },
+    evaluateApplication: (RouteRequest) -> AccessDecision = { AccessDecision.Allowed },
     evaluateRoute: (RouteAccessContext) -> AccessDecision
   ): RouteRequestEvaluator {
     val config = TestSinglePageApplicationConfig(

@@ -9,8 +9,7 @@ class RoutingProperties {
 
   class Server {
     var enabled: Boolean = true
-    var invalidPathParameterStatus: Int = 400
-    var invalidQueryStringStatus: Int = 400
+    var invalidRequestStatus: Int = 400
   }
 
   class RouteDecision {

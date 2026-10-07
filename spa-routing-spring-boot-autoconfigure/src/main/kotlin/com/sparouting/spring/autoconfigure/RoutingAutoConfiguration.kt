@@ -2,6 +2,8 @@ package com.sparouting.spring.autoconfigure
 
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.evaluation.RouteRequestEvaluator
+import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
+import com.sparouting.runtime.response.RouteHttpResponseConverter
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.request.RouteRequestFactory
 import com.sparouting.spring.web.RouteDecisionRouterFunctionFactory
@@ -34,16 +36,25 @@ class RoutingAutoConfiguration(
   }
 
   @Bean
+  @ConditionalOnMissingBean
+  fun routeHttpResponseConverter(): RouteHttpResponseConverter {
+    return DefaultRouteHttpResponseConverter(
+      invalidRequestStatus = properties.server.invalidRequestStatus
+    )
+  }
+
+  @Bean
   @ConditionalOnMissingBean(name = ["routeDecisionRouterFunction"])
   @ConditionalOnProperty(
     prefix = "spa-routing.route-decision",
     name = ["enabled"],
     matchIfMissing = true
   )
-  fun routeDecisionRouterFunction(): RouterFunction<ServerResponse> {
+  fun routeDecisionRouterFunction(responseConverter: RouteHttpResponseConverter): RouterFunction<ServerResponse> {
     return RouteDecisionRouterFunctionFactory(
       evaluator = evaluator,
-      properties = properties
+      properties = properties,
+      responseConverter = responseConverter
     ).routes()
   }
 
@@ -54,13 +65,14 @@ class RoutingAutoConfiguration(
     matchIfMissing = true
   )
   fun routerFunction(
-    requestFactory: RouteRequestFactory
+    requestFactory: RouteRequestFactory,
+    responseConverter: RouteHttpResponseConverter
   ): RouterFunction<ServerResponse> {
     return SpringRouterFunctionFactory(
       routeConfigs = configs,
       evaluator = evaluator,
       requestFactory = requestFactory,
-      properties = properties
+      responseConverter = responseConverter
     ).routes()
   }
 }

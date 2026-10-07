@@ -10,7 +10,7 @@
 
 - `spa-routing-core`: route, application, and access contracts plus generators
 - `spa-routing-gradle-plugin`: Gradle integration for code generation
-- `spa-routing-runtime`: framework-neutral registration, validation, access evaluation, redirect resolution, and HTML generation
+- `spa-routing-runtime`: framework-neutral registration, validation, access evaluation, destination resolution, and HTML generation
 - `spa-routing-ktor`: Ktor route registration, request conversion, and HTTP responses
 - `spa-routing-spring-boot-autoconfigure` / `-starter`: Spring MVC adapters, properties, and bean wiring
 
@@ -331,12 +331,12 @@ class RoutesConfiguration {
 
 @Component
 class CheckAccountAccess : AccountApplicationAccessHandler() {
-  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allow
+  override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allowed
 }
 ```
 
-The application handler must return `AccessDecision.Allow` before the matching
-route handler runs. Either handler can return `AccessDecision.Redirect(target)`.
+The application handler must return `AccessDecision.Allowed` before the matching
+route handler runs. Either handler can return `AccessDecision.Denied(reason, destination)`.
 Unflagged routes are allowed after the application check succeeds.
 `AccountApplicationAccessHandler` extends
 `ApplicationAccessHandler<AccountApplicationConfig>` and takes no config instance.
@@ -355,8 +355,12 @@ Both levels share the same decision type. For example:
 ```kotlin
 import com.example.generated.spa.routes.AccountRoutes
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 
-AccessDecision.Redirect(AccountRoutes.UserDetail(id = "123"))
+AccessDecision.Denied(
+  reason = DenialReason(code = "profile_required", message = "Complete your profile to continue."),
+  destination = AccountRoutes.UserDetail(id = "123")
+)
 ```
 
 Each config supplies a framework-neutral `HtmlRenderer`. Use `HtmlDocumentRenderer`
@@ -391,18 +395,20 @@ Useful Spring properties:
 spa-routing:
   server:
     enabled: true
-    invalid-path-parameter-status: 400
-    invalid-query-string-status: 400
+    invalid-request-status: 400
   route-decision:
     enabled: true
     path: /__spa/route-decision
 ```
 
 Override the `RouteRequestFactory` bean to customize page request conversion.
+Override `RouteHttpResponseConverter` to customize status, location, and reason for
+both pages and navigation checks; Ktor accepts it as `responseConverter`.
+See [custom HTTP conversion](docs/runtime.md#customize-http-conversion).
 Configure rendering and asset options through each config's `htmlRenderer`.
 
 The adapters construct a private `RouteRequestEvaluator` from application configs
-and map its `RouteResult` to HTTP responses. Configure access through application
+and pass its `RouteResult` through the shared HTTP converter. Configure access through application
 and route handlers; registration stays internal.
 
 ## Development

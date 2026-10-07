@@ -1,11 +1,13 @@
 package com.sparouting.spring.web
 
 import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.DenialReason
 import com.sparouting.contract.HtmlRenderer
 import com.sparouting.contract.RouteTarget
 import com.sparouting.contract.RouteManifest
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.evaluation.RouteRequestEvaluator
+import com.sparouting.runtime.response.DefaultRouteHttpResponseConverter
 import com.sparouting.spring.autoconfigure.RoutingProperties
 import com.sparouting.spring.request.DefaultRouteRequestFactory
 import com.sparouting.spring.testsupport.applicationAccessHandler
@@ -16,6 +18,8 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+
+private val denialReason = DenialReason(code = "access_denied", message = "You cannot view this route.")
 
 class SpringRouterFunctionFactoryTest {
   @Test
@@ -46,11 +50,13 @@ class SpringRouterFunctionFactoryTest {
   }
 
   @Test
-  fun `application redirect returns response instead of html`() {
+  fun `application denial produces an HTTP redirect`() {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         routes = listOf(RouteManifest("/test/admin", "Admin"), RouteManifest("/test/login", "Login")),
-        applicationAccessHandler = applicationAccessHandler { AccessDecision.Redirect(RouteTarget("test", "Login")) }
+        applicationAccessHandler = applicationAccessHandler {
+          AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
+        }
       )
     )
 
@@ -66,7 +72,9 @@ class SpringRouterFunctionFactoryTest {
     val mockMvc = mockMvc(
       TestSinglePageApplicationConfig(
         routes = listOf(RouteManifest("/test/settings", "Settings"), RouteManifest("/test/login", "Login")),
-        applicationAccessHandler = applicationAccessHandler { AccessDecision.Redirect(RouteTarget("test", "Login")) }
+        applicationAccessHandler = applicationAccessHandler {
+          AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
+        }
       )
     )
 
@@ -95,11 +103,13 @@ class SpringRouterFunctionFactoryTest {
   }
 
   @Test
-  fun `application-specific rendering is skipped when the application redirects`() {
+  fun `application-specific rendering is skipped when the application denies access`() {
     var rendered = false
     val config = TestSinglePageApplicationConfig(
       routes = listOf(RouteManifest("/test", "Index"), RouteManifest("/test/login", "Login")),
-      applicationAccessHandler = applicationAccessHandler { AccessDecision.Redirect(RouteTarget("test", "Login")) },
+      applicationAccessHandler = applicationAccessHandler {
+        AccessDecision.Denied(reason = denialReason, destination = RouteTarget("test", "Login"))
+      },
       htmlRenderer = HtmlRenderer {
         rendered = true
         "Custom HTML"
@@ -119,7 +129,7 @@ class SpringRouterFunctionFactoryTest {
     )
 
     for (statusCode in listOf(400, 200)) {
-      val properties = RoutingProperties().apply { server.invalidQueryStringStatus = statusCode }
+      val properties = RoutingProperties().apply { server.invalidRequestStatus = statusCode }
       mockMvc(config, properties).get("/test").andExpect {
         status { isEqualTo(statusCode) }
         content { string("") }
@@ -136,7 +146,9 @@ class SpringRouterFunctionFactoryTest {
         routeConfigs = listOf(config),
         evaluator = RouteRequestEvaluator(listOf(config)),
         requestFactory = DefaultRouteRequestFactory(),
-        properties = properties
+        responseConverter = DefaultRouteHttpResponseConverter(
+          invalidRequestStatus = properties.server.invalidRequestStatus
+        )
       ).routes()
     ).build()
   }

@@ -111,7 +111,7 @@ class SinglePageApplicationRouteRegistryTest {
     val applicationHandler = applicationAccessHandler()
     val routeHandler = object : RouteAccessHandler<RouteAccessContext>(Route("test", "Post")) {
       override fun createRequest(context: RouteAccessContext): RouteAccessContext = context
-      override fun evaluate(request: RouteAccessContext): AccessDecision = AccessDecision.Allow
+      override fun evaluate(request: RouteAccessContext): AccessDecision = AccessDecision.Allowed
     }
     val registry = SinglePageApplicationRouteRegistry(listOf(config.copy(
       applicationAccessHandler = applicationHandler, routeAccessHandlers = routeAccessHandlers(routeHandler)
@@ -126,7 +126,7 @@ class SinglePageApplicationRouteRegistryTest {
   private fun handler(applicationId: String, routeId: String): RouteAccessHandler<RouteAccessContext> {
     return object : RouteAccessHandler<RouteAccessContext>(Route(applicationId, routeId)) {
       override fun createRequest(context: RouteAccessContext): RouteAccessContext = context
-      override fun evaluate(request: RouteAccessContext): AccessDecision = AccessDecision.Allow
+      override fun evaluate(request: RouteAccessContext): AccessDecision = AccessDecision.Allowed
     }
   }
 }

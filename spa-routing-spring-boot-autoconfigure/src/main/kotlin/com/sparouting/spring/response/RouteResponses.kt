@@ -2,40 +2,30 @@ package com.sparouting.spring.response
 
 import com.sparouting.contract.SinglePageApplicationConfig
 import com.sparouting.runtime.evaluation.RouteResult
-import com.sparouting.runtime.response.RouteDecisionResponse
-import com.sparouting.spring.autoconfigure.RoutingProperties
+import com.sparouting.runtime.response.RouteHttpResponse
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.web.servlet.function.ServerResponse
 
-/** Map every route result to a complete page response, rendering HTML only when access is allowed. */
-fun RouteResult.toServerResponse(
-  application: SinglePageApplicationConfig,
-  properties: RoutingProperties
+/** Apply converted HTTP metadata, rendering HTML only for an allowed route mapped to 200 without a location. */
+fun RouteHttpResponse.toServerResponse(
+  result: RouteResult,
+  application: SinglePageApplicationConfig
 ): ServerResponse {
-  return when (this) {
-    RouteResult.Allowed -> ServerResponse.ok()
+  val response = ServerResponse.status(statusCode)
+  location?.let { response.header(HttpHeaders.LOCATION, it) }
+  return if (result == RouteResult.Allowed && statusCode == 200 && location == null) {
+    response
       .contentType(MediaType.TEXT_HTML)
       .body(application.htmlRenderer.render(application))
-    is RouteResult.Redirect -> ServerResponse.status(302)
-      .header(HttpHeaders.LOCATION, url)
-      .build()
-    RouteResult.NotFound -> ServerResponse.notFound().build()
-    RouteResult.InvalidPathParameters -> ServerResponse.status(properties.server.invalidPathParameterStatus).build()
-    RouteResult.InvalidQueryString -> ServerResponse.status(properties.server.invalidQueryStringStatus).build()
+  } else {
+    response.build()
   }
 }
 
-internal fun RouteResult.toRouteDecisionResponse(properties: RoutingProperties): ServerResponse {
-  val body = when (this) {
-    RouteResult.Allowed -> RouteDecisionResponse(statusCode = 200)
-    is RouteResult.Redirect -> RouteDecisionResponse(statusCode = 302, location = url)
-    RouteResult.NotFound -> RouteDecisionResponse(statusCode = 404)
-    RouteResult.InvalidPathParameters -> RouteDecisionResponse(statusCode = properties.server.invalidPathParameterStatus)
-    RouteResult.InvalidQueryString -> RouteDecisionResponse(statusCode = properties.server.invalidQueryStringStatus)
-  }
+internal fun RouteHttpResponse.toRouteDecisionResponse(): ServerResponse {
   return ServerResponse.ok()
     .contentType(MediaType.APPLICATION_JSON)
     .header(HttpHeaders.CACHE_CONTROL, "no-store")
-    .body(body)
+    .body(this)
 }
