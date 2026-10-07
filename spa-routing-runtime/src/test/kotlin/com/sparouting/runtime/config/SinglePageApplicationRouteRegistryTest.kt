@@ -32,7 +32,6 @@ class SinglePageApplicationRouteRegistryTest {
     assertEquals("UserDetail", registration.route.id)
     assertSame(handler, registration.applicationAccessHandler)
     assertNull(registration.routeAccessHandler)
-    assertEquals(1, registry.registrations().size)
   }
 
   @Test
@@ -100,7 +99,8 @@ class SinglePageApplicationRouteRegistryTest {
   @Test
   fun `application with no gated routes accepts an empty handler collection`() {
     val config = TestSinglePageApplicationConfig(routes = emptyList())
-    assertEquals(emptyList(), SinglePageApplicationRouteRegistry(listOf(config)).registrations())
+    val registry = SinglePageApplicationRouteRegistry(listOf(config))
+    assertNull(registry.findByApplicationAndRouteId("test", "Index"))
   }
 
   @Test

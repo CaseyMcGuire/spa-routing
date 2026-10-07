@@ -7,15 +7,16 @@ import com.sparouting.contract.SinglePageApplicationConfig
 internal class SinglePageApplicationRouteRegistry(
   routeConfigs: List<SinglePageApplicationConfig>
 ) {
-  private val registrations: List<SinglePageApplicationRouteRegistration>
   private val routesByKey: Map<RouteKey, SinglePageApplicationRouteRegistration>
 
   init {
     SinglePageApplicationConfigValidator.validate(routeConfigs)
-    registrations = routeConfigs.flatMap { application ->
+
+    val registrations = routeConfigs.flatMap { application ->
       val routeHandlersByKey = application.routeAccessHandlers.handlers.groupBy {
         RouteKey(it.route.applicationId, it.route.routeId)
       }
+
       validateHandlerRegistrations(application, routeHandlersByKey)
       application.routes.map { route ->
         SinglePageApplicationRouteRegistration(
@@ -34,10 +35,6 @@ internal class SinglePageApplicationRouteRegistry(
     routeId: String
   ): SinglePageApplicationRouteRegistration? {
     return routesByKey[RouteKey(applicationId, routeId)]
-  }
-
-  fun registrations(): List<SinglePageApplicationRouteRegistration> {
-    return registrations
   }
 
   private fun validateHandlerRegistrations(
