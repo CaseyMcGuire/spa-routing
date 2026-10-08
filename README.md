@@ -33,17 +33,17 @@ Open [http://localhost:8080/](http://localhost:8080/) for Spring or
 
 ## Install
 
-Use version `0.5.0` from Maven Central and the Gradle Plugin Portal.
+Use version `0.5.1` from Maven Central and the Gradle Plugin Portal.
 
 For Gradle route generation:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.5.0"
+  id("io.github.caseymcguire.spa-routing") version "0.5.1"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.5.0")
+  implementation("io.github.caseymcguire:spa-routing-core:0.5.1")
 }
 ```
 
@@ -55,7 +55,7 @@ For Spring Boot route serving:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.1")
 }
 ```
 

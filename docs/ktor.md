@@ -7,13 +7,13 @@ choose the server engine, JSON converter, and asset serving.
 
 ## Dependencies
 
-This guide targets `0.5.0`; see the [installation instructions](../README.md#install).
+This guide targets `0.5.1`; see the [installation instructions](../README.md#install).
 
 The adapter targets Ktor 3.6.0 and JDK 21. For example, using Netty and Jackson:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-ktor:0.5.0")
+  implementation("io.github.caseymcguire:spa-routing-ktor:0.5.1")
   implementation(platform("io.ktor:ktor-bom:3.6.0"))
   implementation("io.ktor:ktor-server-netty")
   implementation("io.ktor:ktor-server-content-negotiation")
