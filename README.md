@@ -181,6 +181,12 @@ Optional values that are absent are omitted. Empty strings are valid, repeated
 query-string values preserve their order, and undeclared keys are ignored.
 URL builders and enum-keyed query-string helpers remain available.
 
+`generateClientRoutes` writes one shared `route-runtime.ts` alongside the application
+route modules. It contains parsing, URL encoding, query-string helpers, and context
+identity types; each route module imports the helpers it needs. Keep this file with
+the generated routes when copying or packaging them. It is refreshed during
+generation and requires no additional npm dependency.
+
 Every generated client route also exposes `hasAccessHandler: boolean`, derived
 from its `generateAccessHandler` setting. For example,
 `BlogRoutes.Post.hasAccessHandler` is `true`, while

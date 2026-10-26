@@ -46,30 +46,31 @@ internal fun generateClientRoutes() {
     val typeName = "${entry.key}Route"
     val objectName = "${entry.key}Routes"
     val typescriptObjectEntries = entry.value.sortedBy { it.key }
+    val runtimeImports = buildList {
+      if (typescriptObjectEntries.any { it.parameters.isEmpty() && it.queryString.isEmpty() }) {
+        add("routeWithoutParams")
+      }
+      if (typescriptObjectEntries.any { it.parameters.isNotEmpty() }) {
+        add("encodeRouteParam")
+      }
+      if (typescriptObjectEntries.any { it.parameters.isNotEmpty() && it.queryString.isEmpty() }) {
+        add("route")
+      }
+      if (typescriptObjectEntries.any { it.queryString.isNotEmpty() }) {
+        addAll(listOf("appendQueryString", "createRouteParser", "readQueryString"))
+      }
+    }.sorted()
 
     objectName to buildString {
       appendLine("// THIS FILE IS GENERATED. DO NOT EDIT BY HAND.")
       appendLine("// Run './gradlew generateClientRoutes' to regenerate.")
       appendLine()
-      appendLine("type RouteMetadata = { applicationId: string; routeId: string; hasAccessHandler: boolean };")
-      appendLine()
-      appendLine(ROUTE_PARSER)
-      appendLine("function routeWithoutParams<const TMetadata extends RouteMetadata>(path: string, metadata: TMetadata) {")
-      appendLine("  return Object.assign(() => path, { path, ...metadata, parse: createRouteParser<{}, {}, readonly [TMetadata[\"applicationId\"], TMetadata[\"routeId\"]]>([], []) });")
-      appendLine("}")
-      appendLine()
-      if (typescriptObjectEntries.any { it.parameters.isNotEmpty() }) {
-        appendLine("function encodeRouteParam(value: string): string {")
-        appendLine("  return encodeURIComponent(value);")
-        appendLine("}")
-        appendLine()
-        appendLine("function route<TParams extends object, const TMetadata extends RouteMetadata>(path: string, buildPath: (params: TParams) => string, metadata: TMetadata, parameters: readonly PathDeclaration[]) {")
-        appendLine("  return Object.assign(buildPath, { path, ...metadata, parse: createRouteParser<TParams, {}, readonly [TMetadata[\"applicationId\"], TMetadata[\"routeId\"]]>(parameters, []) });")
-        appendLine("}")
-        appendLine()
+      if (runtimeImports.isNotEmpty()) {
+        appendLine("import { ${runtimeImports.joinToString(", ")} } from \"./route-runtime.js\";")
       }
+      appendLine("export type { ParsedRouteValues } from \"./route-runtime.js\";")
+      appendLine()
       if (typescriptObjectEntries.any { it.queryString.isNotEmpty() }) {
-        appendLine(QUERY_STRING_HELPERS)
         typescriptObjectEntries.filter { it.queryString.isNotEmpty() }.forEach { route ->
           appendLine("export enum ${route.key}QueryStringKey {")
           route.queryString.forEach { parameter ->
@@ -93,7 +94,11 @@ internal fun generateClientRoutes() {
         appendLine("export type ${route.key}Context = NonNullable<ReturnType<typeof $objectName.${route.key}.parse>>;")
       }
     }
-  }.toMap()
+  }.toMap().toMutableMap()
+  fileNameToContent["route-runtime"] = checkNotNull(
+    TypeScriptRouteConfig::class.java.getResourceAsStream("route-runtime.ts")
+  ) { "Missing bundled TypeScript route runtime: route-runtime.ts" }
+    .bufferedReader(Charsets.UTF_8).use { it.readText() }
 
   if (Files.notExists(Path.of(outputDirectoryPath))) {
     Files.createDirectories(Path.of(outputDirectoryPath))
@@ -232,93 +237,3 @@ private fun String.toTypeScriptTemplateString(): String {
     .replace("`", "\\`")
     .replace("\$", "\\$")
 }
-
-private val ROUTE_PARSER = """
-  type PathDeclaration = { name: string; optional: boolean };
-  type QueryStringDeclaration = { name: string; optional: boolean; repeated: boolean };
-
-  // Compile-time identity only: contexts still contain just params and queryString at runtime.
-  declare const routeContextBrand: unique symbol;
-  /** Shared parser result; application code normally uses the generated per-route context aliases. */
-  export type ParsedRouteValues<TParams extends object, TQueryString extends object, TIdentity extends readonly [string, string]> = {
-    params: TParams;
-    queryString: TQueryString;
-    readonly [routeContextBrand]: TIdentity;
-  };
-
-  function createRouteParser<TParams extends object, TQueryString extends object, TIdentity extends readonly [string, string]>(
-    parameters: readonly PathDeclaration[], queryStringDeclarations: readonly QueryStringDeclaration[]
-  ) {
-    // Path values have already been decoded by the router. Invalid declared values return null.
-    return (params: Readonly<Record<string, string | undefined>>, search: URLSearchParams):
-      ParsedRouteValues<TParams, TQueryString, TIdentity> | null => {
-      const parsedParams: Record<string, string> = Object.create(null);
-      const queryString: Record<string, string | readonly string[]> = Object.create(null);
-      for (const { name, optional } of parameters) {
-        const value = Object.prototype.hasOwnProperty.call(params, name) ? params[name] : undefined;
-        if (value === undefined) {
-          if (!optional) {
-            return null;
-          }
-        } else {
-          if (typeof value !== "string") {
-            return null;
-          }
-          parsedParams[name] = value;
-        }
-      }
-      for (const { name, optional, repeated } of queryStringDeclarations) {
-        const values = search.getAll(name);
-        if (values.length === 0) {
-          if (!optional) {
-            return null;
-          }
-        } else {
-          if (!repeated && values.length !== 1) {
-            return null;
-          }
-          queryString[name] = repeated ? values : values[0];
-        }
-      }
-      // Validation establishes the generated route's types and opaque identity.
-      return { params: parsedParams, queryString } as ParsedRouteValues<TParams, TQueryString, TIdentity>;
-    };
-  }
-
-""".trimIndent()
-
-private val QUERY_STRING_HELPERS = """
-  function appendQueryString(path: string, queryString: object, declarations: readonly QueryStringDeclaration[]): string {
-    const values = queryString as Record<string, string | readonly string[] | null | undefined>;
-    const search = new URLSearchParams();
-    for (const { name, optional, repeated } of declarations) {
-      const value = values != null && Object.prototype.hasOwnProperty.call(values, name) ? values[name] : undefined;
-      if (value == null) {
-        if (!optional) throw new Error("Missing required query parameter: " + name);
-        continue;
-      }
-      if (repeated) {
-        if (!Array.isArray(value)) throw new Error("Expected a list for query parameter: " + name);
-        if (!optional && value.length === 0) throw new Error("Required query parameter must contain a value: " + name);
-        for (const item of value) {
-          if (typeof item !== "string") throw new Error("Expected string query values: " + name);
-          search.append(name, item);
-        }
-      } else {
-        if (typeof value !== "string") throw new Error("Expected a string for query parameter: " + name);
-        search.append(name, value);
-      }
-    }
-    const encoded = search.toString();
-    return encoded ? path + "?" + encoded : path;
-  }
-
-  function readQueryString<TKey extends string>(search: URLSearchParams, keys: readonly TKey[]): Readonly<Partial<Record<TKey, readonly string[]>>> {
-    const values = Object.create(null) as Partial<Record<TKey, readonly string[]>>;
-    for (const key of keys) {
-      if (search.has(key)) values[key] = Object.freeze(search.getAll(key));
-    }
-    return Object.freeze(values);
-  }
-
-""".trimIndent()

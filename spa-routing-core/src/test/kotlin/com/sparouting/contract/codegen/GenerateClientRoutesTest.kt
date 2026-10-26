@@ -5,12 +5,15 @@ import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.parameter
 import java.nio.file.Files
 import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GenerateClientRoutesTest {
   @Test
-  fun `includes route metadata on generated builders`() {
+  fun `includes route metadata and shares runtime helpers across generated modules`() {
     val outputDirectory = Files.createTempDirectory("spa-routing-client-routes")
     val previousSourceDirectory = System.getProperty("spa.application.source.dir")
     val previousOutputDirectory = System.getProperty("route.output.dir")
@@ -45,7 +48,28 @@ class GenerateClientRoutesTest {
           "`/clientgeneratortest/documents/\${encodeRouteParam(params.id)}/\${params.tab == null ? \"\" : encodeRouteParam(params.tab)}`"),
         generated
       )
-      assertTrue(generated.contains("function encodeRouteParam(value: string): string"), generated)
+      val runtimePath = outputDirectory.resolve("route-runtime.ts")
+      val runtime = runtimePath.readText()
+      assertTrue(runtime.contains("export function encodeRouteParam(value: string): string"), runtime)
+      Files.list(outputDirectory).use { files ->
+        files.filter { it.fileName.toString().endsWith("Routes.ts") }.forEach { file ->
+          val routes = file.readText()
+          assertTrue(routes.contains("from \"./route-runtime.js\""), routes)
+          assertFalse(routes.contains("function createRouteParser"), routes)
+          assertFalse(routes.contains("function encodeRouteParam"), routes)
+          assertFalse(routes.contains("function appendQueryString"), routes)
+          assertFalse(routes.contains("declare const routeContextBrand"), routes)
+        }
+      }
+
+      // Regeneration replaces the shared runtime and removes stale application output.
+      runtimePath.writeText("stale runtime")
+      val obsolete = outputDirectory.resolve("ObsoleteRoutes.ts")
+      obsolete.writeText("stale routes")
+      generateClientRoutes()
+      assertEquals(runtime, runtimePath.readText())
+      assertEquals(generated, outputDirectory.resolve("ClientGeneratorTestRoutes.ts").readText())
+      assertFalse(Files.exists(obsolete))
     } finally {
       restoreProperty("spa.application.source.dir", previousSourceDirectory)
       restoreProperty("route.output.dir", previousOutputDirectory)

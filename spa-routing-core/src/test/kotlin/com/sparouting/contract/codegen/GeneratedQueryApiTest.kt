@@ -238,13 +238,32 @@ class GeneratedQueryApiTest {
   @Test
   fun `generated context aliases preserve parser types and route identity`() = withGeneratedRoutes { output ->
     verifyTypeScript(output, "route-context-api", "route contexts verified")
+    val generatedSources = Files.list(output.resolve("client")).use { files ->
+      files.filter { it.fileName.toString().endsWith("Routes.ts") }.map { it.toString() }.toList()
+    }
+    runProcess(listOf(
+      "node", System.getProperty("test.typescript.compiler"),
+      "--strict", "--noUnusedLocals", "--noUnusedParameters", "--declaration", "--emitDeclarationOnly",
+      "--target", "ES2020", "--module", "commonjs",
+      "--outDir", output.resolve("declarations").toString()
+    ) + generatedSources)
+    assertTrue(Files.exists(output.resolve("declarations/route-runtime.d.ts")))
+    // Check consumers against emitted declarations as well as the generated TypeScript sources.
+    val declarationConsumer = output.resolve("declarations/route-context-api.ts")
+    Files.copy(output.resolve("client/route-context-api.ts"), declarationConsumer)
     runProcess(listOf(
       "node", System.getProperty("test.typescript.compiler"),
       "--strict", "--declaration", "--emitDeclarationOnly",
       "--target", "ES2020", "--module", "commonjs",
-      "--outDir", output.resolve("declarations").toString(),
-      output.resolve("client/route-context-api.ts").toString()
+      "--outDir", output.resolve("consumer-declarations").toString(),
+      declarationConsumer.toString()
     ))
+    // Generated imports also resolve when consumers compile native ES modules.
+    output.resolve("client/package.json").writeText("""{"type":"module"}""")
+    runProcess(listOf(
+      "node", System.getProperty("test.typescript.compiler"),
+      "--strict", "--noEmit", "--module", "NodeNext"
+    ) + generatedSources)
   }
 
   @Test

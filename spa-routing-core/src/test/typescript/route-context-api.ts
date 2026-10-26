@@ -1,5 +1,5 @@
 import { WikiRoutes } from "./WikiRoutes";
-import type { EditContext, IndexContext, ViewContext } from "./WikiRoutes";
+import type { EditContext, IndexContext, ParsedRouteValues, ViewContext } from "./WikiRoutes";
 import type { IndexContext as OtherIndexContext } from "./ConfigTestRoutes";
 import type { DocumentDetailContext } from "./ClientGeneratorTestRoutes";
 import type { FiltersContext, QueryStringContext, QueryStringKeyContext, SearchContext, UserDetailContext } from "./QueryTestRoutes";
@@ -10,6 +10,7 @@ declare function exact<Value extends true>(): void;
 
 function verifyContextTypes(): void {
   exact<Equal<ViewContext, NonNullable<ReturnType<typeof WikiRoutes.View.parse>>>>();
+  exact<Equal<ViewContext, ParsedRouteValues<{ wikiId: string }, { tab?: string }, readonly ["wiki", "View"]>>>();
   exact<Equal<ViewContext["params"], { wikiId: string }>>();
   exact<Equal<ViewContext["queryString"], { tab?: string }>>();
   exact<Equal<IndexContext["params"], {}>>();

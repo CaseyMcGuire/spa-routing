@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Generated TypeScript routes import their helpers from one shared
+  `route-runtime.ts` per output directory. The helper source is maintained as
+  TypeScript and bundled with the core generator. Include the shared file when
+  copying or packaging generated routes. Builders, parsers, metadata, context
+  aliases, and the `ParsedRouteValues` type export retain their existing API.
+
 ## 0.5.1 (2026-10-07)
 
 ### Added
