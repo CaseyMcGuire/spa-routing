@@ -23,14 +23,14 @@ Your application still owns:
 
 ## Add Dependencies
 
-This guide targets `0.5.1`; see the [installation instructions](../README.md#install).
+This guide targets `0.6.0`; see the [installation instructions](../README.md#install).
 
 Add the Spring Boot starter to the Spring application that will serve the SPA
 routes:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.1")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.6.0")
 }
 ```
 
@@ -73,7 +73,7 @@ Apply the Gradle plugin to generate configs, route builders, and access handlers
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.5.1"
+  id("io.github.caseymcguire.spa-routing") version "0.6.0"
 }
 
 spaRouting {
@@ -412,9 +412,16 @@ list values. Kotlin uses a nested `QueryString` data class; TypeScript exports a
 be omitted.
 
 ```ts
-AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
-// /account/users/123/search?q=hello+world&tag=a&tag=b
+const target = AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
+target.href; // "/account/users/123/search?q=hello+world&tag=a&tag=b"
+target.applicationId; // "account"
+target.routeId; // "UserSearch"
 ```
+
+TypeScript builders return a plain `RouteTarget` with the complete URL computed
+at the call site. Use `.href` for string consumers such as React Router's `Link`
+and `redirect`, or `window.location.assign`. The shared `RouteTarget` type is
+re-exported from each generated route module.
 
 ```kotlin
 import com.example.generated.spa.routes.account.UserSearch

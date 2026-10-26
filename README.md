@@ -33,17 +33,17 @@ Open [http://localhost:8080/](http://localhost:8080/) for Spring or
 
 ## Install
 
-Use version `0.5.1` from Maven Central and the Gradle Plugin Portal.
+Use version `0.6.0` from Maven Central and the Gradle Plugin Portal.
 
 For Gradle route generation:
 
 ```kotlin
 plugins {
-  id("io.github.caseymcguire.spa-routing") version "0.5.1"
+  id("io.github.caseymcguire.spa-routing") version "0.6.0"
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.5.1")
+  implementation("io.github.caseymcguire:spa-routing-core:0.6.0")
 }
 ```
 
@@ -55,7 +55,7 @@ For Spring Boot route serving:
 
 ```kotlin
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.1")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.6.0")
 }
 ```
 
@@ -120,9 +120,39 @@ route(
 Generated TypeScript builders accept a separate `queryString` object:
 
 ```ts
-AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
-// /account/users/123/search?q=hello+world&tag=a&tag=b
+const target = AccountRoutes.UserSearch({ id: "123" }, { q: "hello world", tag: ["a", "b"] });
+// {
+//   href: "/account/users/123/search?q=hello+world&tag=a&tag=b",
+//   applicationId: "account",
+//   routeId: "UserSearch",
+// }
 ```
+
+Every generated TypeScript builder returns a plain `RouteTarget` object with
+readonly `href`, `applicationId`, and `routeId` properties. Calling the builder
+computes the complete URL immediately; the target represents that specific
+destination. The IDs retain their literal types. `RouteTarget` is exported by the
+shared runtime and re-exported from every generated route module:
+
+```ts
+import type { RouteTarget } from "./__generated__/routes/AccountRoutes";
+```
+
+Pass `.href` to APIs that accept URL strings:
+
+```tsx
+<Link to={target.href}>Search results</Link>
+```
+
+```ts
+redirect(AccountRoutes.NotFound().href);
+window.location.assign(target.href);
+```
+
+The callable builder still exposes `.path`, `.applicationId`, `.routeId`,
+`.hasAccessHandler`, `.parse(...)`, and `.queryString(...)` where applicable.
+Those properties describe the route definition; the returned target describes
+one destination.
 
 Generated Kotlin routes accept a nested `QueryString` value:
 

@@ -9,7 +9,7 @@ export default function NewPostPage() {
     <PostForm
       title="New post"
       initialValues={{ title: "", body: "" }}
-      cancelTo={BlogRoutes.Index()}
+      cancelTo={BlogRoutes.Index().href}
       saving={save.state !== "idle"}
       error={save.data?.error ?? null}
       onSubmit={(input) => void save.submit(input, { method: "post", encType: "application/json" })}

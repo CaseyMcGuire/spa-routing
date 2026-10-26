@@ -11,7 +11,7 @@ export default function MessagePage(props: Props) {
     <section>
       <h2>{props.title}</h2>
       <p>{props.message}</p>
-      <Link to={BlogRoutes.Index()}>Back to posts</Link>
+      <Link to={BlogRoutes.Index().href}>Back to posts</Link>
     </section>
   );
 }

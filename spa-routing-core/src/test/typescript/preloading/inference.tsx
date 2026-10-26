@@ -104,7 +104,7 @@ createWikiRouter({
 
 // Original framework-free route builders and access metadata remain available.
 expectTrue<Equal<typeof WikiRoutes.View.hasAccessHandler, boolean>>();
-expectTrue<Equal<ReturnType<typeof WikiRoutes.View>, string>>();
+expectTrue<Equal<ReturnType<typeof WikiRoutes.View>["href"], string>>();
 WikiRoutes.View({ wikiId: "42" }, { tag: ["typescript"] });
 // @ts-expect-error Required repeated query values cannot be a scalar.
 WikiRoutes.View({ wikiId: "42" }, { tag: "typescript" });

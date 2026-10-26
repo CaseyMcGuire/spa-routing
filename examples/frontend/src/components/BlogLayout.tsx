@@ -19,8 +19,8 @@ export default function BlogLayout(props: Props) {
       <header>
         <h1>Blog</h1>
         <nav aria-label="Main" style={styles.navigation}>
-          <Link to={BlogRoutes.Index()}>All posts</Link>
-          <Link to={BlogRoutes.NewPost()}>New post</Link>
+          <Link to={BlogRoutes.Index().href}>All posts</Link>
+          <Link to={BlogRoutes.NewPost().href}>New post</Link>
         </nav>
       </header>
       <main>{props.children}</main>

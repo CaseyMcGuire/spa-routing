@@ -14,13 +14,13 @@ function throws(action: () => unknown): void {
   if (!caught) throw new Error("Expected the builder to reject invalid queryString values");
 }
 
-equal(routes.Home(), "/querytest/home");
-equal(routes.Search({ q: "term" }), "/querytest/search?q=term");
-equal(routes.Filters({ tag: ["one", "two"] as const }), "/querytest/filters?tag=one&tag=two");
-equal(routes.OptionalQuery(), "/querytest/optional");
-equal(routes.OptionalQuery({ tag: [] }), "/querytest/optional");
-equal(routes.OptionalMixed({ id: "42" }), "/querytest/optional/42");
-equal(routes.SameName({ queryString: "path", queryString_: "path2" }, { queryString: "wire" }), "/querytest/same/path/path2?queryString=wire");
+equal(routes.Home().href, "/querytest/home");
+equal(routes.Search({ q: "term" }).href, "/querytest/search?q=term");
+equal(routes.Filters({ tag: ["one", "two"] as const }).href, "/querytest/filters?tag=one&tag=two");
+equal(routes.OptionalQuery().href, "/querytest/optional");
+equal(routes.OptionalQuery({ tag: [] }).href, "/querytest/optional");
+equal(routes.OptionalMixed({ id: "42" }).href, "/querytest/optional/42");
+equal(routes.SameName({ queryString: "path", queryString_: "path2" }, { queryString: "wire" }).href, "/querytest/same/path/path2?queryString=wire");
 equal(routes.UserDetail.path, "/querytest/users/:id");
 equal(routes.UserDetail.applicationId, "querytest");
 equal(routes.UserDetail.routeId, "UserDetail");
@@ -32,9 +32,9 @@ throws(() => (routes.Filters as Function)({ tag: "a" }));
 throws(() => (routes.Filters as Function)({ tag: [1] }));
 
 const special = routes.Special({ "a b": ["x+y&=?#/", "é雪😀~*"], class: "", ["__proto__"]: "literal", "a\"$\n": "escaped" });
-equal(special, "/querytest/special?a+b=x%2By%26%3D%3F%23%2F&a+b=%C3%A9%E9%9B%AA%F0%9F%98%80%7E*&class=&__proto__=literal&a%22%24%0A=escaped");
+equal(special.href, "/querytest/special?a+b=x%2By%26%3D%3F%23%2F&a+b=%C3%A9%E9%9B%AA%F0%9F%98%80%7E*&class=&__proto__=literal&a%22%24%0A=escaped");
 equal(SpecialQueryStringKey.A_B, "a b");
-const specialQuery = routes.Special.queryString(new URLSearchParams(special.split("?")[1]));
+const specialQuery = routes.Special.queryString(new URLSearchParams(special.href.split("?")[1]));
 equal(specialQuery[SpecialQueryStringKey.__PROTO__], ["literal"]);
 
 const raw = new URLSearchParams("foo=&tag=a&tag=b&utm_source=extra");
@@ -70,4 +70,4 @@ if (false) {
   queryString[UserDetailQueryStringKey.FOO] = ["changed"];
 }
 
-console.log(routes.UserDetail({ id: "123" }, { foo: "a b+&=雪", baz: "", tag: ["x/y", "é"] }));
+console.log(routes.UserDetail({ id: "123" }, { foo: "a b+&=雪", baz: "", tag: ["x/y", "é"] }).href);

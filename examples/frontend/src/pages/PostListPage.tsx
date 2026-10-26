@@ -14,7 +14,7 @@ export default function PostListPage(props: Props) {
     <PostList
       posts={{ type: "ready", value: posts }}
       query={props.query}
-      onSearch={(query) => void navigate(BlogRoutes.Index(query ? { q: query } : {}))}
+      onSearch={(query) => void navigate(BlogRoutes.Index(query ? { q: query } : {}).href)}
     />
   );
 }

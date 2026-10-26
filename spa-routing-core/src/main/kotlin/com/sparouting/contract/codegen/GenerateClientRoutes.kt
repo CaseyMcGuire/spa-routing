@@ -57,7 +57,7 @@ internal fun generateClientRoutes() {
         add("route")
       }
       if (typescriptObjectEntries.any { it.queryString.isNotEmpty() }) {
-        addAll(listOf("appendQueryString", "createRouteParser", "readQueryString"))
+        addAll(listOf("appendQueryString", "createRouteTarget", "createRouteParser", "readQueryString"))
       }
     }.sorted()
 
@@ -68,7 +68,7 @@ internal fun generateClientRoutes() {
       if (runtimeImports.isNotEmpty()) {
         appendLine("import { ${runtimeImports.joinToString(", ")} } from \"./route-runtime.js\";")
       }
-      appendLine("export type { ParsedRouteValues } from \"./route-runtime.js\";")
+      appendLine("export type { ParsedRouteValues, RouteTarget } from \"./route-runtime.js\";")
       appendLine()
       if (typescriptObjectEntries.any { it.queryString.isNotEmpty() }) {
         typescriptObjectEntries.filter { it.queryString.isNotEmpty() }.forEach { route ->
@@ -143,7 +143,10 @@ private fun TypeScriptRouteConfig.toTypeScriptObjectEntry(): String {
     }
     return buildString {
       appendLine("  $key: Object.assign(")
-      appendLine("    ($arguments) => appendQueryString(${path.toTypeScriptTemplate(parameters)}, queryString, [$declarations]),")
+      appendLine("    ($arguments) => createRouteTarget(")
+      appendLine("      appendQueryString(${path.toTypeScriptTemplate(parameters)}, queryString, [$declarations]),")
+      appendLine("      { applicationId: \"${applicationId.toTypeScriptString()}\", routeId: \"${key.toTypeScriptString()}\" }")
+      appendLine("    ),")
       appendLine("    {")
       appendLine("      path: \"${path.toTypeScriptString()}\", ...${toTypeScriptRouteMetadata()},")
       appendLine("      queryString: (search: URLSearchParams) => readQueryString(search, Object.values(${key}QueryStringKey)),")

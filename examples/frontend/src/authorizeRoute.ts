@@ -53,7 +53,7 @@ export const authorizeRoute: MiddlewareFunction = async ({ context, params, requ
     result = body;
   } catch (error) {
     if (request.signal.aborted) throw error;
-    throw redirect(BlogRoutes.Error());
+    throw redirect(BlogRoutes.Error().href);
   }
   request.signal.throwIfAborted();
   if (result.type !== "allowed") throw redirect(result.destination);

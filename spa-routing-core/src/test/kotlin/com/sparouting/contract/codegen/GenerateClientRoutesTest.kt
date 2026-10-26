@@ -51,10 +51,15 @@ class GenerateClientRoutesTest {
       val runtimePath = outputDirectory.resolve("route-runtime.ts")
       val runtime = runtimePath.readText()
       assertTrue(runtime.contains("export function encodeRouteParam(value: string): string"), runtime)
+      assertTrue(runtime.contains("export type RouteTarget ="), runtime)
+      assertTrue(runtime.contains("export function createRouteTarget"), runtime)
       Files.list(outputDirectory).use { files ->
         files.filter { it.fileName.toString().endsWith("Routes.ts") }.forEach { file ->
           val routes = file.readText()
           assertTrue(routes.contains("from \"./route-runtime.js\""), routes)
+          assertTrue(routes.contains("export type { ParsedRouteValues, RouteTarget }"), routes)
+          assertFalse(routes.contains("function createRouteTarget"), routes)
+          assertFalse(routes.contains("export type RouteTarget ="), routes)
           assertFalse(routes.contains("function createRouteParser"), routes)
           assertFalse(routes.contains("function encodeRouteParam"), routes)
           assertFalse(routes.contains("function appendQueryString"), routes)

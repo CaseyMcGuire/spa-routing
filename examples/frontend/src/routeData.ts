@@ -18,7 +18,7 @@ export async function loadPost(args: LoaderFunctionArgs) {
     return await api.readPost(postId, args.request.signal);
   } catch (error) {
     if (error instanceof api.ApiError && error.status === 404) {
-      throw redirect(BlogRoutes.NotFound());
+      throw redirect(BlogRoutes.NotFound().href);
     }
     throw error;
   }
@@ -28,7 +28,7 @@ export async function saveNewPost(args: ActionFunctionArgs) {
   try {
     const input: WritePostRequest = await args.request.json();
     const post = await api.createPost(input, args.request.signal);
-    return redirect(BlogRoutes.Post({ postId: post.id }));
+    return redirect(BlogRoutes.Post({ postId: post.id }).href);
   } catch (error) {
     return mutationError(error, args.request.signal);
   }
@@ -39,7 +39,7 @@ export async function savePost(args: ActionFunctionArgs) {
   try {
     const input: WritePostRequest = await args.request.json();
     const post = await api.updatePost(postId, input, args.request.signal);
-    return redirect(BlogRoutes.Post({ postId: post.id }));
+    return redirect(BlogRoutes.Post({ postId: post.id }).href);
   } catch (error) {
     return mutationError(error, args.request.signal);
   }
@@ -49,7 +49,7 @@ export async function removePost(args: ActionFunctionArgs) {
   const postId = requirePostId(args);
   try {
     await api.deletePost(postId, args.request.signal);
-    return redirect(BlogRoutes.Index());
+    return redirect(BlogRoutes.Index().href);
   } catch (error) {
     return mutationError(error, args.request.signal);
   }
@@ -66,7 +66,7 @@ function requirePostId(args: LoaderFunctionArgs | ActionFunctionArgs): string {
 function mutationError(error: unknown, signal: AbortSignal) {
   signal.throwIfAborted();
   if (error instanceof api.ApiError && error.status === 404) {
-    return redirect(BlogRoutes.NotFound());
+    return redirect(BlogRoutes.NotFound().href);
   }
   if (error instanceof api.ApiError && error.status === 400) {
     return { error: "Title and body must not be blank." };

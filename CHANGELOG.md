@@ -1,14 +1,32 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (2026-10-25)
+
+### Breaking changes
+
+- **Generated TypeScript builders return structured destinations.** Calling a
+  builder now returns a plain `RouteTarget` with readonly `href`, `applicationId`,
+  and `routeId` properties instead of a URL string. `href` is the complete URL,
+  computed immediately from the supplied arguments; builder results preserve
+  literal application and route IDs. `RouteTarget` is exported from the shared
+  runtime and re-exported from generated application route modules.
+
+  String consumers must explicitly use `.href`, for example
+  `<Link to={BlogRoutes.Post({ postId: "42" }).href}>Read post</Link>`,
+  `redirect(BlogRoutes.NotFound().href)`, or
+  `window.location.assign(BlogRoutes.Index().href)`. Regenerate client routes and
+  migrate existing builder call sites. Argument signatures, URL encoding,
+  query validation, builder metadata, parsers, and branded context types retain
+  their existing behavior. This change affects only TypeScript builder results;
+  Kotlin targets, server authorization, and route-decision JSON are unchanged.
 
 ### Changed
 
 - Generated TypeScript routes import their helpers from one shared
   `route-runtime.ts` per output directory. The helper source is maintained as
   TypeScript and bundled with the core generator. Include the shared file when
-  copying or packaging generated routes. Builders, parsers, metadata, context
-  aliases, and the `ParsedRouteValues` type export retain their existing API.
+  copying or packaging generated routes. Application modules retain their
+  route-specific declarations and re-export the shared types.
 
 ## 0.5.1 (2026-10-07)
 

@@ -11,7 +11,7 @@ export default function EditPostPage() {
       key={post.id}
       title="Edit post"
       initialValues={post}
-      cancelTo={BlogRoutes.Post({ postId: post.id })}
+      cancelTo={BlogRoutes.Post({ postId: post.id }).href}
       saving={save.state !== "idle"}
       error={save.data?.error ?? null}
       onSubmit={(input) => void save.submit(input, { method: "put", encType: "application/json" })}

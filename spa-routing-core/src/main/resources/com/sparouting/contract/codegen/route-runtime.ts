@@ -4,6 +4,24 @@ type RouteMetadata = { applicationId: string; routeId: string; hasAccessHandler:
 type PathDeclaration = { name: string; optional: boolean };
 type QueryStringDeclaration = { name: string; optional: boolean; repeated: boolean };
 
+/** One concrete destination, with its complete URL computed when the route builder is called. */
+export type RouteTarget = {
+  readonly href: string;
+  readonly applicationId: string;
+  readonly routeId: string;
+};
+
+/** Constructs a plain destination while retaining its literal application and route identity. */
+export function createRouteTarget<const TMetadata extends Pick<RouteMetadata, "applicationId" | "routeId">>(
+  href: string,
+  metadata: TMetadata,
+): RouteTarget & {
+  readonly applicationId: TMetadata["applicationId"];
+  readonly routeId: TMetadata["routeId"];
+} {
+  return { href, applicationId: metadata.applicationId, routeId: metadata.routeId };
+}
+
 // Compile-time identity only: contexts still contain just params and queryString at runtime.
 declare const routeContextBrand: unique symbol;
 
@@ -66,7 +84,7 @@ export function createRouteParser<
 
 /** Creates a callable route with no path or query parameters. */
 export function routeWithoutParams<const TMetadata extends RouteMetadata>(path: string, metadata: TMetadata) {
-  return Object.assign(() => path, {
+  return Object.assign(() => createRouteTarget(path, metadata), {
     path,
     ...metadata,
     parse: createRouteParser<{}, {}, readonly [TMetadata["applicationId"], TMetadata["routeId"]]>([], []),
@@ -78,14 +96,14 @@ export function encodeRouteParam(value: string): string {
   return encodeURIComponent(value);
 }
 
-/** Attaches metadata and a parser to a path-parameterized URL builder. */
+/** Creates a destination builder with path parameters, metadata, and a parser. */
 export function route<TParams extends object, const TMetadata extends RouteMetadata>(
   path: string,
   buildPath: (params: TParams) => string,
   metadata: TMetadata,
   parameters: readonly PathDeclaration[],
 ) {
-  return Object.assign(buildPath, {
+  return Object.assign((params: TParams) => createRouteTarget(buildPath(params), metadata), {
     path,
     ...metadata,
     parse: createRouteParser<TParams, {}, readonly [TMetadata["applicationId"], TMetadata["routeId"]]>(parameters, []),

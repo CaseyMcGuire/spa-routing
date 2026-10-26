@@ -10,5 +10,5 @@ extra["ktorVersion"] = "3.6.0"
 
 allprojects {
   group = "io.github.caseymcguire"
-  version = "0.5.1"
+  version = "0.6.0"
 }

@@ -60,7 +60,7 @@ function PostListContent(props: ContentProps) {
         <div>
           {props.posts.value.map((post) => (
             <article key={post.id} style={styles.post}>
-              <h3><Link to={BlogRoutes.Post({ postId: post.id })}>{post.title}</Link></h3>
+              <h3><Link to={BlogRoutes.Post({ postId: post.id }).href}>{post.title}</Link></h3>
               <p>{post.body.length > 180 ? `${post.body.slice(0, 180)}…` : post.body}</p>
             </article>
           ))}

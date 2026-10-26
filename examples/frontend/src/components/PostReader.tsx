@@ -27,7 +27,7 @@ export default function PostReader(props: Props) {
           <h2>{post.title}</h2>
           <p style={styles.body}>{post.body}</p>
           <div style={styles.actions}>
-            <Link to={BlogRoutes.EditPost({ postId: post.id })}>Edit post</Link>
+            <Link to={BlogRoutes.EditPost({ postId: post.id }).href}>Edit post</Link>
             <button type="button" disabled={props.deleting} onClick={props.onDelete}>
               {props.deleting ? "Deleting…" : "Delete post"}
             </button>
